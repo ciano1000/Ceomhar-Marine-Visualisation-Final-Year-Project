@@ -45,7 +45,7 @@ command_list = {
 		.name = "debug",
 		.out = "*compilation*",
 		.cursor_at_end = true,
-		.cmd = {{"devenv .\\build\\win32_handmade.exe", .os = "win"},},
+		.cmd = {{".\\code\\debug.bat", .os = "win"},},
 	},
 
 };
