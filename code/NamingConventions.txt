@@ -1,0 +1,11 @@
+Static: static b32 Running
+Constants: ALL_CAPS_AND_UNDERSCORES
+Macros: ALL_CAPS
+Structs: LikeThis
+Objects: LikeThis like_this
+//Not sure bout this one tb:::::::Pointers: LikeThis p_like_this
+Functions:
+	- Local: MyFunction()
+	- Used in Multiple Files: ModuleNameMyFunction()
+		e.g Win32MyFunction()
+			AppUpdateAndRender()

@@ -1,3 +1,3 @@
 @echo off
 
-call .\build\win32_nano.exe
+call .\build\ceomhar.exe

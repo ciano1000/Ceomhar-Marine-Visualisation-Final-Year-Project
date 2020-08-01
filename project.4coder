@@ -1,6 +1,6 @@
 version(1);
 
-project_name = "NanoVG Tests";
+project_name = "Ceomhar";
 
 patterns = {
 	"*.cpp",
