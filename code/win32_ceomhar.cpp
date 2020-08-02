@@ -2,13 +2,26 @@
 #include "utils.h"
 #include "win32_gl_init.h"
 #include "win32_gl_init.cpp"
-// TODO(Cian): Load OpenGl functions that NanoVG needs
+#include "win32_ceomhar.h"
 
 #include "nano\nanovg.h"
 #include "nano\nanovg.c"
 #define NANOVG_GL3_IMPLEMENTATION
 #include "nano\nanovg_gl.h"
 
+#include "app_ceomhar.h"
+#include "app_ceomhar.cpp"
+
+
+void Win32GetScreenDimension(HWND window_handle, AppDisplay  *screen_dimension) {
+    RECT window_rect = {};
+    
+    GetClientRect(window_handle, &window_rect);
+    screen_dimension->width = window_rect.right - window_rect.left;
+    screen_dimension->height = window_rect.bottom - window_rect.top;
+    
+    screen_dimension->pixel_ratio = ((f32)screen_dimension->width) / ((f32)screen_dimension->height);
+}
 
 GLOBAL b32 Running;
 LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LPARAM l_param)
@@ -16,6 +29,7 @@ LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LP
     LRESULT result = 0;
     switch (message)
     {
+        // TODO(Cian): React to resize event and re-render with updated dimensions to prevent empty space
         //Input stuff
         //TODO: Create input system that will be called here
         case WM_SYSKEYDOWN:
@@ -50,14 +64,17 @@ LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LP
 }
 
 int main() {
+    HINSTANCE instance = GetModuleHandle(NULL);
+    
     WNDCLASS window_class = {};
+    
     window_class.style = CS_OWNDC | CS_HREDRAW | CS_VREDRAW;
     window_class.lpszClassName = "UITests";
     window_class.lpfnWndProc = WindowProc;
-    
-    HINSTANCE instance = GetModuleHandle(NULL);
-    
+    window_class.hCursor = LoadCursor(NULL, IDC_ARROW);
     window_class.hInstance = instance;
+    
+    
     
     HWND window_handle = {};
     HDC device_context = {};
@@ -77,7 +94,7 @@ int main() {
         LoadAllGLProcs();
         ReleaseDC(window_handle,device_context);
         ShowWindow(window_handle, SW_SHOWDEFAULT);
-        MessageBoxA(0,(char*)glGetString(GL_VERSION), "OPENGL VERSION",0);
+        //MessageBoxA(0,(char*)glGetString(GL_VERSION), "OPENGL VERSION",0);
         
         
         //nanovg init
@@ -89,59 +106,31 @@ int main() {
         char *fontLocation = "D:\\dev\\nanovg_tests\\code\\fonts\\Roboto-Bold.ttf";
         nvgCreateFont(vg,"sans-bold", fontLocation);
         
+        // TODO(Cian):  push this onto a memory arena
+        AppState state = {};
+        AppMemory memory = {};
         while(Running)
         {
             //Main game loop
             MSG message; 
             
             // TODO(Cian): ReCalculate window RECT on size change instead of every frame
-            RECT client_rect;
-            GetClientRect(window_handle,&client_rect);
-            float px_ratio =(f32)(client_rect.right-client_rect.left) / (f32)(client_rect.bottom-client_rect.top);
+            AppDisplay screen_dimension = {};
             
-            // NOTE(Cian): Stuff to go in UpdateAndRender
-            {
-                glViewport( 0, 0, client_rect.right-client_rect.left, client_rect.bottom-client_rect.top );
-                
-                glClearColor(1.0f,1.0f,1.0f,1.0f);
-                glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
-                
-                nvgBeginFrame(vg, (f32)(client_rect.right-client_rect.left),  (f32)(client_rect.bottom-client_rect.top), px_ratio);
-                
-                // NOTE(Cian): NanoVG sample from Github, draws a RECT with a circle cut out
-                {
-                    nvgBeginPath(vg);
-                    nvgRect(vg, 100,100, 120,30);
-                    nvgCircle(vg, 120,120, 5);
-                    nvgPathWinding(vg, NVG_HOLE);	// Mark circle as a hole.
-                    nvgFillColor(vg, nvgRGBA(255,192,0,255));
-                    nvgFill(vg);
-                }
-                
-                // NOTE(Cian): Test Title element w/Nano
-                nvgBeginPath(vg);
-                //Just a background panel
-                nvgRect(vg, 300, 50, 600, 600);
-                nvgFillColor(vg, nvgRGBA(28, 30, 34, 192));
-                nvgFill(vg);
-                
-                nvgFontSize(vg, 15.0f);
-                nvgFontFace(vg, "sans-bold");
-                // NOTE(Cian): Aligning to the left/right means that the left/right (e.g beginning of text/ end of text) is positioned at the given coordinates
-                nvgTextAlign(vg, NVG_ALIGN_CENTER|NVG_ALIGN_MIDDLE);
-                nvgFillColor(vg, nvgRGBA(255,255,255,255));
-                nvgText(vg, 600, 70, "This is a title", NULL);
-                
-                nvgRestore(vg);
-                
-                nvgEndFrame(vg);
-            }
+            Win32GetScreenDimension(window_handle, &screen_dimension);
+            state.display = screen_dimension;
+            
+            
+            glViewport( 0, 0, screen_dimension.width, screen_dimension.height);
+            
+            
+            AppUpdateAndRender(&state, &memory, vg);
             
             HDC dc = GetDC(window_handle);
             SwapBuffers(dc);
             ReleaseDC(window_handle, device_context);
             
-            while(PeekMessage(&message,0,0,0,PM_REMOVE))
+            while(PeekMessage(&message,0,0,0,PM_REMOVE|PM_NOYIELD))
             {
                 TranslateMessage(&message);
                 DispatchMessage(&message);
