@@ -12,9 +12,13 @@
 #define NANOVG_GL3_IMPLEMENTATION
 #include "nano\nanovg_gl.h"
 
+GLOBAL NVGcontext *global_vg = {};
+GLOBAL OS_State *global_os = {};
+
 #include "app_ceomhar.h"
 #include "ceomhar_memory.cpp"
 #include "app_ceomhar.cpp"
+
 
 PLATFORM_RESERVE_MEMORY(Win32ReserveMemory) {
     void * memory = VirtualAlloc(0, size, MEM_RESERVE, PAGE_NOACCESS);
@@ -33,8 +37,17 @@ PLATFORM_RELEASE_MEMORY(Win32ReleaseMemory) {
     VirtualFree(memory, size, MEM_RELEASE);
 }
 
+Win32_DPIScale Win32GetDPIScale(HWND window) {
+    Win32_DPIScale result = {};
+    HDC hdc = GetDC(window);
+    result.scale_x = GetDeviceCaps(hdc, LOGPIXELSX) / DPI_SETTING;
+    result.scale_y = GetDeviceCaps(hdc, LOGPIXELSY) / DPI_SETTING;
+    
+    ReleaseDC(window, hdc);
+    return result;
+}
 
-void Win32GetScreenDimension(HWND window_handle, AppDisplay  *screen_dimension) {
+void Win32GetScreenInfo(HWND window_handle, AppDisplay  *screen_dimension) {
     RECT window_rect = {};
     
     GetClientRect(window_handle, &window_rect);
@@ -42,6 +55,10 @@ void Win32GetScreenDimension(HWND window_handle, AppDisplay  *screen_dimension) 
     screen_dimension->height = window_rect.bottom - window_rect.top;
     
     screen_dimension->pixel_ratio = ((f32)screen_dimension->width) / ((f32)screen_dimension->height);
+    Win32_DPIScale scale = Win32GetDPIScale(window_handle);
+    
+    screen_dimension->dpi_scale_x = scale.scale_x;
+    screen_dimension->dpi_scale_y = scale.scale_y;
 }
 
 GLOBAL b32 Running;
@@ -119,37 +136,38 @@ int main() {
         
         
         //nanovg init
-        NVGcontext *vg = nvgCreateGL3(NVG_ANTIALIAS | NVG_STENCIL_STROKES);
+        // TODO(Cian): Rework so that vgcontext is stored in an arena
+        global_vg = nvgCreateGL3(NVG_ANTIALIAS | NVG_STENCIL_STROKES);
         Running = true;
         
         // NOTE(Cian): Load font(s)
         // TODO(Cian): Get the CWD instead of hardcoding location
         char *fontLocation = "D:\\dev\\nanovg_tests\\code\\fonts\\Roboto-Bold.ttf";
-        nvgCreateFont(vg,"sans-bold", fontLocation);
+        nvgCreateFont(global_vg,"sans-bold", fontLocation);
         
+        
+        OS_State os_state;
+        global_os  = &os_state;
         // TODO(Cian):  push this onto a memory arena
-        OS_State state = {};
-        state.ReserveMemory = &Win32ReserveMemory;
-        state.CommitMemory = &Win32CommitMemory;
-        state.DecommitMemory = &Win32DecommitMemory;
-        state.ReleaseMemory = &Win32ReleaseMemory;
-        // TODO(Cian): Move arena init back here once a better way is figured out
+        global_os->ReserveMemory = &Win32ReserveMemory;
+        global_os->CommitMemory = &Win32CommitMemory;
+        global_os->DecommitMemory = &Win32DecommitMemory;
+        global_os->ReleaseMemory = &Win32ReleaseMemory;
         
-        AppStart(&state, vg);
+        global_os->permanent_arena = Memory_ArenaInitialise();
+        global_os->frame_arena = Memory_ArenaInitialise();
+        
+        // TODO(Cian): ReCalculate window RECT on size change and notify game layer
+        AppDisplay screen_dimension = {};
+        Win32GetScreenInfo(window_handle, &screen_dimension);
+        global_os->display = screen_dimension;
+        
+        AppStart(global_os, global_vg);
+        
         while(Running)
         {
             //Main game loop
             MSG message; 
-            
-            // TODO(Cian): ReCalculate window RECT on size change instead of every frame
-            AppDisplay screen_dimension = {};
-            
-            Win32GetScreenDimension(window_handle, &screen_dimension);
-            state.display = screen_dimension;
-            
-            
-            glViewport( 0, 0, screen_dimension.width, screen_dimension.height);
-            
             
             AppUpdateAndRender();
             

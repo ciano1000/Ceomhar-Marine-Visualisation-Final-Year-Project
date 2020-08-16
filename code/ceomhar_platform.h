@@ -14,6 +14,8 @@ struct AppDisplay
 {
     u32 width;
     u32 height;
+    f32 dpi_scale_x;
+    f32 dpi_scale_y;
     f32 pixel_ratio;
 };
 

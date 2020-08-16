@@ -1,9 +1,5 @@
 void AppStart(OS_State *state, NVGcontext *vg) {
-    // TODO(Cian): move arena init back to platform
-    global_os = state;
-    global_os->permanent_arena = Memory_ArenaInitialise();
-    global_os->frame_arena = Memory_ArenaInitialise();
-    global_vg = vg;
+    // TODO(Cian): when app and platform are split into seperate TU's, put OS_State stuff here
 }
 
 // TODO(Cian): How should we pass the vgContext???
@@ -13,6 +9,8 @@ void AppUpdateAndRender() {
         
         float *my_float = (float *)Memory_ArenaPush(&global_os->permanent_arena, sizeof(float));
         *my_float = 23.0f;
+        
+        glViewport( 0, 0, global_os->display.width, global_os->display.height);
         glClearColor(1.0f,1.0f,1.0f,1.0f);
         glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
         
