@@ -7,6 +7,9 @@ typedef PLATFORM_COMMIT_MEMORY(platform_commit_memory);
 #define PLATFORM_DECOMMIT_MEMORY(name) void name(void* memory, u64 size)
 typedef PLATFORM_DECOMMIT_MEMORY(platform_decommit_memory);
 
+#define PLATFORM_RELEASE_MEMORY(name) void name(void* memory, u64 size)
+typedef PLATFORM_RELEASE_MEMORY(platform_release_memory);
+
 struct AppDisplay 
 {
     u32 width;
@@ -31,6 +34,7 @@ struct OS_State
     platform_reserve_memory *ReserveMemory;
     platform_commit_memory *CommitMemory;
     platform_decommit_memory *DecommitMemory;
+    platform_release_memory *ReleaseMemory;
     
     MemoryArena frame_arena;
     MemoryArena permanent_arena; 

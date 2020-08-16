@@ -1,38 +1,49 @@
+void AppStart(OS_State *state, NVGcontext *vg) {
+    // TODO(Cian): move arena init back to platform
+    global_os = state;
+    global_os->permanent_arena = Memory_ArenaInitialise();
+    global_os->frame_arena = Memory_ArenaInitialise();
+    global_vg = vg;
+}
+
 // TODO(Cian): How should we pass the vgContext???
-void AppUpdateAndRender(AppState *app_state, AppMemory *app_memory, NVGcontext *vg) {
+void AppUpdateAndRender() {
     // NOTE(Cian): Stuff to go in UpdateAndRender
     {
+        
+        float *my_float = (float *)Memory_ArenaPush(&global_os->permanent_arena, sizeof(float));
+        *my_float = 23.0f;
         glClearColor(1.0f,1.0f,1.0f,1.0f);
         glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
         
-        nvgBeginFrame(vg, (f32)app_state->display.width,  (f32)app_state->display.height, app_state->display.pixel_ratio);
+        nvgBeginFrame(global_vg, (f32)global_os->display.width,  (f32)global_os->display.height, global_os->display.pixel_ratio);
         
         // NOTE(Cian): NanoVG sample from Github, draws a RECT with a circle cut out
         {
-            nvgBeginPath(vg);
-            nvgRect(vg, 100,100, 120,30);
-            nvgCircle(vg, 120,120, 5);
-            nvgPathWinding(vg, NVG_HOLE);	// Mark circle as a hole.
-            nvgFillColor(vg, nvgRGBA(255,192,0,255));
-            nvgFill(vg);
+            nvgBeginPath(global_vg);
+            nvgRect(global_vg, 100,100, 120,30);
+            nvgCircle(global_vg, 120,120, 5);
+            nvgPathWinding(global_vg, NVG_HOLE);	// Mark circle as a hole.
+            nvgFillColor(global_vg, nvgRGBA(255,192,0,255));
+            nvgFill(global_vg);
         }
         
         // NOTE(Cian): Test Title element w/Nano
-        nvgBeginPath(vg);
+        nvgBeginPath(global_vg);
         //Just a background panel
-        nvgRect(vg, 300, 50, 600, 600);
-        nvgFillColor(vg, nvgRGBA(28, 30, 34, 192));
-        nvgFill(vg);
+        nvgRect(global_vg, 300, 50, 600, 600);
+        nvgFillColor(global_vg, nvgRGBA(28, 30, 34, 192));
+        nvgFill(global_vg);
         
-        nvgFontSize(vg, 15.0f);
-        nvgFontFace(vg, "sans-bold");
+        nvgFontSize(global_vg, 15.0f);
+        nvgFontFace(global_vg, "sans-bold");
         // NOTE(Cian): Aligning to the left/right means that the left/right (e.g beginning of text/ end of text) is positioned at the given coordinates
-        nvgTextAlign(vg, NVG_ALIGN_CENTER|NVG_ALIGN_MIDDLE);
-        nvgFillColor(vg, nvgRGBA(255,255,255,255));
-        nvgText(vg, 600, 70, "This is a title", NULL);
+        nvgTextAlign(global_vg, NVG_ALIGN_CENTER|NVG_ALIGN_MIDDLE);
+        nvgFillColor(global_vg, nvgRGBA(255,255,255,255));
+        nvgText(global_vg, 600, 70, "This is a title", NULL);
         
-        nvgRestore(vg);
+        nvgRestore(global_vg);
         
-        nvgEndFrame(vg);
+        nvgEndFrame(global_vg);
     }
 }

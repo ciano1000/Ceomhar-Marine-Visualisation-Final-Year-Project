@@ -4,13 +4,34 @@
 #include "win32_gl_init.cpp"
 #include "win32_ceomhar.h"
 
+#include "ceomhar_memory.h"
+#include "ceomhar_platform.h"
+
 #include "nano\nanovg.h"
 #include "nano\nanovg.c"
 #define NANOVG_GL3_IMPLEMENTATION
 #include "nano\nanovg_gl.h"
 
 #include "app_ceomhar.h"
+#include "ceomhar_memory.cpp"
 #include "app_ceomhar.cpp"
+
+PLATFORM_RESERVE_MEMORY(Win32ReserveMemory) {
+    void * memory = VirtualAlloc(0, size, MEM_RESERVE, PAGE_NOACCESS);
+    return memory;
+}
+
+PLATFORM_COMMIT_MEMORY(Win32CommitMemory) {
+    VirtualAlloc(memory, size, MEM_COMMIT, PAGE_READWRITE);
+}
+
+PLATFORM_DECOMMIT_MEMORY(Win32DecommitMemory) {
+    VirtualFree(memory, size, MEM_DECOMMIT);
+}
+
+PLATFORM_RELEASE_MEMORY(Win32ReleaseMemory) {
+    VirtualFree(memory, size, MEM_RELEASE);
+}
 
 
 void Win32GetScreenDimension(HWND window_handle, AppDisplay  *screen_dimension) {
@@ -107,8 +128,14 @@ int main() {
         nvgCreateFont(vg,"sans-bold", fontLocation);
         
         // TODO(Cian):  push this onto a memory arena
-        AppState state = {};
-        AppMemory memory = {};
+        OS_State state = {};
+        state.ReserveMemory = &Win32ReserveMemory;
+        state.CommitMemory = &Win32CommitMemory;
+        state.DecommitMemory = &Win32DecommitMemory;
+        state.ReleaseMemory = &Win32ReleaseMemory;
+        // TODO(Cian): Move arena init back here once a better way is figured out
+        
+        AppStart(&state, vg);
         while(Running)
         {
             //Main game loop
@@ -124,7 +151,7 @@ int main() {
             glViewport( 0, 0, screen_dimension.width, screen_dimension.height);
             
             
-            AppUpdateAndRender(&state, &memory, vg);
+            AppUpdateAndRender();
             
             HDC dc = GetDC(window_handle);
             SwapBuffers(dc);
@@ -137,7 +164,7 @@ int main() {
             }
         }
         
-        // TODO(Cian): Clean up contexts
+        // TODO(Cian): Clean up contexts and memory arenas
     }
     
     

@@ -20,3 +20,9 @@ typedef u32 b32;
 #define GLOBAL static
 #define INTERNAL static
 
+#define Kilobytes(kb) (((u64)kb) << 10 )
+#define Megabytes(mb) (((u64)mb) << 20 )
+#define Gigabytes(gb) (((u64)gb) << 30 )
+#define Terabytes(tb) (((u64)tb) << 40 )
+
+
