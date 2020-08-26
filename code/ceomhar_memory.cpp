@@ -25,3 +25,18 @@ INTERNAL void * Memory_ArenaPush(MemoryArena *arena, u64 size) {
     arena->allocation_pos += size;
     return memory;
 }
+
+INTERNAL void Memory_ArenaPop(MemoryArena *arena, u64 size) {
+    if(size > arena->allocation_pos)
+    {
+        size = arena->allocation_pos;
+    }
+    arena->allocation_pos -= size;
+}
+
+INTERNAL void Memory_ArenaClear(MemoryArena *arena) {
+    Memory_ArenaPop(arena, arena->allocation_pos);
+}
+INTERNAL void Memory_ArenaRelease(MemoryArena *arena) { 
+    global_os->ReleaseMemory(arena->base, arena->commit_pos);
+}

@@ -1,4 +1,5 @@
 #include <windows.h>
+#include <Shellscalingapi.h>
 #include "utils.h"
 #include "win32_gl_init.h"
 #include "win32_gl_init.cpp"
@@ -15,6 +16,8 @@
 GLOBAL NVGcontext *global_vg = {};
 GLOBAL OS_State *global_os = {};
 
+#include "ceomhar_ui.h"
+#include "ceomhar_ui.cpp"
 #include "app_ceomhar.h"
 #include "ceomhar_memory.cpp"
 #include "app_ceomhar.cpp"
@@ -37,16 +40,6 @@ PLATFORM_RELEASE_MEMORY(Win32ReleaseMemory) {
     VirtualFree(memory, size, MEM_RELEASE);
 }
 
-Win32_DPIScale Win32GetDPIScale(HWND window) {
-    Win32_DPIScale result = {};
-    HDC hdc = GetDC(window);
-    result.scale_x = GetDeviceCaps(hdc, LOGPIXELSX) / DPI_SETTING;
-    result.scale_y = GetDeviceCaps(hdc, LOGPIXELSY) / DPI_SETTING;
-    
-    ReleaseDC(window, hdc);
-    return result;
-}
-
 void Win32GetScreenInfo(HWND window_handle, AppDisplay  *screen_dimension) {
     RECT window_rect = {};
     
@@ -55,10 +48,13 @@ void Win32GetScreenInfo(HWND window_handle, AppDisplay  *screen_dimension) {
     screen_dimension->height = window_rect.bottom - window_rect.top;
     
     screen_dimension->pixel_ratio = ((f32)screen_dimension->width) / ((f32)screen_dimension->height);
-    Win32_DPIScale scale = Win32GetDPIScale(window_handle);
     
-    screen_dimension->dpi_scale_x = scale.scale_x;
-    screen_dimension->dpi_scale_y = scale.scale_y;
+    /** TODO(Cian): try use HORSIZE && VERTSIZE to get actual monitor dimensions to 
+*   more accurately get dpi if we can obtain the values 
+*/
+    // TODO(Cian): Look at doing this when WM_DPICHANGED received
+    HDC hdc = GetDC(window_handle);
+    screen_dimension->dpi = GetDpiForWindow(window_handle);
 }
 
 GLOBAL b32 Running;
@@ -70,6 +66,18 @@ LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LP
         // TODO(Cian): React to resize event and re-render with updated dimensions to prevent empty space
         //Input stuff
         //TODO: Create input system that will be called here
+        case WM_SIZE:
+        {
+            // TODO(Cian): Again, some cleanup needs to be done with how we store and call certain things
+            if(Running)
+            {
+                Win32GetScreenInfo(window_handle, &global_os->display);
+                AppUpdateAndRender();
+                HDC dc = GetDC(window_handle);
+                SwapBuffers(dc);
+                ReleaseDC(window_handle, dc);
+            }
+        }break;
         case WM_SYSKEYDOWN:
         case WM_SYSKEYUP:
         case WM_KEYDOWN:
@@ -79,11 +87,6 @@ LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LP
         }
         break;
         //Resize event
-        case WM_SIZE:
-        {
-            
-        }
-        break;
         case WM_QUIT:
         case WM_DESTROY:
         case WM_CLOSE:
@@ -137,7 +140,7 @@ int main() {
         
         //nanovg init
         // TODO(Cian): Rework so that vgcontext is stored in an arena
-        global_vg = nvgCreateGL3(NVG_ANTIALIAS | NVG_STENCIL_STROKES);
+        global_vg = nvgCreateGL3( NVG_STENCIL_STROKES);
         Running = true;
         
         // NOTE(Cian): Load font(s)
@@ -164,11 +167,13 @@ int main() {
         
         AppStart(global_os, global_vg);
         
+        SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
         while(Running)
         {
             //Main game loop
             MSG message; 
-            
+            Win32GetScreenInfo(window_handle, &screen_dimension);
+            global_os->display = screen_dimension;
             AppUpdateAndRender();
             
             HDC dc = GetDC(window_handle);
@@ -179,13 +184,16 @@ int main() {
             {
                 TranslateMessage(&message);
                 DispatchMessage(&message);
+                
             }
+            
+            Memory_ArenaClear(&global_os->frame_arena);
         }
+        Memory_ArenaRelease(&global_os->permanent_arena);
+        Memory_ArenaRelease(&global_os->frame_arena);
         
         // TODO(Cian): Clean up contexts and memory arenas
     }
-    
-    
     
     
     return 0;

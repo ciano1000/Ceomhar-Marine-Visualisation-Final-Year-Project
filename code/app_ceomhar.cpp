@@ -4,10 +4,29 @@ void AppStart(OS_State *state, NVGcontext *vg) {
 
 // TODO(Cian): How should we pass the vgContext???
 void AppUpdateAndRender() {
+    // NOTE(Cian): Trying out UI stuff
+#if 0
+    {
+        UI_BeginWindow(LAYOUT_TYPE); // sets up viewport, clears screen,
+        UI_BeginNavMenu(ORIENTATION, );
+        
+        UI_EndNavMenu();
+        
+        UI_EndToEndConstraint(UI_ID, offset);
+        UI_EndToStartConstraint(UI_PARENT, offset);
+        UI_TopToTopConstraint(...);
+        UI_CenterXConstraint(offset);
+        //etc.. Once a ui element is created the state resets the constraints
+        UI_Panel(x, y, width, height);
+        //when using constraints for those axes, x & y will offset those constraints
+        UI_EndWindow();
+    }
+#endif
+    
     // NOTE(Cian): Stuff to go in UpdateAndRender
     {
         
-        float *my_float = (float *)Memory_ArenaPush(&global_os->permanent_arena, sizeof(float));
+        f32 *my_float = (f32 *)Memory_ArenaPush(&global_os->permanent_arena, sizeof(float));
         *my_float = 23.0f;
         
         glViewport( 0, 0, global_os->display.width, global_os->display.height);
@@ -16,6 +35,77 @@ void AppUpdateAndRender() {
         
         nvgBeginFrame(global_vg, (f32)global_os->display.width,  (f32)global_os->display.height, global_os->display.pixel_ratio);
         
+        f32 nav_width = DIPToPixels(60);
+        f32 main_panel_width = global_os->display.width - nav_width;
+        //For example, this will be the same as a "StartToStartConstraint" 
+        f32 title_pos_x = nav_width + DIPToPixels(30);
+        f32 title_pos_y = DIPToPixels(60);
+        f32 title_size = DIPToPixels(32);
+        f32 title_panel_height = global_os->display.height * 0.25f;
+        f32 title_min_height = title_pos_y + title_size + DIPToPixels(30);
+        if(title_panel_height <= title_min_height)
+        {
+            title_panel_height = title_min_height;
+        }
+        
+        f32 dashboard_item_width = DIPToPixels(400);
+        f32 dashboard_item_height = DIPToPixels(300);
+        f32 dashboard_item_margin = DIPToPixels(20);
+        u32 dashboard_num_items = 4;
+        
+        //nav bar
+        nvgBeginPath(global_vg);
+        nvgRect(global_vg, 0,0, nav_width,(f32)global_os->display.height);
+        nvgFillColor(global_vg, nvgRGBA(40,40,40,255));
+        nvgFill(global_vg);
+        
+        //main panel
+        nvgBeginPath(global_vg);
+        nvgRect(global_vg, nav_width,0,main_panel_width ,(f32)global_os->display.height);
+        nvgFillColor(global_vg, nvgRGBA(255, 199, 115, 255));
+        nvgFill(global_vg);
+        
+        //Title Panel
+        nvgBeginPath(global_vg);
+        nvgRect(global_vg, nav_width, 0, main_panel_width, title_panel_height);
+        nvgFillColor(global_vg, nvgRGBA(150, 150, 150, 255));
+        nvgFill(global_vg);
+        
+        //Title
+        nvgFontSize(global_vg, title_size);
+        nvgFontFace(global_vg, "sans-bold");
+        // NOTE(Cian): Aligning to the left/right means that the left/right (e.g beginning of text/ end of text) is positioned at the given coordinates
+        nvgTextAlign(global_vg, NVG_ALIGN_LEFT|NVG_ALIGN_MIDDLE);
+        nvgFillColor(global_vg, nvgRGBA(255,255,255,255));
+        f32 title_end_x = nvgText(global_vg, title_pos_x, title_pos_y, "Dashboards", NULL);
+        
+        //menu items
+        f32 remaining_width = main_panel_width;
+        f32 curr_row = 0;
+        f32 pos_in_row = 0;
+        f32 start_x = nav_width;
+        f32 start_y = title_panel_height + dashboard_item_margin;
+        for (u32 i = 0;i < dashboard_num_items; i++){
+            f32 width_needed = (2*dashboard_item_margin) + dashboard_item_width;
+            if(width_needed > remaining_width && pos_in_row !=0)
+            {
+                curr_row++;
+                pos_in_row = 0;
+                remaining_width = main_panel_width;
+            }
+            
+            f32 x = start_x + dashboard_item_margin + (pos_in_row * (dashboard_item_width + dashboard_item_margin));
+            f32 y = start_y +dashboard_item_margin + (curr_row *(dashboard_item_height + dashboard_item_margin));
+            
+            nvgBeginPath(global_vg);
+            nvgRect(global_vg, x, y, dashboard_item_width, dashboard_item_height);
+            nvgFillColor(global_vg, nvgRGBA(200, 200, 200, 255));
+            nvgFill(global_vg);
+            
+            pos_in_row++;
+            remaining_width -= dashboard_item_width + (2 * dashboard_item_margin); 
+        }
+#if 0
         // NOTE(Cian): NanoVG sample from Github, draws a RECT with a circle cut out
         {
             nvgBeginPath(global_vg);
@@ -25,21 +115,7 @@ void AppUpdateAndRender() {
             nvgFillColor(global_vg, nvgRGBA(255,192,0,255));
             nvgFill(global_vg);
         }
-        
-        // NOTE(Cian): Test Title element w/Nano
-        nvgBeginPath(global_vg);
-        //Just a background panel
-        nvgRect(global_vg, 300, 50, 600, 600);
-        nvgFillColor(global_vg, nvgRGBA(28, 30, 34, 192));
-        nvgFill(global_vg);
-        
-        nvgFontSize(global_vg, 15.0f);
-        nvgFontFace(global_vg, "sans-bold");
-        // NOTE(Cian): Aligning to the left/right means that the left/right (e.g beginning of text/ end of text) is positioned at the given coordinates
-        nvgTextAlign(global_vg, NVG_ALIGN_CENTER|NVG_ALIGN_MIDDLE);
-        nvgFillColor(global_vg, nvgRGBA(255,255,255,255));
-        nvgText(global_vg, 600, 70, "This is a title", NULL);
-        
+#endif
         nvgRestore(global_vg);
         
         nvgEndFrame(global_vg);

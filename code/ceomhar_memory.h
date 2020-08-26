@@ -13,3 +13,4 @@ INTERNAL MemoryArena Memory_ArenaInitialise();
 INTERNAL void * Memory_ArenaPush(MemoryArena *arena, u64 size);
 INTERNAL void Memory_ArenaPop(MemoryArena *arena, u64 size);
 INTERNAL void Memory_ArenaClear(MemoryArena *arena);
+INTERNAL void Memory_ArenaRelease(MemoryArena *arena);

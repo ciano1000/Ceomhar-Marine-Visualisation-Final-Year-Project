@@ -25,4 +25,6 @@ typedef u32 b32;
 #define Gigabytes(gb) (((u64)gb) << 30 )
 #define Terabytes(tb) (((u64)tb) << 40 )
 
+// TODO(Cian): intrinsics????
+#define F32_ROUND(f) (f32)((u32)(f + 0.5f))
 

@@ -12,10 +12,11 @@ typedef PLATFORM_RELEASE_MEMORY(platform_release_memory);
 
 struct AppDisplay 
 {
+    // TODO(Cian): Change this to float
     u32 width;
     u32 height;
-    f32 dpi_scale_x;
-    f32 dpi_scale_y;
+    // TODO(Cian): split these into x & y
+    u32 dpi;
     f32 pixel_ratio;
 };
 

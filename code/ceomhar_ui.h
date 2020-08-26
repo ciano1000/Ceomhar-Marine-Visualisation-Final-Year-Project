@@ -1,8 +1,6 @@
-struct ScreenPos 
-{
-	f32 x;
-    f32 y;
-};
+#define UI_DEFAULT_DENSITY 96.00f
 
-ScreenPos PixelsToDIP(ScreenPos pixel_pos);
-ScreenPos DIPToPixels(ScreenPos dpi_pos);
+f32 PixelsToDIP(f32 pixels);
+f32 DIPToPixels(f32 dp);
+
+INTERNAL void UI_Panel();
