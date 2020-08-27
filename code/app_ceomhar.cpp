@@ -62,7 +62,7 @@ void AppUpdateAndRender() {
         //main panel
         nvgBeginPath(global_vg);
         nvgRect(global_vg, nav_width,0,main_panel_width ,(f32)global_os->display.height);
-        nvgFillColor(global_vg, nvgRGBA(255, 199, 115, 255));
+        nvgFillColor(global_vg, nvgRGBA(80, 80, 80, 255));
         nvgFill(global_vg);
         
         //Title Panel
@@ -85,17 +85,34 @@ void AppUpdateAndRender() {
         f32 pos_in_row = 0;
         f32 start_x = nav_width;
         f32 start_y = title_panel_height + dashboard_item_margin;
+        //test centering items
+#if 1   
+        f32 item_size = (2 * dashboard_item_margin) + dashboard_item_width;
+        u32 max_items_in_row = (u32)(remaining_width / item_size);
+        
+        f32 remaining = (f32)((u32)remaining_width % (u32)item_size);
+        start_x = start_x + (remaining/2);
+        remaining_width -= remaining;
+        
+        if(max_items_in_row < 1)
+        {
+            max_items_in_row = 1;
+            start_x = nav_width;
+        }
+        
+#endif  
         for (u32 i = 0;i < dashboard_num_items; i++){
-            f32 width_needed = (2*dashboard_item_margin) + dashboard_item_width;
-            if(width_needed > remaining_width && pos_in_row !=0)
+            if(item_size > remaining_width && pos_in_row !=0)
             {
                 curr_row++;
                 pos_in_row = 0;
-                remaining_width = main_panel_width;
+                remaining_width = main_panel_width - remaining;
             }
             
-            f32 x = start_x + dashboard_item_margin + (pos_in_row * (dashboard_item_width + dashboard_item_margin));
+            f32 x = start_x + dashboard_item_margin + (pos_in_row * (dashboard_item_width + (2*dashboard_item_margin)));
             f32 y = start_y +dashboard_item_margin + (curr_row *(dashboard_item_height + dashboard_item_margin));
+            f32 from_start = x - nav_width;
+            f32 from_end = global_os->display.width - x;
             
             nvgBeginPath(global_vg);
             nvgRect(global_vg, x, y, dashboard_item_width, dashboard_item_height);
