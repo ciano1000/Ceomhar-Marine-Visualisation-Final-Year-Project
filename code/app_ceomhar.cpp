@@ -1,5 +1,6 @@
 void AppStart(OS_State *state, NVGcontext *vg) {
     // TODO(Cian): when app and platform are split into seperate TU's, put OS_State stuff here
+    ui_state = (UI_State *)Memory_ArenaPush(&global_os->permanent_arena, sizeof(UI_State));
 }
 
 // TODO(Cian): How should we pass the vgContext???
@@ -8,6 +9,8 @@ void AppUpdateAndRender() {
 #if 0
     {
         UI_BeginWindow(LAYOUT_TYPE); // sets up viewport, clears screen,
+        UI_StartToStartConstraint(UI_PARENT, 0);
+        UI_Width(30);
         UI_BeginNavMenu(ORIENTATION, );
         
         UI_EndNavMenu();
@@ -53,11 +56,11 @@ void AppUpdateAndRender() {
         f32 dashboard_item_margin = DIPToPixels(20);
         u32 dashboard_num_items = 4;
         
-        //nav bar
-        nvgBeginPath(global_vg);
-        nvgRect(global_vg, 0,0, nav_width,(f32)global_os->display.height);
-        nvgFillColor(global_vg, nvgRGBA(40,40,40,255));
-        nvgFill(global_vg);
+        UI_BeginWindow();
+        UI_StartToStartConstraint("",0);
+        UI_Width(60);
+        UI_Height((f32)global_os->display.height);
+        UI_Panel();
         
         //main panel
         nvgBeginPath(global_vg);
@@ -73,7 +76,7 @@ void AppUpdateAndRender() {
         
         //Title
         nvgFontSize(global_vg, title_size);
-        nvgFontFace(global_vg, "sans-bold");
+        nvgFontFace(global_vg, "roboto-bold");
         // NOTE(Cian): Aligning to the left/right means that the left/right (e.g beginning of text/ end of text) is positioned at the given coordinates
         nvgTextAlign(global_vg, NVG_ALIGN_LEFT|NVG_ALIGN_MIDDLE);
         nvgFillColor(global_vg, nvgRGBA(255,255,255,255));

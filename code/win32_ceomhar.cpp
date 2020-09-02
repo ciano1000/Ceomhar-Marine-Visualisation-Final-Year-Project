@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <windows.h>
 #include <Shellscalingapi.h>
 #include "utils.h"
@@ -105,6 +106,7 @@ LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LP
 }
 
 int main() {
+    printf("Father can you hear me??");
     HINSTANCE instance = GetModuleHandle(NULL);
     
     WNDCLASS window_class = {};
@@ -146,7 +148,7 @@ int main() {
         // NOTE(Cian): Load font(s)
         // TODO(Cian): Get the CWD instead of hardcoding location
         char *fontLocation = "D:\\dev\\nanovg_tests\\code\\fonts\\Roboto-Bold.ttf";
-        nvgCreateFont(global_vg,"sans-bold", fontLocation);
+        nvgCreateFont(global_vg,"roboto-bold", fontLocation);
         
         
         OS_State os_state;

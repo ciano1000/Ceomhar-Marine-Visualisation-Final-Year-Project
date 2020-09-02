@@ -46,10 +46,9 @@ command_list = {
 		.out = "*compilation*",
 		.cursor_at_end = true,
 		.cmd = {{".\\code\\debug.bat", .os = "win"},},
-	},
-
+	}
 };
 
 fkey_command[1] = "build";
 fkey_command[2] = "run";
-fkey_comman[3] = "debug";
+fkey_command[3] = "debug";
