@@ -16,6 +16,8 @@ typedef float f32;
 typedef double f64;
 
 typedef u32 b32;
+#define TRUE 1
+#define FALSE 0
 
 #define GLOBAL static
 #define INTERNAL static

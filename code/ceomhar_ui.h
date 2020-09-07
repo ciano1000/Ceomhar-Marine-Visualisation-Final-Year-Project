@@ -8,6 +8,13 @@
 * completed it will set the relevant flags e.g UI_X_SET etc
 */
 
+// NOTE(Cian): UI runs twice, once to calculate layout based on constraints. This step
+// builds a tree of the UI along with a HashMap for lookup. On the second run through,
+// each UI call simply looks up it's layout from the hash map, now we can
+// process Input. If the result of Input results in the creation of a UI element we 
+// may have to do some very basic single pass layout stuff. Initially, to keep things simple
+// I'm just going to do the HashMap part.
+
 enum UI_LayoutFlags {
     UI_WIDTH_SET = 1 << 0,
     UI_HEIGHT_SET = 1 << 1,
@@ -43,7 +50,7 @@ GLOBAL UI_State *ui_state = 0;
 INTERNAL void UI_BeginWindow();
 INTERNAL void UI_EndWindow();
 
-INTERNAL u32 UI_AllSet();
+INTERNAL b32 UI_IsAllFlagsSet(u32 flags);
 
 INTERNAL void UI_StartToStartConstraint(char *id, f32 offset);
 INTERNAL void UI_BottomToBottomConstraint(char *id, f32 offset);

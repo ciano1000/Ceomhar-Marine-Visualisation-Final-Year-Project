@@ -22,8 +22,10 @@ INTERNAL void UI_BeginWindow() {
     
 }
 
-INTERNAL u32 UI_AllSet() {
-    return (1UL << UI_LAYOUT_END) - 1UL;
+INTERNAL b32 UI_IsAllFlagsSet(u32 flags) {
+    // NOTE(Cian): This method determines whether enough layout info exists to do auto layout
+    // TODO(Cian): Do this method
+    return TRUE;
 }
 
 INTERNAL void UI_StartToStartConstraint(char *id, f32 offset) {
@@ -51,11 +53,14 @@ INTERNAL void UI_Height(f32 height) {
     ui_state->current.layout_flags = ui_state->current.layout_flags | UI_HEIGHT_SET;
 }
 
-INTERNAL void UI_Panel() {
+// TODO(Cian): add an id argument here used for looking up this UI element
+INTERNAL void UI_Panel(char *id) {
     // TODO(Cian): add safety checks to ensure all necessary layout flags are set
     // TODO(Cian): check flags to see what values are there
     nvgBeginPath(global_vg);
     nvgRect(global_vg,  ui_state->current.x0, ui_state->current.y0, ui_state->current.width, ui_state->current.height);
     nvgFillColor(global_vg, nvgRGBA(40,40,40,255));
     nvgFill(global_vg);
+    
+    // TODO(Cian): reset ui_state stuff
 }

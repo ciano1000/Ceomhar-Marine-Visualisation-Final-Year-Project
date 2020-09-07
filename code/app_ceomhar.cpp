@@ -57,12 +57,15 @@ void AppUpdateAndRender() {
         u32 dashboard_num_items = 4;
         
         UI_BeginWindow();
-        UI_StartToStartConstraint("",0);
+        UI_StartToStartConstraint(UI_Parent(),0);
         UI_Width(60);
         UI_Height((f32)global_os->display.height);
-        UI_Panel();
+        UI_Panel("nav_bar");
         
         //main panel
+        UI_StartToStartConstraint("nav_bar",0);
+        UI_EndToEndConstraint("nav_bar",0);//another option here is a UI_FillWidth method?
+        UI_FillHeight();
         nvgBeginPath(global_vg);
         nvgRect(global_vg, nav_width,0,main_panel_width ,(f32)global_os->display.height);
         nvgFillColor(global_vg, nvgRGBA(80, 80, 80, 255));

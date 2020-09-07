@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include <windows.h>
 #include <Shellscalingapi.h>
 #include "utils.h"
@@ -105,8 +106,10 @@ LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LP
     return result;
 }
 
-int main() {
-    printf("Father can you hear me??");
+int main(u32 argc, char **argv) {
+    for(u32 i = 0; i<argc; i++) {
+        printf("Command %i: %s",i,argv[i]);
+    }
     HINSTANCE instance = GetModuleHandle(NULL);
     
     WNDCLASS window_class = {};
