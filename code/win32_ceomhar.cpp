@@ -17,7 +17,8 @@
 
 GLOBAL NVGcontext *global_vg = {};
 GLOBAL OS_State *global_os = {};
-
+#include "ceomhar_string.h"
+#include "ceomhar_string.cpp"
 #include "ceomhar_ui.h"
 #include "ceomhar_ui.cpp"
 #include "app_ceomhar.h"

@@ -1,10 +1,13 @@
 void AppStart(OS_State *state, NVGcontext *vg) {
     // TODO(Cian): when app and platform are split into seperate TU's, put OS_State stuff here
-    ui_state = (UI_State *)Memory_ArenaPush(&global_os->permanent_arena, sizeof(UI_State));
+    
 }
 
 // TODO(Cian): How should we pass the vgContext???
 void AppUpdateAndRender() {
+    
+    ui_state = UI_InitState();
+    
     // NOTE(Cian): Trying out UI stuff
 #if 0
     {
@@ -23,6 +26,30 @@ void AppUpdateAndRender() {
         UI_Panel(x, y, width, height);
         //when using constraints for those axes, x & y will offset those constraints
         UI_EndWindow();
+    }
+#endif
+#if 0
+    // NOTE(Cian): Test hash
+    {
+        char *generated_strings[256];
+        for(u32 i = 0; i < 256; ++i) {
+            char rand_string[14];
+            StringGenRandom(rand_string, 14);
+            generated_strings[i] = (char *)Memory_ArenaPush(&global_os->frame_arena, sizeof(rand_string));
+            strcpy(generated_strings[i], rand_string);
+            UI_Item item = {};
+            item.id = (char *)Memory_ArenaPush(&global_os->frame_arena, sizeof(rand_string));
+            strcpy(item.id, rand_string);
+            AddUIItem(rand_string, item);
+        }
+        
+        for(u32 i =0; i< 256; ++i) {
+            UI_Item *result = GetUIItem(generated_strings[i]);
+            if(result == NULL) {
+                printf("oops");
+            }
+        }
+        // TODO(Cian): PushString method
     }
 #endif
     
@@ -56,12 +83,12 @@ void AppUpdateAndRender() {
         f32 dashboard_item_margin = DIPToPixels(20);
         u32 dashboard_num_items = 4;
         
-        UI_BeginWindow();
+        UI_BeginWindow("main_window");
+#if 0
         UI_StartToStartConstraint(UI_Parent(),0);
         UI_Width(60);
         UI_Height((f32)global_os->display.height);
         UI_Panel("nav_bar");
-        
         //main panel
         UI_StartToStartConstraint("nav_bar",0);
         UI_EndToEndConstraint("nav_bar",0);//another option here is a UI_FillWidth method?
@@ -70,6 +97,7 @@ void AppUpdateAndRender() {
         nvgRect(global_vg, nav_width,0,main_panel_width ,(f32)global_os->display.height);
         nvgFillColor(global_vg, nvgRGBA(80, 80, 80, 255));
         nvgFill(global_vg);
+#endif
         
         //Title Panel
         nvgBeginPath(global_vg);
