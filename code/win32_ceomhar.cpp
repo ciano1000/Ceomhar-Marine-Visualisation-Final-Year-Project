@@ -1,5 +1,8 @@
+// TODO(Cian): Replace some of these C std libs with our own
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
+
 #include <windows.h>
 #include <Shellscalingapi.h>
 #include "utils.h"

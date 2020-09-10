@@ -84,11 +84,15 @@ void AppUpdateAndRender() {
         u32 dashboard_num_items = 4;
         
         UI_BeginWindow("main_window");
-#if 0
-        UI_StartToStartConstraint(UI_Parent(),0);
+        // TODO(Cian): better way of getting parent instead of looking up twice?
+        UI_StartToStartConstraint(PeekUIParent().id,0);
         UI_Width(60);
-        UI_Height((f32)global_os->display.height);
+        // TODO(Cian): Also implement option to use TopToTop && BottomToBottom to calculate height, vice versa for width too
+        //UI_Height((f32)PeekUIParent.height);
+        UI_BottomToBottomConstraint(PeekUIParent().id, 0);
+        UI_TopToTopConstraint(PeekUIParent().id, 0);
         UI_Panel("nav_bar");
+#if 0
         //main panel
         UI_StartToStartConstraint("nav_bar",0);
         UI_EndToEndConstraint("nav_bar",0);//another option here is a UI_FillWidth method?

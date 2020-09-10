@@ -23,7 +23,16 @@ enum UI_LayoutFlags {
     UI_Y0_SET = 1 << 3,
     UI_X1_SET = 1 << 4,
     UI_Y1_SET = 1 << 5,
-    UI_LAYOUT_END = 6
+    UI_W_H_X0_Y0 = UI_WIDTH_SET | UI_HEIGHT_SET | UI_X0_SET | UI_Y0_SET,
+    UI_W_H_X1_Y1 = UI_WIDTH_SET | UI_HEIGHT_SET | UI_X1_SET | UI_Y1_SET,
+    UI_W_H_X1_Y0 = UI_WIDTH_SET | UI_HEIGHT_SET | UI_X1_SET | UI_Y0_SET,
+    UI_W_H_X0_Y1 = UI_WIDTH_SET | UI_HEIGHT_SET | UI_X0_SET | UI_Y1_SET,
+    UI_H_X0_X1_Y0 = UI_HEIGHT_SET | UI_X0_SET | UI_X1_SET | UI_Y0_SET,
+    UI_H_X0_X1_Y1 = UI_HEIGHT_SET | UI_X0_SET | UI_X1_SET | UI_Y1_SET,
+    UI_W_X0_Y0_Y1 = UI_WIDTH_SET  | UI_X0_SET | UI_Y0_SET | UI_Y1_SET,
+    UI_W_X1_Y0_Y1 = UI_WIDTH_SET  | UI_X1_SET | UI_Y0_SET | UI_Y1_SET,
+    UI_X0_X1_Y0_Y1 = UI_X0_SET | UI_X1_SET | UI_Y0_SET | UI_Y1_SET,
+    UI_LAYOUT_END = 14
 };
 
 struct UI_Item {
@@ -40,7 +49,9 @@ struct UI_Item {
 };
 
 struct UI_State {
+    // NOTE(Cian):  *parent is a stack DS, current is just the current UI_Item in context
     UI_Item *parent;
+    UI_Item current;
     // NOTE(Cian): This needs to be ^2 for now
     UI_Item *ui_items_hash[UI_HASH_SIZE];
 };
@@ -58,7 +69,9 @@ INTERNAL void UI_End();
 INTERNAL b32 UI_IsAllFlagsSet(u32 flags);
 
 INTERNAL void UI_StartToStartConstraint(char *id, f32 offset);
+INTERNAL void UI_EndToEndConstraint(char *id, f32 offset);
 INTERNAL void UI_BottomToBottomConstraint(char *id, f32 offset);
+INTERNAL void UI_TopToTopConstraint(char *id, f32 offset);
 
 INTERNAL void UI_Width(f32 width);
 INTERNAL void UI_Height(f32 width);
