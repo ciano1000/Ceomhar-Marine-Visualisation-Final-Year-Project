@@ -55,9 +55,6 @@ void Win32GetScreenInfo(HWND window_handle, AppDisplay  *screen_dimension) {
     
     screen_dimension->pixel_ratio = ((f32)screen_dimension->width) / ((f32)screen_dimension->height);
     
-    /** TODO(Cian): try use HORSIZE && VERTSIZE to get actual monitor dimensions to 
-*   more accurately get dpi if we can obtain the values 
-*/
     // TODO(Cian): Look at doing this when WM_DPICHANGED received
     HDC hdc = GetDC(window_handle);
     screen_dimension->dpi = GetDpiForWindow(window_handle);
@@ -69,7 +66,6 @@ LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LP
     LRESULT result = 0;
     switch (message)
     {
-        // TODO(Cian): React to resize event and re-render with updated dimensions to prevent empty space
         //Input stuff
         //TODO: Create input system that will be called here
         case WM_SIZE:

@@ -26,9 +26,8 @@ INTERNAL UI_State *UI_InitState() {
 
 INTERNAL void UI_BeginWindow(char *id) {
     // NOTE(Cian): Init state
-    // TODO(Cian): ID hashing and stuff
     UI_Item window = {
-        id, UI_LAYOUT_COMPLETE, (f32)global_os->display.width, (f32)global_os->display.height,
+        id, UI_LAYOUT_COMPLETE,0 ,(f32)global_os->display.width, (f32)global_os->display.height,
         0, 0, (f32)global_os->display.width, (f32)global_os->display.height
     };
     
@@ -55,13 +54,34 @@ INTERNAL void UI_StartToStartConstraint(char *id, f32 offset) {
     ui_state->current.x0 = relative->x0 + offset;
     ui_state->current.layout_flags = ui_state->current.layout_flags | UI_X0_SET;
 }
-#if 0 
+
+INTERNAL void UI_StartToEndConstraint(char *id, f32 offset) {
+    UI_Item *relative = GetUIItem(id);
+    
+    // TODO(Cian): if GetUIItem returns NULL, maybe the UI_Item hasn't been created yet, defer layout till enclosing parent ends e.g add layout closure to register ---- do the same for all other id based layout methods below
+    
+    assert(relative);
+    
+    ui_state->current.x0 = relative->x1 + offset;
+    ui_state->current.layout_flags = ui_state->current.layout_flags | UI_X0_SET;
+}
+
 INTERNAL void UI_EndToEndConstraint(char *id, f32 offset) {
     UI_Item *relative = GetUIItem(id);
     
     assert(relative);
     
     ui_state->current.x1 = relative->x1 - offset;
+    ui_state->current.layout_flags = ui_state->current.layout_flags | UI_X1_SET;
+}
+
+#if 0
+INTERNAL void UI_EndToStartConstraint(char *id, f32 offset) {
+    UI_Item *relative = GetUIItem(id);
+    
+    assert(relative);
+    
+    ui_state->current.x1 = relative->x0 - offset;
     ui_state->current.layout_flags = ui_state->current.layout_flags | UI_X1_SET;
 }
 #endif
@@ -96,11 +116,11 @@ INTERNAL void UI_Height(f32 height) {
     ui_state->current.layout_flags = ui_state->current.layout_flags | UI_HEIGHT_SET;
 }
 #endif
-// TODO(Cian): add an id argument here used for looking up this UI element
-INTERNAL void UI_Panel(char *id) {
+INTERNAL void UI_Panel(char *id, NVGcolor color) {
     b32 all_set = TRUE;
     
     UI_Item *current = &ui_state->current;
+    current->id = id;
     switch(current->layout_flags) {
         case UI_W_H_X0_Y0:
         current->x1 = current->x0 + current->width;
@@ -159,7 +179,7 @@ INTERNAL void UI_Panel(char *id) {
     
     nvgBeginPath(global_vg);
     nvgRect(global_vg,  ui_state->current.x0, ui_state->current.y0, ui_state->current.width, ui_state->current.height);
-    nvgFillColor(global_vg, nvgRGBA(40,40,40,255));
+    nvgFillColor(global_vg, color);
     nvgFill(global_vg);
     
     // TODO(Cian): reset ui_state stuff

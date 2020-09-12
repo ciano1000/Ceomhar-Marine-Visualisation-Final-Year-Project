@@ -87,21 +87,21 @@ void AppUpdateAndRender() {
         // TODO(Cian): better way of getting parent instead of looking up twice?
         UI_StartToStartConstraint(PeekUIParent().id,0);
         UI_Width(60);
-        // TODO(Cian): Also implement option to use TopToTop && BottomToBottom to calculate height, vice versa for width too
         //UI_Height((f32)PeekUIParent.height);
         UI_BottomToBottomConstraint(PeekUIParent().id, 0);
         UI_TopToTopConstraint(PeekUIParent().id, 0);
-        UI_Panel("nav_bar");
-#if 0
+        UI_Panel("nav_bar", nvgRGBA(40,40,40,255));
+        
         //main panel
-        UI_StartToStartConstraint("nav_bar",0);
-        UI_EndToEndConstraint("nav_bar",0);//another option here is a UI_FillWidth method?
-        UI_FillHeight();
-        nvgBeginPath(global_vg);
-        nvgRect(global_vg, nav_width,0,main_panel_width ,(f32)global_os->display.height);
-        nvgFillColor(global_vg, nvgRGBA(80, 80, 80, 255));
-        nvgFill(global_vg);
-#endif
+        UI_StartToEndConstraint("nav_bar",0);
+        UI_EndToEndConstraint(PeekUIParent().id,0);
+        UI_BottomToBottomConstraint(PeekUIParent().id, 0);
+        UI_TopToTopConstraint(PeekUIParent().id, 0);
+        UI_Panel("main_panel",  nvgRGBA(80, 80, 80, 255));
+        // TODO(Cian): Do FillHeight() and FillWidth
+        //UI_FillHeight();
+        // TODO(Cian): Make the main panel a BeginParent()
+        
         
         //Title Panel
         nvgBeginPath(global_vg);

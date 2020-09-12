@@ -35,9 +35,14 @@ enum UI_LayoutFlags {
     UI_LAYOUT_END = 14
 };
 
+enum UI_ItemTypes {
+    UI_LIST,
+};
+
 struct UI_Item {
     char *id;
     u32 layout_flags;
+    u32 ui_item_type;
     f32 width;
     f32 height;
     f32 x0;
@@ -79,7 +84,7 @@ INTERNAL void UI_Height(f32 width);
 INTERNAL char *UI_Parent();
 
 // NOTE(Cian): UI Elements
-INTERNAL void UI_Panel();
+INTERNAL void UI_Panel(char *id, NVGcolor color);
 
 // NOTE(Cian): UI Utilities
 INTERNAL f32 PixelsToDIP(f32 pixels);
