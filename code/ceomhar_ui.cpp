@@ -1,4 +1,3 @@
-
 #if 0
 INTERNAL f32 PixelsToDIP(float pixels) {
     // TODO(Cian): Fix rendering so that rounding isn't necessary
@@ -20,6 +19,7 @@ INTERNAL UI_State *UI_InitState() {
     
     state->parent = NULL;
     state->current = {};
+    state->current.constraints_list[0] = 0;
     
     return state;
 }
@@ -27,7 +27,7 @@ INTERNAL UI_State *UI_InitState() {
 INTERNAL void UI_BeginWindow(char *id) {
     // NOTE(Cian): Init state
     UI_Item window = {
-        id, UI_LAYOUT_COMPLETE,0 ,(f32)global_os->display.width, (f32)global_os->display.height,
+        id, UI_LAYOUT_COMPLETE,{},0 ,(f32)global_os->display.width, (f32)global_os->display.height,
         0, 0, (f32)global_os->display.width, (f32)global_os->display.height
     };
     
@@ -110,12 +110,26 @@ INTERNAL void UI_Width(f32 width) {
     ui_state->current.layout_flags = ui_state->current.layout_flags | UI_WIDTH_SET;
 }
 
-#if 0
+
 INTERNAL void UI_Height(f32 height) {
     ui_state->current.height = DIPToPixels(height);
     ui_state->current.layout_flags = ui_state->current.layout_flags | UI_HEIGHT_SET;
 }
-#endif
+
+INTERNAL void UI_MinHeight(f32 min) {
+    
+    u32 i;
+    
+    for(i = 0; i < ArrayCount(ui_state->current.constraints_list) - 1;++i) {
+        if(ui_state->current.constraints_list[i] == 0) {
+            ui_state->current.constraints_list[i] = UI_MIN_HEIGHT;
+            ui_state->current.constraints_list[++i] = (u32)min;
+            
+            break;
+        }
+    }
+    ui_state->current.constraints_list[++i] = 0;
+}
 INTERNAL void UI_Panel(char *id, NVGcolor color) {
     b32 all_set = TRUE;
     
@@ -169,6 +183,17 @@ INTERNAL void UI_Panel(char *id, NVGcolor color) {
         default:
         // TODO(Cian): Here is where we will check for unfinished constraints in the buffer and register closures that will be attempted later when necessary info is potentially available.
         all_set = FALSE;
+    }
+    
+    for(u32 i = 0; i < ArrayCount(ui_state->current.constraints_list) - 1;++i) {
+        if(ui_state->current.constraints_list[i] == 0) {
+            break;
+        } else if(ui_state->current.constraints_list[i] == UI_MIN_HEIGHT) {
+            if(current->height < ui_state->current.constraints_list[i+1]) {
+                current->height = (f32)ui_state->current.constraints_list[i+1];
+                current->y1 = ui_state->current.y0 + ui_state->current.height;;
+            }
+        }
     }
     
     // TODO(Cian): Add Min/Max functions for width and height values that get applied here
@@ -260,3 +285,27 @@ INTERNAL UI_Item PeekUIParent() {
     return item;
 }
 
+#if 0
+// TODO(Cian): Once we get a unit test system in place add this to it
+INTERNAL void TestUIHash() {
+    char *generated_strings[256];
+    for(u32 i = 0; i < 256; ++i) {
+        char rand_string[14];
+        StringGenRandom(rand_string, 14);
+        generated_strings[i] = (char *)Memory_ArenaPush(&global_os->frame_arena, sizeof(rand_string));
+        strcpy(generated_strings[i], rand_string);
+        UI_Item item = {};
+        item.id = (char *)Memory_ArenaPush(&global_os->frame_arena, sizeof(rand_string));
+        strcpy(item.id, rand_string);
+        AddUIItem(rand_string, item);
+    }
+    
+    for(u32 i =0; i< 256; ++i) {
+        UI_Item *result = GetUIItem(generated_strings[i]);
+        if(result == NULL) {
+            printf("oops");
+        }
+        
+    }
+}
+#endif

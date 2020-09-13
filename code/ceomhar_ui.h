@@ -35,6 +35,14 @@ enum UI_LayoutFlags {
     UI_LAYOUT_END = 14
 };
 
+enum UI_ConstraintFlags {
+    UI_MIN_HEIGHT = 1 << 0,
+    UI_MAX_HEIGHT = 1 << 1,
+    UI_MIN_WIDTH = 1 << 2,
+    UI_MAX_WIDTH = 1 << 3,
+    UI_NUM_CONSTRAINTS = 4,
+};
+
 enum UI_ItemTypes {
     UI_LIST,
 };
@@ -42,6 +50,7 @@ enum UI_ItemTypes {
 struct UI_Item {
     char *id;
     u32 layout_flags;
+    u32 constraints_list[(UI_NUM_CONSTRAINTS * 2) + 1];
     u32 ui_item_type;
     f32 width;
     f32 height;

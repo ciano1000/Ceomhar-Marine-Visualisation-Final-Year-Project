@@ -28,30 +28,6 @@ void AppUpdateAndRender() {
         UI_EndWindow();
     }
 #endif
-#if 0
-    // NOTE(Cian): Test hash
-    {
-        char *generated_strings[256];
-        for(u32 i = 0; i < 256; ++i) {
-            char rand_string[14];
-            StringGenRandom(rand_string, 14);
-            generated_strings[i] = (char *)Memory_ArenaPush(&global_os->frame_arena, sizeof(rand_string));
-            strcpy(generated_strings[i], rand_string);
-            UI_Item item = {};
-            item.id = (char *)Memory_ArenaPush(&global_os->frame_arena, sizeof(rand_string));
-            strcpy(item.id, rand_string);
-            AddUIItem(rand_string, item);
-        }
-        
-        for(u32 i =0; i< 256; ++i) {
-            UI_Item *result = GetUIItem(generated_strings[i]);
-            if(result == NULL) {
-                printf("oops");
-            }
-        }
-        // TODO(Cian): PushString method
-    }
-#endif
     
     // NOTE(Cian): Stuff to go in UpdateAndRender
     {
@@ -100,16 +76,26 @@ void AppUpdateAndRender() {
         UI_Panel("main_panel",  nvgRGBA(80, 80, 80, 255));
         // TODO(Cian): Do FillHeight() and FillWidth
         //UI_FillHeight();
-        // TODO(Cian): Make the main panel a BeginParent()
+        // TODO(Cian): Make the main panel a BeginPanel() also create a BeginLayout() for when you don't want a background color for the layout.
         
         
         //Title Panel
+        UI_StartToEndConstraint("nav_bar",0);
+        UI_EndToEndConstraint(PeekUIParent().id,0);
+        UI_TopToTopConstraint(PeekUIParent().id,0);
+        UI_Height(PeekUIParent().height * 0.25f);
+        UI_MinHeight(120);
+        // TODO(Cian): make a MinHeight overload that is relative to another ui element
+        UI_Panel("title_panel",  nvgRGBA(150, 150, 150, 255));
+        
+#if 0
         nvgBeginPath(global_vg);
         nvgRect(global_vg, nav_width, 0, main_panel_width, title_panel_height);
         nvgFillColor(global_vg, nvgRGBA(150, 150, 150, 255));
         nvgFill(global_vg);
-        
+#endif
         //Title
+        // TODO(Cian): Create a UI_Text() function that sets the texts rect values in it's UI_Item
         nvgFontSize(global_vg, title_size);
         nvgFontFace(global_vg, "roboto-bold");
         // NOTE(Cian): Aligning to the left/right means that the left/right (e.g beginning of text/ end of text) is positioned at the given coordinates
