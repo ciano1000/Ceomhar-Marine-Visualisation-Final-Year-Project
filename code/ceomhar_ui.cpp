@@ -123,18 +123,58 @@ INTERNAL void UI_MinHeight(f32 min) {
     for(i = 0; i < ArrayCount(ui_state->current.constraints_list) - 1;++i) {
         if(ui_state->current.constraints_list[i] == 0) {
             ui_state->current.constraints_list[i] = UI_MIN_HEIGHT;
-            ui_state->current.constraints_list[++i] = (u32)min;
+            ui_state->current.constraints_list[i + 1] = (u32)min;
             
             break;
         }
     }
-    ui_state->current.constraints_list[++i] = 0;
 }
-INTERNAL void UI_Panel(char *id, NVGcolor color) {
-    b32 all_set = TRUE;
+
+#if 0
+INTERNAL void UI_MaxHeight(f32 max) {
     
-    UI_Item *current = &ui_state->current;
-    current->id = id;
+    u32 i;
+    
+    for(i = 0; i < ArrayCount(ui_state->current.constraints_list) - 1;++i) {
+        if(ui_state->current.constraints_list[i] == 0) {
+            ui_state->current.constraints_list[i] = UI_MAX_HEIGHT;
+            ui_state->current.constraints_list[i + 1] = (u32)max;
+            
+            break;
+        }
+    }
+}
+
+INTERNAL void UI_MinWidth(f32 min) {
+    
+    u32 i;
+    
+    for(i = 0; i < ArrayCount(ui_state->current.constraints_list) - 1;++i) {
+        if(ui_state->current.constraints_list[i] == 0) {
+            ui_state->current.constraints_list[i] = UI_MIN_WIDTH;
+            ui_state->current.constraints_list[i + 1] = (u32)min;
+            
+            break;
+        }
+    }
+}
+INTERNAL void UI_MaxWidth(f32 max) {
+    
+    u32 i;
+    
+    for(i = 0; i < ArrayCount(ui_state->current.constraints_list) - 1;++i) {
+        if(ui_state->current.constraints_list[i] == 0) {
+            ui_state->current.constraints_list[i] = UI_MAX_WIDTH;
+            ui_state->current.constraints_list[i + 1] = (u32)max;
+            
+            break;
+        }
+    }
+}
+#endif
+
+INTERNAL b32 UI_DoLayout(UI_Item *current) {
+    b32 all_set = TRUE;
     switch(current->layout_flags) {
         case UI_W_H_X0_Y0:
         current->x1 = current->x0 + current->width;
@@ -181,23 +221,55 @@ INTERNAL void UI_Panel(char *id, NVGcolor color) {
         break;
         
         default:
-        // TODO(Cian): Here is where we will check for unfinished constraints in the buffer and register closures that will be attempted later when necessary info is potentially available.
         all_set = FALSE;
+        break;
     }
     
     for(u32 i = 0; i < ArrayCount(ui_state->current.constraints_list) - 1;++i) {
-        if(ui_state->current.constraints_list[i] == 0) {
+        u32 current_val = current->constraints_list[i];
+        u32 next_val = current->constraints_list[i + 1];
+        
+        switch(current_val) {
+            case UI_MIN_HEIGHT: {
+                current->height = CLAMP_MIN(current->height, (f32)next_val);
+                current->y1 = ui_state->current.y0 + ui_state->current.height;
+            } break;
+            
+            case UI_MAX_HEIGHT: {
+                current->height = CLAMP_MAX(current->height, (f32)next_val);
+                current->y1 = ui_state->current.y0 + ui_state->current.height;
+            } break;
+            
+            case UI_MIN_WIDTH: {
+                current->width = CLAMP_MIN(current->width, (f32)next_val);
+                current->x1 = ui_state->current.x0 + ui_state->current.width;
+            } break;
+            
+            case UI_MAX_WIDTH: {
+                current->width = CLAMP_MAX(current->width, (f32)next_val);
+                current->x1 = ui_state->current.x0 + ui_state->current.width;
+            } break;
+            default:
             break;
-        } else if(ui_state->current.constraints_list[i] == UI_MIN_HEIGHT) {
-            if(current->height < ui_state->current.constraints_list[i+1]) {
-                current->height = (f32)ui_state->current.constraints_list[i+1];
-                current->y1 = ui_state->current.y0 + ui_state->current.height;;
-            }
         }
+        // NOTE(Cian): skip over value to get to next definition
+        ++i;
     }
     
-    // TODO(Cian): Add Min/Max functions for width and height values that get applied here
+    return all_set;
     
+}
+INTERNAL void UI_Panel(char *id, NVGcolor color) {
+    // TODO(Cian): pull all of the layout code below into it's own util function that returns a bool
+    // TODO(Cian): UI Element should check it's parent type to see if it should handle it's layout or it's parent should
+    
+    UI_Item *current = &ui_state->current;
+    current->id = id;
+    
+    b32 all_set = UI_DoLayout(current);
+    
+    // TODO(Cian): Add Min/Max functions for width and height values that get applied here
+    // TODO(Cian): Here is where we will check for unfinished constraints in the buffer and register closures that will be attempted later when necessary info is potentially available.
     assert(all_set);
     
     AddUIItem(id, ui_state->current);
@@ -208,6 +280,32 @@ INTERNAL void UI_Panel(char *id, NVGcolor color) {
     nvgFill(global_vg);
     
     // TODO(Cian): reset ui_state stuff
+    ui_state->current = {};
+}
+
+INTERNAL void UI_Text(char *id, char *text, f32 font_size, NVGcolor color) {
+    // TODO(Cian): Need to work out text wrapping and text spanning multiple rows
+    
+    font_size = DIPToPixels(font_size);
+    
+    UI_Item *current = &ui_state->current;
+    current->id = id;
+    UI_Height(font_size);
+    UI_Width(0); // NOTE(Cian): Bit of a hack but needed due to how nanovg calculates text sizing
+    b32 all_set = UI_DoLayout(current);
+    
+    assert(all_set);
+    
+    nvgFontSize(global_vg, current->height);
+    nvgFontFace(global_vg, "roboto-bold");
+    // NOTE(Cian): Aligning to the left/right means that the left/right (e.g beginning of text/ end of text) is positioned at the given coordinates
+    nvgTextAlign(global_vg, NVG_ALIGN_LEFT|NVG_ALIGN_MIDDLE);
+    nvgFillColor(global_vg, color);
+    f32 title_end_x = nvgText(global_vg, current->x0, current->y0, text, NULL);
+    current->width = title_end_x - current->x0;
+    current->x1 =  title_end_x;
+    
+    AddUIItem(id, ui_state->current);
     ui_state->current = {};
 }
 

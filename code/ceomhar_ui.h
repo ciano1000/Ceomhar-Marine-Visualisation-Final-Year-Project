@@ -90,6 +90,11 @@ INTERNAL void UI_TopToTopConstraint(char *id, f32 offset);
 INTERNAL void UI_Width(f32 width);
 INTERNAL void UI_Height(f32 width);
 
+INTERNAL void UI_MaxHeight(f32 max);
+INTERNAL void UI_MinHeight(f32 min);
+INTERNAL void UI_MaxWidth(f32 max);
+INTERNAL void UI_MinWidth(f32 min);
+
 INTERNAL char *UI_Parent();
 
 // NOTE(Cian): UI Elements

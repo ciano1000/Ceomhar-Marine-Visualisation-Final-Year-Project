@@ -85,23 +85,14 @@ void AppUpdateAndRender() {
         UI_TopToTopConstraint(PeekUIParent().id,0);
         UI_Height(PeekUIParent().height * 0.25f);
         UI_MinHeight(120);
-        // TODO(Cian): make a MinHeight overload that is relative to another ui element
+        // TODO(Cian): add overload for MIN/MAX functions to be able to "fit content", this will probably require closures or some other form of deferral, so wait till we implement that for input before altering
         UI_Panel("title_panel",  nvgRGBA(150, 150, 150, 255));
         
-#if 0
-        nvgBeginPath(global_vg);
-        nvgRect(global_vg, nav_width, 0, main_panel_width, title_panel_height);
-        nvgFillColor(global_vg, nvgRGBA(150, 150, 150, 255));
-        nvgFill(global_vg);
-#endif
-        //Title
-        // TODO(Cian): Create a UI_Text() function that sets the texts rect values in it's UI_Item
-        nvgFontSize(global_vg, title_size);
-        nvgFontFace(global_vg, "roboto-bold");
-        // NOTE(Cian): Aligning to the left/right means that the left/right (e.g beginning of text/ end of text) is positioned at the given coordinates
-        nvgTextAlign(global_vg, NVG_ALIGN_LEFT|NVG_ALIGN_MIDDLE);
-        nvgFillColor(global_vg, nvgRGBA(255,255,255,255));
-        f32 title_end_x = nvgText(global_vg, title_pos_x, title_pos_y, "Dashboards", NULL);
+        
+        UI_StartToEndConstraint("nav_bar", 30);
+        // TODO(Cian): CenterX/Y function to center in parent(with offset)
+        UI_BottomToBottomConstraint("title_panel", 60);
+        UI_Text("title_text", "Dashboard",  32,  nvgRGBA(255,255,255,255));
         
         //menu items
         f32 remaining_width = main_panel_width;
