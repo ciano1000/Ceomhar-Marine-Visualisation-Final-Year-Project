@@ -2,6 +2,9 @@
 #define UI_PARENT (ui_state->parent.id)
 #define UI_HASH_SIZE 256
 
+// TODO(Cian): Pull this out into it's DataDesk generated ceomhar_closure.h
+#define MAX_CLOSURE_ARGS 16
+
 /* 
      * NOTE(Cian): Every UI Item needs it's x, y, width and height to be defined in some way
 * before we can render it, therefore, use macro flags to indicate which of these have been set
@@ -45,6 +48,12 @@ enum UI_ConstraintFlags {
 
 enum UI_ItemTypes {
     UI_LIST,
+};
+
+// TODO(Cian): Pull this out into it's DataDesk generated ceomhar_closure.h
+struct Closure {
+    void (*call)(Closure *);
+    void *args[MAX_CLOSURE_ARGS];
 };
 
 struct UI_Item {

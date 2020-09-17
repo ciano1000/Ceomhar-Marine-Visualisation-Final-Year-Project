@@ -260,7 +260,6 @@ INTERNAL b32 UI_DoLayout(UI_Item *current) {
     
 }
 INTERNAL void UI_Panel(char *id, NVGcolor color) {
-    // TODO(Cian): pull all of the layout code below into it's own util function that returns a bool
     // TODO(Cian): UI Element should check it's parent type to see if it should handle it's layout or it's parent should
     
     UI_Item *current = &ui_state->current;

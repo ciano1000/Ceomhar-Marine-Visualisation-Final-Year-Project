@@ -14,8 +14,11 @@ void AppUpdateAndRender() {
         UI_BeginWindow(LAYOUT_TYPE); // sets up viewport, clears screen,
         UI_StartToStartConstraint(UI_PARENT, 0);
         UI_Width(30);
-        UI_BeginNavMenu(ORIENTATION, );
-        
+        UI_BeginNavMenu(UI_VERTICAL, padding, margin);
+        {
+            UI_ImageButton("Home");
+            UI_ImageButton("Dashboards"):
+        }
         UI_EndNavMenu();
         
         UI_EndToEndConstraint(UI_ID, offset);
