@@ -65,6 +65,9 @@ INTERNAL void UI_StartToStartConstraint(const char *id, f32 offset) {
         char *heap_id = (char *)Memory_ArenaPush(&global_os->frame_arena, strlen(id) * sizeof(char));
         f32 *heap_offset = (f32 *)Memory_ArenaPush(&global_os->frame_arena, strlen(id) * sizeof(char));
         
+        strcpy(heap_id, id);
+        *heap_offset = offset;
+        
         Closure closure = {};
         closure.call = &UI_StartToStartConstraint_Closure;
         closure.args[0] = (void *)heap_id;
@@ -80,7 +83,7 @@ INTERNAL void UI_StartToStartConstraint(const char *id, f32 offset) {
 }
 
 INTERNAL void UI_StartToStartConstraint_Closure(Closure *block) {
-    const char *id = (const char*)block->args[0];
+    char *id = (char*)block->args[0];
     f32 *offset = (f32*)block->args[1];
     
     UI_StartToStartConstraint(id, *offset);
