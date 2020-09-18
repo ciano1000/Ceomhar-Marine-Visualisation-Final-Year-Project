@@ -102,8 +102,11 @@ INTERNAL b32 UI_IsAllFlagsSet(u32 flags);
 
 INTERNAL void UI_StartToStartConstraint(const char *id, f32 offset);
 INTERNAL void UI_StartToStartConstraint_Closure(Closure *block);
+INTERNAL void UI_StartToEndConstraint(const char *id, f32 offset);
+INTERNAL void UI_StartToEndConstraint_Closure(Closure *block);
 INTERNAL void UI_EndToEndConstraint(const char *id, f32 offset);
 INTERNAL void UI_BottomToBottomConstraint(const char *id, f32 offset);
+INTERNAL void UI_BottomToBottomConstraint_Closure(Closure *block);
 INTERNAL void UI_TopToTopConstraint(const char *id, f32 offset);
 
 INTERNAL void UI_Width(f32 width);
@@ -117,7 +120,9 @@ INTERNAL void UI_MinWidth(f32 min);
 INTERNAL char *UI_Parent();
 
 // NOTE(Cian): UI Elements
-INTERNAL void UI_Panel(char *id, NVGcolor color);
+INTERNAL void UI_Panel(const char *id, NVGcolor color);
+INTERNAL void UI_Text(const char *id, const char* text, f32 font_size,  NVGcolor color);
+INTERNAL void UI_Text_Closure(Closure *closure);
 
 // NOTE(Cian): UI Utilities
 INTERNAL f32 PixelsToDIP(f32 pixels);

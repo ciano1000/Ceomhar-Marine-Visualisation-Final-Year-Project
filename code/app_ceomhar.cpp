@@ -84,6 +84,11 @@ void AppUpdateAndRender() {
         // TODO(Cian): Make the main panel a BeginPanel() also create a BeginLayout() for when you don't want a background color for the layout.
         
         
+        UI_StartToEndConstraint("nav_bar", 30);
+        // TODO(Cian): CenterX/Y function to center in parent(with offset)
+        UI_BottomToBottomConstraint("title_panel", 60);
+        UI_Text("title_text", "Dashboard",  32,  nvgRGBA(255,255,255,255));
+        
         //Title Panel
         UI_StartToEndConstraint("nav_bar",0);
         UI_EndToEndConstraint(PeekUIParent().id,0);
@@ -92,13 +97,6 @@ void AppUpdateAndRender() {
         UI_MinHeight(120);
         // TODO(Cian): add overload for MIN/MAX functions to be able to "fit content", this will probably require closures or some other form of deferral, so wait till we implement that for input before altering
         UI_Panel("title_panel",  nvgRGBA(150, 150, 150, 255));
-        
-        
-        UI_StartToEndConstraint("nav_bar", 30);
-        // TODO(Cian): CenterX/Y function to center in parent(with offset)
-        UI_BottomToBottomConstraint("title_panel", 60);
-        UI_Text("title_text", "Dashboard",  32,  nvgRGBA(255,255,255,255));
-        
         
         UI_End();
         //menu items
