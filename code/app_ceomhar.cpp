@@ -1,6 +1,8 @@
+
 void AppStart(OS_State *state, NVGcontext *vg) {
     // TODO(Cian): when app and platform are split into seperate TU's, put OS_State stuff here
-    
+    code_view = (CodeView *)Memory_ArenaPush(&global_os->permanent_arena, sizeof(CodeView));
+    *code_view = {};
 }
 
 // TODO(Cian): How should we pass the vgContext???
@@ -97,6 +99,8 @@ void AppUpdateAndRender() {
         UI_BottomToBottomConstraint("title_panel", 60);
         UI_Text("title_text", "Dashboard",  32,  nvgRGBA(255,255,255,255));
         
+        
+        UI_End();
         //menu items
         f32 remaining_width = main_panel_width;
         f32 curr_row = 0;

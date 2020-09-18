@@ -56,8 +56,17 @@ struct Closure {
     void *args[MAX_CLOSURE_ARGS];
 };
 
+// TODO(Cian): same as above
+
+struct CodeView {
+    // TODO(Cian): Same as above
+    Closure closure_register[256];
+    u32 front, rear, size;
+};
+GLOBAL CodeView *code_view;
+
 struct UI_Item {
-    char *id;
+    const char *id;
     u32 layout_flags;
     u32 constraints_list[(UI_NUM_CONSTRAINTS * 2) + 1];
     u32 ui_item_type;
@@ -91,10 +100,11 @@ INTERNAL void UI_End();
 
 INTERNAL b32 UI_IsAllFlagsSet(u32 flags);
 
-INTERNAL void UI_StartToStartConstraint(char *id, f32 offset);
-INTERNAL void UI_EndToEndConstraint(char *id, f32 offset);
-INTERNAL void UI_BottomToBottomConstraint(char *id, f32 offset);
-INTERNAL void UI_TopToTopConstraint(char *id, f32 offset);
+INTERNAL void UI_StartToStartConstraint(const char *id, f32 offset);
+INTERNAL void UI_StartToStartConstraint_Closure(Closure *block);
+INTERNAL void UI_EndToEndConstraint(const char *id, f32 offset);
+INTERNAL void UI_BottomToBottomConstraint(const char *id, f32 offset);
+INTERNAL void UI_TopToTopConstraint(const char *id, f32 offset);
 
 INTERNAL void UI_Width(f32 width);
 INTERNAL void UI_Height(f32 width);
@@ -114,11 +124,16 @@ INTERNAL f32 PixelsToDIP(f32 pixels);
 INTERNAL f32 DIPToPixels(f32 dp);
 
 // NOTE(Cian): UI Item Hash Lookup
-INTERNAL UI_Item *GetUIItem(char *key);
-INTERNAL UI_Item *AddUIItem(char *key, UI_Item item);
-INTERNAL void RemoveUIItem(char *key);
+INTERNAL UI_Item *GetUIItem(const char *key);
+INTERNAL UI_Item *AddUIItem(const char *key, UI_Item item);
+INTERNAL void RemoveUIItem(const char *key);
 
 // NOTE(Cian): UI Parent Stack Methods - Used for keeping track of current parent
 INTERNAL void PushUIParent(UI_Item *parent);
 INTERNAL UI_Item *PopUIParent();
 INTERNAL UI_Item PeekUIParent();
+
+// NOTE(Cian): UI closure queue methods to defer things
+// TODO(Cian): Move this to it's own closure file once DataDesk is setup
+INTERNAL void QueueClosure(Closure closure);
+INTERNAL Closure *TakeClosure();

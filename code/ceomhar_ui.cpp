@@ -36,6 +36,18 @@ INTERNAL void UI_BeginWindow(char *id) {
     PushUIParent(p_item);
 }
 
+INTERNAL void UI_End() {
+    
+    for(u32 i = 0; i < code_view->size; ++i) {
+        Closure *p_current = TakeClosure();
+        if(p_current) {
+            p_current->call(p_current);
+        }
+    }
+    
+    PopUIParent();
+}
+
 #if 0 
 INTERNAL b32 UI_IsAllFlagsSet(u32 flags) {
     // NOTE(Cian): This method determines whether enough layout info exists to do auto layout
@@ -44,10 +56,22 @@ INTERNAL b32 UI_IsAllFlagsSet(u32 flags) {
 }
 #endif
 
-INTERNAL void UI_StartToStartConstraint(char *id, f32 offset) {
+INTERNAL void UI_StartToStartConstraint(const char *id, f32 offset) {
     UI_Item *relative = GetUIItem(id);
     
     // TODO(Cian): if GetUIItem returns NULL, maybe the UI_Item hasn't been created yet, defer layout till enclosing parent ends e.g add layout closure to register ---- do the same for all other id based layout methods below
+    
+    if(!relative) {
+        char *heap_id = (char *)Memory_ArenaPush(&global_os->frame_arena, strlen(id) * sizeof(char));
+        f32 *heap_offset = (f32 *)Memory_ArenaPush(&global_os->frame_arena, strlen(id) * sizeof(char));
+        
+        Closure closure = {};
+        closure.call = &UI_StartToStartConstraint_Closure;
+        closure.args[0] = (void *)heap_id;
+        closure.args[1] = (void *)heap_offset;
+        
+        QueueClosure(closure);
+    }
     
     assert(relative);
     
@@ -55,7 +79,14 @@ INTERNAL void UI_StartToStartConstraint(char *id, f32 offset) {
     ui_state->current.layout_flags = ui_state->current.layout_flags | UI_X0_SET;
 }
 
-INTERNAL void UI_StartToEndConstraint(char *id, f32 offset) {
+INTERNAL void UI_StartToStartConstraint_Closure(Closure *block) {
+    const char *id = (const char*)block->args[0];
+    f32 *offset = (f32*)block->args[1];
+    
+    UI_StartToStartConstraint(id, *offset);
+}
+
+INTERNAL void UI_StartToEndConstraint(const char *id, f32 offset) {
     UI_Item *relative = GetUIItem(id);
     
     // TODO(Cian): if GetUIItem returns NULL, maybe the UI_Item hasn't been created yet, defer layout till enclosing parent ends e.g add layout closure to register ---- do the same for all other id based layout methods below
@@ -66,7 +97,7 @@ INTERNAL void UI_StartToEndConstraint(char *id, f32 offset) {
     ui_state->current.layout_flags = ui_state->current.layout_flags | UI_X0_SET;
 }
 
-INTERNAL void UI_EndToEndConstraint(char *id, f32 offset) {
+INTERNAL void UI_EndToEndConstraint(const char *id, f32 offset) {
     UI_Item *relative = GetUIItem(id);
     
     assert(relative);
@@ -76,7 +107,7 @@ INTERNAL void UI_EndToEndConstraint(char *id, f32 offset) {
 }
 
 #if 0
-INTERNAL void UI_EndToStartConstraint(char *id, f32 offset) {
+INTERNAL void UI_EndToStartConstraint(const char *id, f32 offset) {
     UI_Item *relative = GetUIItem(id);
     
     assert(relative);
@@ -85,7 +116,7 @@ INTERNAL void UI_EndToStartConstraint(char *id, f32 offset) {
     ui_state->current.layout_flags = ui_state->current.layout_flags | UI_X1_SET;
 }
 #endif
-INTERNAL void UI_BottomToBottomConstraint(char *id, f32 offset) {
+INTERNAL void UI_BottomToBottomConstraint(const char *id, f32 offset) {
     UI_Item *relative = GetUIItem(id);
     
     assert(relative);
@@ -95,7 +126,7 @@ INTERNAL void UI_BottomToBottomConstraint(char *id, f32 offset) {
 }
 
 
-INTERNAL void UI_TopToTopConstraint(char *id, f32 offset) {
+INTERNAL void UI_TopToTopConstraint(const char *id, f32 offset) {
     UI_Item *relative = GetUIItem(id);
     
     assert(relative);
@@ -259,7 +290,7 @@ INTERNAL b32 UI_DoLayout(UI_Item *current) {
     return all_set;
     
 }
-INTERNAL void UI_Panel(char *id, NVGcolor color) {
+INTERNAL void UI_Panel(const char *id, NVGcolor color) {
     // TODO(Cian): UI Element should check it's parent type to see if it should handle it's layout or it's parent should
     
     UI_Item *current = &ui_state->current;
@@ -282,7 +313,7 @@ INTERNAL void UI_Panel(char *id, NVGcolor color) {
     ui_state->current = {};
 }
 
-INTERNAL void UI_Text(char *id, char *text, f32 font_size, NVGcolor color) {
+INTERNAL void UI_Text(const char *id, char *text, f32 font_size, NVGcolor color) {
     // TODO(Cian): Need to work out text wrapping and text spanning multiple rows
     
     font_size = DIPToPixels(font_size);
@@ -309,7 +340,7 @@ INTERNAL void UI_Text(char *id, char *text, f32 font_size, NVGcolor color) {
 }
 
 
-INTERNAL UI_Item *GetUIItem(char *key) {
+INTERNAL UI_Item *GetUIItem(const char *key) {
     u32 hash_value = StringToCRC32(key);
     u32 hash_index = hash_value & (UI_HASH_SIZE - 1);
     
@@ -330,7 +361,7 @@ INTERNAL UI_Item *GetUIItem(char *key) {
     return item;
 }
 
-INTERNAL UI_Item *AddUIItem(char *key, UI_Item item) {
+INTERNAL UI_Item *AddUIItem(const char *key, UI_Item item) {
     u32 hash_value = StringToCRC32(key);
     u32 hash_index = hash_value & (UI_HASH_SIZE - 1);
     
@@ -368,7 +399,6 @@ INTERNAL void PushUIParent(UI_Item *parent) {
     ui_state->parent = parent;
 }
 
-#if 0
 INTERNAL UI_Item *PopUIParent() {
     UI_Item *popped = ui_state->parent;
     ui_state->parent = popped->stack_next;
@@ -376,10 +406,31 @@ INTERNAL UI_Item *PopUIParent() {
     return popped;
 }
 
-#endif
 INTERNAL UI_Item PeekUIParent() {
     UI_Item item = *(ui_state->parent);
     return item;
+}
+
+INTERNAL void QueueClosure(Closure closure) {
+    // NOTE(Cian): We should never run out of space for closures
+    assert(code_view->size <= ArrayCount(code_view->closure_register)); 
+    
+    
+    code_view->closure_register[code_view->front] = closure;
+    code_view->rear = (code_view->rear + 1) % ArrayCount(code_view->closure_register);
+    code_view->size += 1;
+}
+
+INTERNAL Closure *TakeClosure() {
+    Closure *result = NULL;
+    if(code_view->size == 0) 
+        return result;
+    
+    result = &code_view->closure_register[code_view->front];
+    code_view->front = (code_view->front + 1) % ArrayCount(code_view->closure_register);
+    code_view->size -= 1;
+    
+    return result;
 }
 
 #if 0
