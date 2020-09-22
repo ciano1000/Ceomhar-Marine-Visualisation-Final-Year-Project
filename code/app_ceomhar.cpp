@@ -1,8 +1,7 @@
 
 void AppStart(OS_State *state, NVGcontext *vg) {
     // TODO(Cian): when app and platform are split into seperate TU's, put OS_State stuff here
-    code_view = (CodeView *)Memory_ArenaPush(&global_os->permanent_arena, sizeof(CodeView));
-    *code_view = {};
+    
 }
 
 // TODO(Cian): How should we pass the vgContext???
@@ -16,12 +15,13 @@ void AppUpdateAndRender() {
         UI_BeginWindow(LAYOUT_TYPE); // sets up viewport, clears screen,
         UI_StartToStartConstraint(UI_PARENT, 0);
         UI_Width(30);
-        UI_BeginNavMenu(UI_VERTICAL, padding, margin);
+        // NOTE(Cian): BeginNavMenu pushes a closure, this closure will be called at UI_End, this closure will loop through the closures created in the block below and perform layout on them based on commands called here before UI_BeginNavMenu
+        UI_BeginNavMenu("nav_menu",UI_VERTICAL, padding, margin);
         {
-            UI_ImageButton("Home");
-            UI_ImageButton("Dashboards"):
+            PushClosure(UI_ImageButton("Home"));
+            PushClosure(UI_ImageButton("Dashboards"));
         }
-        UI_EndNavMenu();
+        UI_EndLayout();
         
         UI_EndToEndConstraint(UI_ID, offset);
         UI_EndToStartConstraint(UI_PARENT, offset);
@@ -73,6 +73,26 @@ void AppUpdateAndRender() {
         UI_TopToTopConstraint(PeekUIParent().id, 0);
         UI_Panel("nav_bar", nvgRGBA(40,40,40,255));
         
+        
+        UI_BeginWindow("main_window");
+        UI_StartToStartConstraint(PeekUIParent().id,0);
+        UI_Width(60);
+        UI_BottomToBottomConstraint(PeekUIParent().id, 0);
+        UI_TopToTopConstraint(PeekUIParent().id, 0);
+        UI_BeginNavMenu("nav_menu", UI_VERTICAL, 0, 0, 0);
+        {
+            char id[] = "menu_item";
+            char *heap_id = (char *)Memory_ArenaPush(&global_os->frame_arena, sizeof(char) * strlen(id));
+            strcpy(heap_id, id);
+            NVGcolor *color = (NVGcolor*)Memory_ArenaPush(&global_os->frame_arena, sizeof(NVGcolor));
+            *color = nvgRGBA(150, 150, 150, 255);
+            Closure closure = {};
+            closure.args[0] = (void*)id;
+            closure.args[1] = (void*)color;
+            closure.call = &UI_Panel;
+            QueueClosure(closure);
+        }
+        UI_EndLayout();
         //main panel
         UI_StartToEndConstraint("nav_bar",0);
         UI_EndToEndConstraint(PeekUIParent().id,0);
@@ -98,7 +118,7 @@ void AppUpdateAndRender() {
         // TODO(Cian): add overload for MIN/MAX functions to be able to "fit content", this will probably require closures or some other form of deferral, so wait till we implement that for input before altering
         UI_Panel("title_panel",  nvgRGBA(150, 150, 150, 255));
         
-        UI_End();
+        UI_EndWindow();
         //menu items
         f32 remaining_width = main_panel_width;
         f32 curr_row = 0;

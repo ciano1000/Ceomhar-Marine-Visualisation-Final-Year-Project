@@ -43,7 +43,12 @@ enum UI_ConstraintFlags {
     UI_MAX_HEIGHT = 1 << 1,
     UI_MIN_WIDTH = 1 << 2,
     UI_MAX_WIDTH = 1 << 3,
-    UI_NUM_CONSTRAINTS = 4,
+    UI_NUM_CONSTRAINTS = 6,
+};
+
+enum UI_Orientation {
+    UI_VERTICAL = 1 << 0,
+    UI_HORIZONTAL = 1 << 0,
 };
 
 enum UI_ItemTypes {
@@ -56,26 +61,28 @@ struct Closure {
     void *args[MAX_CLOSURE_ARGS];
 };
 
+
 // TODO(Cian): same as above
 
 struct CodeView {
     // TODO(Cian): Same as above
-    Closure closure_register[256];
+    Closure closure_register[128];
     u32 front, rear, size;
 };
-GLOBAL CodeView *code_view;
 
 struct UI_Item {
     const char *id;
     u32 layout_flags;
     u32 constraints_list[(UI_NUM_CONSTRAINTS * 2) + 1];
-    u32 ui_item_type;
+    u32 ui_item_type; // TODO(Cian): Do we need this??
     f32 width;
     f32 height;
     f32 x0;
     f32 y0;
     f32 x1;
     f32 y1;
+    // TODO(Cian): Placing this here for now so I don't have to make another set of stack methods, once I get DataDesk setup move this as a stack in UI_State
+    CodeView code_view;
     UI_Item *hash_next;
     UI_Item *stack_next;
 };
@@ -96,10 +103,14 @@ INTERNAL UI_State *UI_InitState();
 
 // NOTE(Cian): UI Layout Utilities
 INTERNAL void UI_BeginWindow(char *id);
-INTERNAL void UI_End();
+INTERNAL void UI_BeginNavMenu(char *id, u32 orientation, f32 width, f32 height, f32 margin);
+INTERNAL void UI_EndWindow(char *id);
+INTERNAL void UI_EndLayout();
 
 INTERNAL b32 UI_IsAllFlagsSet(u32 flags);
+INTERNAL b32 UI_DoLayout(UI_Item *current);
 
+// NOTE(Cian): UI constraints
 INTERNAL void UI_StartToStartConstraint(const char *id, f32 offset);
 INTERNAL void UI_StartToStartConstraint_Closure(Closure *block);
 INTERNAL void UI_StartToEndConstraint(const char *id, f32 offset);
@@ -110,12 +121,17 @@ INTERNAL void UI_BottomToBottomConstraint_Closure(Closure *block);
 INTERNAL void UI_TopToTopConstraint(const char *id, f32 offset);
 
 INTERNAL void UI_Width(f32 width);
+INTERNAL void UI_FillWidth(f32 offset);
 INTERNAL void UI_Height(f32 width);
+INTERNAL void UI_FillHeight(f32 offset);
 
 INTERNAL void UI_MaxHeight(f32 max);
 INTERNAL void UI_MinHeight(f32 min);
 INTERNAL void UI_MaxWidth(f32 max);
 INTERNAL void UI_MinWidth(f32 min);
+INTERNAL void UI_CenterX(f32 offset);
+INTERNAL void UI_CenterY(f32 offset);
+
 
 INTERNAL char *UI_Parent();
 

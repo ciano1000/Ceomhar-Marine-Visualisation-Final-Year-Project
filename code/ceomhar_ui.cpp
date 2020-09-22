@@ -26,19 +26,86 @@ INTERNAL UI_State *UI_InitState() {
 
 INTERNAL void UI_BeginWindow(char *id) {
     // NOTE(Cian): Init state
-    UI_Item window = {
-        id, UI_LAYOUT_COMPLETE,{},0 ,(f32)global_os->display.width, (f32)global_os->display.height,
-        0, 0, (f32)global_os->display.width, (f32)global_os->display.height
-    };
+    UI_Item window = {};
+    window.id = id;
+    window.layout_flags = UI_LAYOUT_COMPLETE;;
+    window.width = (f32)global_os->display.width;
+    window.height = (f32)global_os->display.height;
+    window.x0 = 0;
+    window.y0 = 0;
+    window.x1 = window.width;
+    window.y1 = window.height;
+    window.code_view = {};
     
     UI_Item *p_item = AddUIItem(id, window);
     
     PushUIParent(p_item);
 }
 
-INTERNAL void UI_End() {
+INTERNAL void VerticalLinearLayout_Test(Closure *block) {
+    f32 *width = (f32*)block->args[0];
+    f32 height = (*width);
+    
+    u32 num_items = PeekUIParent().code_view.size;
     
     Closure *p_current = TakeClosure();
+    ui_state->current = {};
+    while(p_current) {
+        if(p_current) {
+            // TODO(Cian): Dynamically create id's for elements based on menu id
+            UI_Width(*width);
+            UI_Height(height);
+            UI_StartToStartConstraint(PeekUIParent().id, 0);
+            UI_EndToEndConstraint(PeekUIParent().id, 0);
+            p_current->call(p_current);
+            
+            p_current = TakeClosure();
+            ui_state->current = {};
+        }
+    }
+}
+
+INTERNAL void UI_BeginNavMenu(char *id, u32 orientation, f32 width, f32 height, f32 margin) {
+    // TODO(Cian): Add more options for defining sizing(e.g 3 per row/column), margins(for left/top/right/bottom), making every n item x times bigger/smaller 
+    UI_Item *menu = &ui_state->current;
+    
+    menu->id = id;
+    
+    b32 all_set = UI_DoLayout(menu);
+    // TODO(Cian): not sure if deferring layout of menu itself will work so asserting for now
+    assert(all_set);
+    f32 *heap_width =  (f32*)Memory_ArenaPush(&global_os->frame_arena, sizeof(f32));
+    *heap_width = ui_state->current.width; 
+    
+    Closure menu_closure = {};
+    menu_closure.call = &VerticalLinearLayout_Test;
+    menu_closure.args[0] = (void*)heap_width;
+    menu = AddUIItem(id, *menu);
+    PushUIParent(menu);
+    QueueClosure(menu_closure);
+    
+}
+
+
+INTERNAL void UI_EndWindow() {
+    
+    Closure *p_current = TakeClosure();
+    
+    while(p_current) {
+        if(p_current) {
+            p_current->call(p_current);
+            p_current = TakeClosure();
+        }
+    }
+    
+    PopUIParent();
+}
+
+INTERNAL void UI_EndLayout() {
+    
+    Closure *p_current = TakeClosure();
+    p_current->call(p_current);
+    
     
     while(p_current) {
         if(p_current) {
@@ -185,9 +252,19 @@ INTERNAL void UI_Width(f32 width) {
     ui_state->current.layout_flags = ui_state->current.layout_flags | UI_WIDTH_SET;
 }
 
+INTERNAL void UI_FillWidth(f32 offset) {
+    ui_state->current.width = PeekUIParent().width - offset;
+    ui_state->current.layout_flags = ui_state->current.layout_flags | UI_WIDTH_SET;
+}
+
 
 INTERNAL void UI_Height(f32 height) {
     ui_state->current.height = DIPToPixels(height);
+    ui_state->current.layout_flags = ui_state->current.layout_flags | UI_HEIGHT_SET;
+}
+
+INTERNAL void UI_FillHeight(f32 offset) {
+    ui_state->current.height = PeekUIParent().height -offset;
     ui_state->current.layout_flags = ui_state->current.layout_flags | UI_HEIGHT_SET;
 }
 
@@ -246,6 +323,8 @@ INTERNAL void UI_MaxWidth(f32 max) {
         }
     }
 }
+
+
 #endif
 
 INTERNAL b32 UI_DoLayout(UI_Item *current) {
@@ -357,6 +436,14 @@ INTERNAL void UI_Panel(const char *id, NVGcolor color) {
     
     // TODO(Cian): reset ui_state stuff
     ui_state->current = {};
+}
+
+
+INTERNAL void UI_Panel(Closure *block) {
+    char *id = (char *)block->args[0];
+    NVGcolor *color = (NVGcolor*)block->args[1];
+    
+    UI_Panel(id, *color);
 }
 
 INTERNAL void UI_Text(const char *id, const char *text, f32 font_size, NVGcolor color) {
@@ -499,15 +586,21 @@ INTERNAL UI_Item *PopUIParent() {
     return popped;
 }
 
+// TODO(Cian): Change Peek to return a pointer and fix all occurences in code
 INTERNAL UI_Item PeekUIParent() {
     UI_Item item = *(ui_state->parent);
     return item;
 }
 
+INTERNAL UI_Item *ViewUIParent() {
+    UI_Item *item = ui_state->parent;
+    return item;
+}
+
 INTERNAL void QueueClosure(Closure closure) {
     // NOTE(Cian): We should never run out of space for closures
+    CodeView *code_view = &ViewUIParent()->code_view;
     assert(code_view->size <= ArrayCount(code_view->closure_register)); 
-    
     
     code_view->closure_register[code_view->rear] = closure;
     code_view->rear = (code_view->rear + 1) % ArrayCount(code_view->closure_register);
@@ -515,6 +608,7 @@ INTERNAL void QueueClosure(Closure closure) {
 }
 
 INTERNAL Closure *TakeClosure() {
+    CodeView *code_view = &ViewUIParent()->code_view;
     Closure *result = NULL;
     if(code_view->size == 0) 
         return result;
