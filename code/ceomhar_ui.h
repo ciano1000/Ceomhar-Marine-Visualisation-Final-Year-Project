@@ -71,7 +71,7 @@ struct CodeView {
 };
 
 struct UI_Item {
-    const char *id;
+    char *id;
     u32 layout_flags;
     u32 constraints_list[(UI_NUM_CONSTRAINTS * 2) + 1];
     u32 ui_item_type; // TODO(Cian): Do we need this??
@@ -111,19 +111,18 @@ INTERNAL b32 UI_IsAllFlagsSet(u32 flags);
 INTERNAL b32 UI_DoLayout(UI_Item *current);
 
 // NOTE(Cian): UI constraints
-INTERNAL void UI_StartToStartConstraint(const char *id, f32 offset);
-INTERNAL void UI_StartToStartConstraint_Closure(Closure *block);
-INTERNAL void UI_StartToEndConstraint(const char *id, f32 offset);
-INTERNAL void UI_StartToEndConstraint_Closure(Closure *block);
-INTERNAL void UI_EndToEndConstraint(const char *id, f32 offset);
-INTERNAL void UI_BottomToBottomConstraint(const char *id, f32 offset);
-INTERNAL void UI_BottomToBottomConstraint_Closure(Closure *block);
-INTERNAL void UI_TopToTopConstraint(const char *id, f32 offset);
+INTERNAL void UI_StartToStartConstraint(char *id, f32 offset);
+INTERNAL void UI_StartToEndConstraint(char *id, f32 offset);
+INTERNAL void UI_EndToEndConstraint(char *id, f32 offset);
+INTERNAL void UI_BottomToBottomConstraint(char *id, f32 offset);
+INTERNAL void UI_TopToTopConstraint(char *id, f32 offset);
 
 INTERNAL void UI_Width(f32 width);
 INTERNAL void UI_FillWidth(f32 offset);
 INTERNAL void UI_Height(f32 width);
 INTERNAL void UI_FillHeight(f32 offset);
+INTERNAL void UI_SetX(f32 x);
+INTERNAL void UI_SetY(f32 y);
 
 INTERNAL void UI_MaxHeight(f32 max);
 INTERNAL void UI_MinHeight(f32 min);
@@ -136,8 +135,9 @@ INTERNAL void UI_CenterY(f32 offset);
 INTERNAL char *UI_Parent();
 
 // NOTE(Cian): UI Elements
-INTERNAL void UI_Panel(const char *id, NVGcolor color);
-INTERNAL void UI_Text(const char *id, const char* text, f32 font_size,  NVGcolor color);
+INTERNAL void UI_Panel(char *id, NVGcolor color);
+INTERNAL void UI_PanelClosure(char *id, NVGcolor);
+INTERNAL void UI_Text(char *id, char* text, f32 font_size,  NVGcolor color);
 INTERNAL void UI_Text_Closure(Closure *closure);
 
 // NOTE(Cian): UI Utilities
@@ -145,9 +145,9 @@ INTERNAL f32 PixelsToDIP(f32 pixels);
 INTERNAL f32 DIPToPixels(f32 dp);
 
 // NOTE(Cian): UI Item Hash Lookup
-INTERNAL UI_Item *GetUIItem(const char *key);
-INTERNAL UI_Item *AddUIItem(const char *key, UI_Item item);
-INTERNAL void RemoveUIItem(const char *key);
+INTERNAL UI_Item *GetUIItem(char *key);
+INTERNAL UI_Item *AddUIItem(char *key, UI_Item item);
+INTERNAL void RemoveUIItem(char *key);
 
 // NOTE(Cian): UI Parent Stack Methods - Used for keeping track of current parent
 INTERNAL void PushUIParent(UI_Item *parent);

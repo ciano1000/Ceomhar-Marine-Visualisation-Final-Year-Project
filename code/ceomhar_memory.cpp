@@ -11,9 +11,8 @@ INTERNAL void * Memory_ArenaPush(MemoryArena *arena, u64 size) {
     
     if((arena->allocation_pos + size) > arena->commit_pos)
     {
-        u64 required = (arena->allocation_pos + size) - arena->commit_pos;
-        required += MEMORY_ARENA_COMMIT_SIZE - 2;
-        required += (required / MEMORY_ARENA_COMMIT_SIZE);
+        u64 required = size;
+        required += MEMORY_ARENA_COMMIT_SIZE - 1;
         required -= required % MEMORY_ARENA_COMMIT_SIZE;
         
         global_os->CommitMemory((u8 *)arena->base + arena->commit_pos, required);

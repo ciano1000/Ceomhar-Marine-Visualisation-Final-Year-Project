@@ -44,21 +44,25 @@ INTERNAL void UI_BeginWindow(char *id) {
 
 INTERNAL void VerticalLinearLayout_Test(Closure *block) {
     f32 *width = (f32*)block->args[0];
-    f32 height = (*width);
+    f32 *height = (f32*)block->args[1];
+    f32 *margin = (f32*)block->args[2];
     
     u32 num_items = PeekUIParent().code_view.size;
+    f32 curr_y = PeekUIParent().y0;
+    
     
     Closure *p_current = TakeClosure();
     ui_state->current = {};
     while(p_current) {
         if(p_current) {
             // TODO(Cian): Dynamically create id's for elements based on menu id
+            UI_Height(*height);
             UI_Width(*width);
-            UI_Height(height);
-            UI_StartToStartConstraint(PeekUIParent().id, 0);
-            UI_EndToEndConstraint(PeekUIParent().id, 0);
+            UI_SetY(curr_y);
+            UI_StartToStartConstraint(PeekUIParent().id,0);
             p_current->call(p_current);
             
+            curr_y += *height + *margin;
             p_current = TakeClosure();
             ui_state->current = {};
         }
@@ -75,11 +79,17 @@ INTERNAL void UI_BeginNavMenu(char *id, u32 orientation, f32 width, f32 height, 
     // TODO(Cian): not sure if deferring layout of menu itself will work so asserting for now
     assert(all_set);
     f32 *heap_width =  (f32*)Memory_ArenaPush(&global_os->frame_arena, sizeof(f32));
-    *heap_width = ui_state->current.width; 
+    *heap_width = DIPToPixels(width); 
+    f32 *heap_height =  (f32*)Memory_ArenaPush(&global_os->frame_arena, sizeof(f32));
+    *heap_height = DIPToPixels(height); 
+    f32 *heap_margin =  (f32*)Memory_ArenaPush(&global_os->frame_arena, sizeof(f32));
+    *heap_margin = DIPToPixels(margin);; 
     
     Closure menu_closure = {};
     menu_closure.call = &VerticalLinearLayout_Test;
     menu_closure.args[0] = (void*)heap_width;
+    menu_closure.args[1] = (void*)heap_height;
+    menu_closure.args[2] = (void*)heap_margin;
     menu = AddUIItem(id, *menu);
     PushUIParent(menu);
     QueueClosure(menu_closure);
@@ -88,17 +98,8 @@ INTERNAL void UI_BeginNavMenu(char *id, u32 orientation, f32 width, f32 height, 
 
 
 INTERNAL void UI_EndWindow() {
-    
-    Closure *p_current = TakeClosure();
-    
-    while(p_current) {
-        if(p_current) {
-            p_current->call(p_current);
-            p_current = TakeClosure();
-        }
-    }
-    
     PopUIParent();
+    ui_state->current = {};
 }
 
 INTERNAL void UI_EndLayout() {
@@ -125,68 +126,25 @@ INTERNAL b32 UI_IsAllFlagsSet(u32 flags) {
 }
 #endif
 
-INTERNAL void UI_StartToStartConstraint(const char *id, f32 offset) {
+INTERNAL void UI_StartToStartConstraint(char *id, f32 offset) {
     UI_Item *relative = GetUIItem(id);
     
-    if(!relative) {
-        
-        char *heap_id = (char *)Memory_ArenaPush(&global_os->frame_arena, strlen(id) * sizeof(char));
-        f32 *heap_offset = (f32 *)Memory_ArenaPush(&global_os->frame_arena, sizeof(f32));
-        
-        strcpy(heap_id, id);
-        *heap_offset = offset;
-        
-        Closure closure = {};
-        closure.call = &UI_StartToStartConstraint_Closure;
-        closure.args[0] = (void *)heap_id;
-        closure.args[1] = (void *)heap_offset;
-        
-        QueueClosure(closure);
-        return;
-    }
+    assert(relative);
     
     ui_state->current.x0 = relative->x0 + offset;
     ui_state->current.layout_flags = ui_state->current.layout_flags | UI_X0_SET;
 }
 
-INTERNAL void UI_StartToStartConstraint_Closure(Closure *block) {
-    char *id = (char*)block->args[0];
-    f32 *offset = (f32*)block->args[1];
-    
-    UI_StartToStartConstraint(id, *offset);
-}
-
-INTERNAL void UI_StartToEndConstraint(const char *id, f32 offset) {
+INTERNAL void UI_StartToEndConstraint(char *id, f32 offset) {
     UI_Item *relative = GetUIItem(id);
     
-    // TODO(Cian): if GetUIItem returns NULL, maybe the UI_Item hasn't been created yet, defer layout till enclosing parent ends e.g add layout closure to register ---- do the same for all other id based layout methods below
-    
-    if(!relative) {
-        char *heap_id = (char *)Memory_ArenaPush(&global_os->frame_arena, strlen(id) * sizeof(char));
-        f32 *heap_offset = (f32 *)Memory_ArenaPush(&global_os->frame_arena, sizeof(f32));
-        
-        strcpy(heap_id, id);
-        *heap_offset = offset;
-        
-        Closure closure = {};
-        closure.call = &UI_StartToEndConstraint_Closure;
-        closure.args[0] = (void *)heap_id;
-        closure.args[1] = (void *)heap_offset;
-        return;
-    }
+    assert(relative);
     
     ui_state->current.x0 = relative->x1 + offset;
     ui_state->current.layout_flags = ui_state->current.layout_flags | UI_X0_SET;
 }
 
-INTERNAL void UI_StartToEndConstraint_Closure(Closure *block) {
-    char *id = (char*)block->args[0];
-    f32 *offset = (f32*)block->args[1];
-    
-    UI_StartToEndConstraint(id, *offset);
-}
-
-INTERNAL void UI_EndToEndConstraint(const char *id, f32 offset) {
+INTERNAL void UI_EndToEndConstraint(char *id, f32 offset) {
     UI_Item *relative = GetUIItem(id);
     
     assert(relative);
@@ -205,39 +163,17 @@ INTERNAL void UI_EndToStartConstraint(const char *id, f32 offset) {
     ui_state->current.layout_flags = ui_state->current.layout_flags | UI_X1_SET;
 }
 #endif
-INTERNAL void UI_BottomToBottomConstraint(const char *id, f32 offset) {
+INTERNAL void UI_BottomToBottomConstraint(char *id, f32 offset) {
     UI_Item *relative = GetUIItem(id);
     
-    
-    if(!relative) {
-        char *heap_id = (char *)Memory_ArenaPush(&global_os->frame_arena, strlen(id) * sizeof(char));
-        f32 *heap_offset = (f32 *)Memory_ArenaPush(&global_os->frame_arena, sizeof(f32));
-        
-        strcpy(heap_id, id);
-        *heap_offset = offset;
-        
-        Closure closure = {};
-        closure.call = &UI_BottomToBottomConstraint_Closure;;
-        closure.args[0] = (void *)heap_id;
-        closure.args[1] = (void *)heap_offset;
-        
-        QueueClosure(closure);
-        return;
-    }
+    assert(relative);
     
     ui_state->current.y1 = relative->y1 - offset;;
     ui_state->current.layout_flags = ui_state->current.layout_flags | UI_Y1_SET;
 }
 
 
-INTERNAL void UI_BottomToBottomConstraint_Closure(Closure *block) {
-    char *id = (char*)block->args[0];
-    f32 *offset = (f32*)block->args[1];
-    
-    UI_BottomToBottomConstraint(id, *offset);
-}
-
-INTERNAL void UI_TopToTopConstraint(const char *id, f32 offset) {
+INTERNAL void UI_TopToTopConstraint(char *id, f32 offset) {
     UI_Item *relative = GetUIItem(id);
     
     assert(relative);
@@ -252,10 +188,12 @@ INTERNAL void UI_Width(f32 width) {
     ui_state->current.layout_flags = ui_state->current.layout_flags | UI_WIDTH_SET;
 }
 
+#if 0
 INTERNAL void UI_FillWidth(f32 offset) {
     ui_state->current.width = PeekUIParent().width - offset;
     ui_state->current.layout_flags = ui_state->current.layout_flags | UI_WIDTH_SET;
 }
+#endif
 
 
 INTERNAL void UI_Height(f32 height) {
@@ -263,10 +201,26 @@ INTERNAL void UI_Height(f32 height) {
     ui_state->current.layout_flags = ui_state->current.layout_flags | UI_HEIGHT_SET;
 }
 
+#if 0
 INTERNAL void UI_FillHeight(f32 offset) {
     ui_state->current.height = PeekUIParent().height -offset;
     ui_state->current.layout_flags = ui_state->current.layout_flags | UI_HEIGHT_SET;
 }
+#endif
+
+
+INTERNAL void UI_SetY(f32 y) {
+    
+    ui_state->current.y0 = y;
+    ui_state->current.layout_flags = ui_state->current.layout_flags | UI_Y0_SET;
+}
+
+INTERNAL void UI_SetX(f32 x) {
+    
+    ui_state->current.x0 = x;
+    ui_state->current.layout_flags = ui_state->current.layout_flags | UI_X0_SET;
+}
+
 
 INTERNAL void UI_MinHeight(f32 min) {
     
@@ -413,7 +367,7 @@ INTERNAL b32 UI_DoLayout(UI_Item *current) {
     return all_set;
     
 }
-INTERNAL void UI_Panel(const char *id, NVGcolor color) {
+INTERNAL void UI_Panel(char *id, NVGcolor color) {
     // TODO(Cian): UI Element should check it's parent type to see if it should handle it's layout or it's parent should
     
     UI_Item *current = &ui_state->current;
@@ -423,9 +377,7 @@ INTERNAL void UI_Panel(const char *id, NVGcolor color) {
     
     // TODO(Cian): Add Min/Max functions for width and height values that get applied here
     // TODO(Cian): Here is where we will check for unfinished constraints in the buffer and register closures that will be attempted later when necessary info is potentially available.
-    if(all_set) {
-        
-    }
+    assert(all_set);
     
     AddUIItem(id, ui_state->current);
     
@@ -446,7 +398,22 @@ INTERNAL void UI_Panel(Closure *block) {
     UI_Panel(id, *color);
 }
 
-INTERNAL void UI_Text(const char *id, const char *text, f32 font_size, NVGcolor color) {
+INTERNAL void UI_PanelClosure(char *id, NVGcolor color) {
+    char *heap_id = (char *)Memory_ArenaPush(&global_os->frame_arena, sizeof(char) * strlen(id));
+    strcpy(heap_id, id);
+    
+    NVGcolor *heap_color = (NVGcolor*)Memory_ArenaPush(&global_os->frame_arena, sizeof(NVGcolor));
+    *heap_color = color;
+    
+    Closure closure = {};
+    closure.args[0] = (void*)id;
+    closure.args[1] = (void*)heap_color;
+    closure.call = &UI_Panel;
+    
+    QueueClosure(closure);
+}
+
+INTERNAL void UI_Text(char *id, char *text, f32 font_size, NVGcolor color) {
     // TODO(Cian): Need to work out text wrapping and text spanning multiple rows
     
     font_size = DIPToPixels(font_size);
@@ -520,7 +487,7 @@ INTERNAL void UI_Text_Closure(Closure *block) {
 
 
 
-INTERNAL UI_Item *GetUIItem(const char *key) {
+INTERNAL UI_Item *GetUIItem(char *key) {
     u32 hash_value = StringToCRC32(key);
     u32 hash_index = hash_value & (UI_HASH_SIZE - 1);
     
@@ -541,7 +508,7 @@ INTERNAL UI_Item *GetUIItem(const char *key) {
     return item;
 }
 
-INTERNAL UI_Item *AddUIItem(const char *key, UI_Item item) {
+INTERNAL UI_Item *AddUIItem(char *key, UI_Item item) {
     u32 hash_value = StringToCRC32(key);
     u32 hash_index = hash_value & (UI_HASH_SIZE - 1);
     

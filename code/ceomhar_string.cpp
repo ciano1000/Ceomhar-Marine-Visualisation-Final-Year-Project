@@ -55,7 +55,7 @@ INTERNAL void GenerateCRC32Table() {
 #endif
 
 
-INTERNAL u32 StringToCRC32(const char *string, u32 n) {
+INTERNAL u32 StringToCRC32(char *string, u32 n) {
 #ifndef CRC32_LUT
     GenerateCRC32Table();
 #endif
@@ -67,7 +67,7 @@ INTERNAL u32 StringToCRC32(const char *string, u32 n) {
     return crc;
 }
 
-INTERNAL u32 StringToCRC32(const char *string) {
+INTERNAL u32 StringToCRC32(char *string) {
     u32 crc = StringToCRC32(string, (u32)strlen(string));
     return crc;
 }

@@ -79,18 +79,11 @@ void AppUpdateAndRender() {
         UI_Width(60);
         UI_BottomToBottomConstraint(PeekUIParent().id, 0);
         UI_TopToTopConstraint(PeekUIParent().id, 0);
-        UI_BeginNavMenu("nav_menu", UI_VERTICAL, 0, 0, 0);
+        UI_BeginNavMenu("nav_menu", UI_VERTICAL, 60, 60, 10);
         {
-            char id[] = "menu_item";
-            char *heap_id = (char *)Memory_ArenaPush(&global_os->frame_arena, sizeof(char) * strlen(id));
-            strcpy(heap_id, id);
-            NVGcolor *color = (NVGcolor*)Memory_ArenaPush(&global_os->frame_arena, sizeof(NVGcolor));
-            *color = nvgRGBA(150, 150, 150, 255);
-            Closure closure = {};
-            closure.args[0] = (void*)id;
-            closure.args[1] = (void*)color;
-            closure.call = &UI_Panel;
-            QueueClosure(closure);
+            UI_PanelClosure("nav_1", nvgRGBA(89, 222, 195, 200));
+            UI_PanelClosure("nav_2", nvgRGBA(89, 222, 195, 200));
+            UI_PanelClosure("nav_3", nvgRGBA(89, 222, 195, 200));
         }
         UI_EndLayout();
         //main panel
@@ -103,12 +96,6 @@ void AppUpdateAndRender() {
         //UI_FillHeight();
         // TODO(Cian): Make the main panel a BeginPanel() also create a BeginLayout() for when you don't want a background color for the layout.
         
-        
-        UI_StartToEndConstraint("nav_bar", 30);
-        // TODO(Cian): CenterX/Y function to center in parent(with offset)
-        UI_BottomToBottomConstraint("title_panel", 60);
-        UI_Text("title_text", "Dashboard",  32,  nvgRGBA(255,255,255,255));
-        
         //Title Panel
         UI_StartToEndConstraint("nav_bar",0);
         UI_EndToEndConstraint(PeekUIParent().id,0);
@@ -118,6 +105,10 @@ void AppUpdateAndRender() {
         // TODO(Cian): add overload for MIN/MAX functions to be able to "fit content", this will probably require closures or some other form of deferral, so wait till we implement that for input before altering
         UI_Panel("title_panel",  nvgRGBA(150, 150, 150, 255));
         
+        UI_StartToEndConstraint("nav_bar", 30);
+        // TODO(Cian): CenterX/Y function to center in parent(with offset)
+        UI_BottomToBottomConstraint("title_panel", 60);
+        UI_Text("title_text", "Dashboard",  32,  nvgRGBA(255,255,255,255)); 
         UI_EndWindow();
         //menu items
         f32 remaining_width = main_panel_width;
@@ -141,6 +132,7 @@ void AppUpdateAndRender() {
         }
         
 #endif  
+        char *loop_id = "panel_item_";
         for (u32 i = 0;i < dashboard_num_items; i++){
             if(item_size > remaining_width && pos_in_row !=0)
             {
@@ -154,10 +146,15 @@ void AppUpdateAndRender() {
             f32 from_start = x - nav_width;
             f32 from_end = global_os->display.width - x;
             
-            nvgBeginPath(global_vg);
-            nvgRect(global_vg, x, y, dashboard_item_width, dashboard_item_height);
-            nvgFillColor(global_vg, nvgRGBA(200, 200, 200, 255));
-            nvgFill(global_vg);
+            char id_buffer[14];
+            
+            snprintf(id_buffer, ArrayCount(id_buffer), "%s%d", loop_id, i);
+            
+            UI_SetX(x);
+            UI_SetY(y);
+            UI_Width(dashboard_item_width);
+            UI_Height(dashboard_item_height);
+            UI_Panel(id_buffer, nvgRGBA(200, 200, 200, 255));
             
             pos_in_row++;
             remaining_width -= dashboard_item_width + (2 * dashboard_item_margin); 
