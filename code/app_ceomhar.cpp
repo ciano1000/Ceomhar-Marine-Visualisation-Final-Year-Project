@@ -23,6 +23,8 @@ void AppUpdateAndRender() {
         }
         UI_EndLayout();
         
+        UI_MainPanel("main_panel", menu_item_closure, menu_item_list ));
+        
         UI_EndToEndConstraint(UI_ID, offset);
         UI_EndToStartConstraint(UI_PARENT, offset);
         UI_TopToTopConstraint(...);
@@ -154,8 +156,11 @@ void AppUpdateAndRender() {
             UI_SetY(y);
             UI_Width(dashboard_item_width);
             UI_Height(dashboard_item_height);
-            UI_Panel(id_buffer, nvgRGBA(200, 200, 200, 255));
-            
+            UI_BeginPanel(id_buffer, nvgRGBA(200, 200, 200, 255));
+            {
+                UI_DrawGraph_Test();
+            }
+            UI_EndPanel();
             pos_in_row++;
             remaining_width -= dashboard_item_width + (2 * dashboard_item_margin); 
         }

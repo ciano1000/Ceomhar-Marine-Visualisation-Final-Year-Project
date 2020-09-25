@@ -31,7 +31,7 @@ struct AppState
 struct OS_State 
 {
 	AppDisplay display;
-    
+    u64 current_time;
     // TODO(Cian): File IO function pointers
     
     platform_reserve_memory *ReserveMemory;

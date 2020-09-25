@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include <math.h>
 
 #include <windows.h>
 #include <Shellscalingapi.h>
@@ -110,6 +111,11 @@ int main(u32 argc, char **argv) {
     for(u32 i = 0; i<argc; i++) {
         printf("Command %i: %s",i,argv[i]);
     }
+    
+    LARGE_INTEGER win_perf_frequency_large;
+    QueryPerformanceFrequency(&win_perf_frequency_large);
+    u64 perf_frequency = (u64)win_perf_frequency_large.QuadPart;
+    
     HINSTANCE instance = GetModuleHandle(NULL);
     
     WNDCLASS window_class = {};
@@ -175,6 +181,13 @@ int main(u32 argc, char **argv) {
         SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
         while(Running)
         {
+            
+            LARGE_INTEGER win_perf_counter_large;
+            QueryPerformanceCounter(&win_perf_counter_large);
+            
+            u64 initial_perf_counter = (u64)win_perf_counter_large.QuadPart;
+            
+            global_os->current_time = initial_perf_counter / perf_frequency;
             //Main game loop
             MSG message; 
             Win32GetScreenInfo(window_handle, &screen_dimension);

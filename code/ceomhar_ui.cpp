@@ -42,6 +42,16 @@ INTERNAL void UI_BeginWindow(char *id) {
     PushUIParent(p_item);
 }
 
+// TODO(Cian): This is messy
+INTERNAL void UI_BeginPanel(char *id, NVGcolor color) {
+    UI_Panel(id, color);
+    PushUIParent(GetUIItem(id));
+}
+
+INTERNAL void UI_EndPanel() {
+    PopUIParent();
+}
+
 INTERNAL void VerticalLinearLayout_Test(Closure *block) {
     f32 *width = (f32*)block->args[0];
     f32 *height = (f32*)block->args[1];
@@ -585,6 +595,92 @@ INTERNAL Closure *TakeClosure() {
     code_view->size -= 1;
     
     return result;
+}
+
+INTERNAL void UI_DrawGraph_Test() {
+    
+    // NOTE(Cian): Some random samples of a Sin wave
+    NVGpaint bg;
+	f32 samples[6];
+	f32 sx[6], sy[6];
+	f32 dx = PeekUIParent().width/5.0f;
+    u32 i;
+    f32 t = (f32)global_os->current_time;
+    
+    f32 h = PeekUIParent().height;
+    f32 x = PeekUIParent().x0;
+    f32 y = PeekUIParent().y0;
+    f32 w = PeekUIParent().width;
+    
+	samples[0] = (1+sinf(t*1.2345f+cosf(t*0.33457f)*0.44f))*0.5f;
+	samples[1] = (1+sinf(t*0.68363f+cosf(t*1.3f)*1.55f))*0.5f;
+	samples[2] = (1+sinf(t*1.1642f+cosf(t*0.33457f)*1.24f))*0.5f;
+	samples[3] = (1+sinf(t*0.56345f+cosf(t*1.63f)*0.14f))*0.5f;
+	samples[4] = (1+sinf(t*1.6245f+cosf(t*0.254f)*0.3f))*0.5f;
+	samples[5] = (1+sinf(t*0.345f+cosf(t*0.03f)*0.6f))*0.5f;
+    
+	for (i = 0; i < 6; i++) {
+		sx[i] = PeekUIParent().x0+i*dx;
+		sy[i] = PeekUIParent().y0+PeekUIParent().height*samples[i]*0.8f;
+	}
+    
+#if 0
+	// Graph background
+	bg = nvgLinearGradient(global_vg, x,y,x,y+h, nvgRGBA(0,160,192,0), nvgRGBA(0,160,192,64));
+	nvgBeginPath(global_vg);
+	nvgMoveTo(global_vg, sx[0], sy[0]);
+	for (i = 1; i < 6; i++)
+		nvgBezierTo(global_vg, sx[i-1]+dx*0.5f,sy[i-1], sx[i]-dx*0.5f,sy[i], sx[i],sy[i]);
+	nvgLineTo(global_vg, x+w, y+h);
+	nvgLineTo(global_vg, x, y+h);
+	nvgFillPaint(global_vg, bg);
+	nvgFill(global_vg);
+#endif
+    
+#if 0
+	// Graph line
+	nvgBeginPath(global_vg);
+	nvgMoveTo(global_vg, sx[0], sy[0]+2);
+	for (i = 1; i < 6; i++)
+		nvgBezierTo(global_vg, sx[i-1],sy[i-1], sx[i],sy[i], sx[i],sy[i]);
+	nvgStrokeColor(global_vg, nvgRGBA(0,0,0,32));
+	nvgStrokeWidth(global_vg, 3.0f);
+	nvgStroke(global_vg);
+#endif
+    
+	nvgBeginPath(global_vg);
+	nvgMoveTo(global_vg, sx[0], sy[0]);
+	for (i = 1; i < 6; i++)
+		nvgBezierTo(global_vg, sx[i-1]+dx*0.5f,sy[i-1], sx[i]-dx*0.5f,sy[i], sx[i],sy[i]);
+	nvgStrokeColor(global_vg, nvgRGBA(0,160,192,255));
+	nvgStrokeWidth(global_vg, 3.0f);
+	nvgStroke(global_vg);
+    
+	// Graph sample pos
+    
+#if 1
+	for (i = 0; i < 6; i++) {
+		bg = nvgRadialGradient(global_vg, sx[i],sy[i]+2, 3.0f,8.0f, nvgRGBA(0,0,0,32), nvgRGBA(0,0,0,0));
+		nvgBeginPath(global_vg);
+		nvgRect(global_vg, sx[i]-10, sy[i]-10+2, 20,20);
+		nvgFillPaint(global_vg, bg);
+		nvgFill(global_vg);
+	}
+#endif
+    
+	nvgBeginPath(global_vg);
+	for (i = 0; i < 6; i++)
+		nvgCircle(global_vg, sx[i], sy[i], 4.0f);
+	nvgFillColor(global_vg, nvgRGBA(0,160,192,255));
+	nvgFill(global_vg);
+	nvgBeginPath(global_vg);
+	for (i = 0; i < 6; i++)
+		nvgCircle(global_vg, sx[i], sy[i], 2.0f);
+	nvgFillColor(global_vg, nvgRGBA(220,220,220,255));
+	nvgFill(global_vg);
+    
+	nvgStrokeWidth(global_vg, 1.0f);
+    
 }
 
 #if 0
