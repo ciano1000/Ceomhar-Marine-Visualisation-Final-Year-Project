@@ -1,9 +1,11 @@
-#if 0
+#pragma warning(push)
+#pragma warning(disable: 4505)
+
+
 INTERNAL f32 PixelsToDIP(float pixels) {
     // TODO(Cian): Fix rendering so that rounding isn't necessary
     return F32_ROUND(pixels / (global_os->display.dpi / UI_DEFAULT_DENSITY));
 }
-#endif
 
 INTERNAL f32 DIPToPixels(float dp) {
     return F32_ROUND (dp  * (global_os->display.dpi / UI_DEFAULT_DENSITY));
@@ -52,61 +54,6 @@ INTERNAL void UI_EndPanel() {
     PopUIParent();
 }
 
-INTERNAL void VerticalLinearLayout_Test(Closure *block) {
-    f32 *width = (f32*)block->args[0];
-    f32 *height = (f32*)block->args[1];
-    f32 *margin = (f32*)block->args[2];
-    
-    u32 num_items = PeekUIParent().code_view.size;
-    f32 curr_y = PeekUIParent().y0;
-    
-    
-    Closure *p_current = TakeClosure();
-    ui_state->current = {};
-    while(p_current) {
-        if(p_current) {
-            // TODO(Cian): Dynamically create id's for elements based on menu id
-            UI_Height(*height);
-            UI_Width(*width);
-            UI_SetY(curr_y);
-            UI_StartToStartConstraint(PeekUIParent().id,0);
-            p_current->call(p_current);
-            
-            curr_y += *height + *margin;
-            p_current = TakeClosure();
-            ui_state->current = {};
-        }
-    }
-}
-
-INTERNAL void UI_BeginNavMenu(char *id, u32 orientation, f32 width, f32 height, f32 margin) {
-    // TODO(Cian): Add more options for defining sizing(e.g 3 per row/column), margins(for left/top/right/bottom), making every n item x times bigger/smaller 
-    UI_Item *menu = &ui_state->current;
-    
-    menu->id = id;
-    
-    b32 all_set = UI_DoLayout(menu);
-    // TODO(Cian): not sure if deferring layout of menu itself will work so asserting for now
-    assert(all_set);
-    f32 *heap_width =  (f32*)Memory_ArenaPush(&global_os->frame_arena, sizeof(f32));
-    *heap_width = DIPToPixels(width); 
-    f32 *heap_height =  (f32*)Memory_ArenaPush(&global_os->frame_arena, sizeof(f32));
-    *heap_height = DIPToPixels(height); 
-    f32 *heap_margin =  (f32*)Memory_ArenaPush(&global_os->frame_arena, sizeof(f32));
-    *heap_margin = DIPToPixels(margin);; 
-    
-    Closure menu_closure = {};
-    menu_closure.call = &VerticalLinearLayout_Test;
-    menu_closure.args[0] = (void*)heap_width;
-    menu_closure.args[1] = (void*)heap_height;
-    menu_closure.args[2] = (void*)heap_margin;
-    menu = AddUIItem(id, *menu);
-    PushUIParent(menu);
-    QueueClosure(menu_closure);
-    
-}
-
-
 INTERNAL void UI_EndWindow() {
     PopUIParent();
     ui_state->current = {};
@@ -128,15 +75,8 @@ INTERNAL void UI_EndLayout() {
     PopUIParent();
 }
 
-#if 0 
-INTERNAL b32 UI_IsAllFlagsSet(u32 flags) {
-    // NOTE(Cian): This method determines whether enough layout info exists to do auto layout
-    // TODO(Cian): Do this method
-    return TRUE;
-}
-#endif
-
 INTERNAL void UI_StartToStartConstraint(char *id, f32 offset) {
+    
     UI_Item *relative = GetUIItem(id);
     
     assert(relative);
@@ -163,8 +103,7 @@ INTERNAL void UI_EndToEndConstraint(char *id, f32 offset) {
     ui_state->current.layout_flags = ui_state->current.layout_flags | UI_X1_SET;
 }
 
-#if 0
-INTERNAL void UI_EndToStartConstraint(const char *id, f32 offset) {
+INTERNAL void UI_EndToStartConstraint(char *id, f32 offset) {
     UI_Item *relative = GetUIItem(id);
     
     assert(relative);
@@ -172,7 +111,7 @@ INTERNAL void UI_EndToStartConstraint(const char *id, f32 offset) {
     ui_state->current.x1 = relative->x0 - offset;
     ui_state->current.layout_flags = ui_state->current.layout_flags | UI_X1_SET;
 }
-#endif
+
 INTERNAL void UI_BottomToBottomConstraint(char *id, f32 offset) {
     UI_Item *relative = GetUIItem(id);
     
@@ -198,26 +137,20 @@ INTERNAL void UI_Width(f32 width) {
     ui_state->current.layout_flags = ui_state->current.layout_flags | UI_WIDTH_SET;
 }
 
-#if 0
 INTERNAL void UI_FillWidth(f32 offset) {
     ui_state->current.width = PeekUIParent().width - offset;
     ui_state->current.layout_flags = ui_state->current.layout_flags | UI_WIDTH_SET;
 }
-#endif
-
 
 INTERNAL void UI_Height(f32 height) {
     ui_state->current.height = DIPToPixels(height);
     ui_state->current.layout_flags = ui_state->current.layout_flags | UI_HEIGHT_SET;
 }
 
-#if 0
 INTERNAL void UI_FillHeight(f32 offset) {
     ui_state->current.height = PeekUIParent().height -offset;
     ui_state->current.layout_flags = ui_state->current.layout_flags | UI_HEIGHT_SET;
 }
-#endif
-
 
 INTERNAL void UI_SetY(f32 y) {
     
@@ -246,7 +179,6 @@ INTERNAL void UI_MinHeight(f32 min) {
     }
 }
 
-#if 0
 INTERNAL void UI_MaxHeight(f32 max) {
     
     u32 i;
@@ -287,9 +219,6 @@ INTERNAL void UI_MaxWidth(f32 max) {
         }
     }
 }
-
-
-#endif
 
 INTERNAL b32 UI_DoLayout(UI_Item *current) {
     b32 all_set = TRUE;
@@ -377,6 +306,61 @@ INTERNAL b32 UI_DoLayout(UI_Item *current) {
     return all_set;
     
 }
+// NOTE(Cian): this is all being redone
+INTERNAL void UI_Button(char *id, NVGcolor color) {
+    // TODO(Cian): UI Element should check it's parent type to see if it should handle it's layout or it's parent should
+    
+    UI_Item *current = &ui_state->current;
+    current->id = id;
+    
+    b32 all_set = UI_DoLayout(current);
+    
+    // TODO(Cian): Add Min/Max functions for width and height values that get applied here
+    // TODO(Cian): Here is where we will check for unfinished constraints in the buffer and register closures that will be attempted later when necessary info is potentially available.
+    assert(all_set);
+    
+    NVGcolor curr_color = color;
+    f32 mx = global_os->mouse_pos.x;
+    f32 my = global_os->mouse_pos.y;
+    
+    f32 px0 = ui_state->current.x0;
+    f32 px1 = ui_state->current.x1;
+    f32 py0 = ui_state->current.y0;
+    f32 py1 = ui_state->current.y1;
+    if(mx > px0 && mx < px1 && my > py0 && my < py1) {
+        curr_color = nvgRGBA(255,255,255,255);
+    }
+    AddUIItem(id, ui_state->current);
+    
+    nvgBeginPath(global_vg);
+    nvgRect(global_vg,  ui_state->current.x0, ui_state->current.y0, ui_state->current.width, ui_state->current.height);
+    nvgFillColor(global_vg, curr_color);
+    nvgFill(global_vg);
+    
+    // TODO(Cian): reset ui_state stuff
+    ui_state->current = {};
+}
+INTERNAL void UI_Button(Closure *block) {
+    char *id = (char *)block->args[0];
+    NVGcolor *color = (NVGcolor*)block->args[1];
+    
+    UI_Button(id, *color);
+}
+
+INTERNAL void UI_ButtonClosure(char *id, NVGcolor color) {
+    char *heap_id = (char *)Memory_ArenaPush(&global_os->frame_arena, sizeof(char) * strlen(id));
+    strcpy(heap_id, id);
+    
+    NVGcolor *heap_color = (NVGcolor*)Memory_ArenaPush(&global_os->frame_arena, sizeof(NVGcolor));
+    *heap_color = color;
+    
+    Closure closure = {};
+    closure.args[0] = (void*)id;
+    closure.args[1] = (void*)heap_color;
+    closure.call = &UI_Button;
+    
+    QueueClosure(closure);
+}
 INTERNAL void UI_Panel(char *id, NVGcolor color) {
     // TODO(Cian): UI Element should check it's parent type to see if it should handle it's layout or it's parent should
     
@@ -389,17 +373,18 @@ INTERNAL void UI_Panel(char *id, NVGcolor color) {
     // TODO(Cian): Here is where we will check for unfinished constraints in the buffer and register closures that will be attempted later when necessary info is potentially available.
     assert(all_set);
     
+    NVGcolor curr_color = color;
+    
     AddUIItem(id, ui_state->current);
     
     nvgBeginPath(global_vg);
     nvgRect(global_vg,  ui_state->current.x0, ui_state->current.y0, ui_state->current.width, ui_state->current.height);
-    nvgFillColor(global_vg, color);
+    nvgFillColor(global_vg, curr_color);
     nvgFill(global_vg);
     
     // TODO(Cian): reset ui_state stuff
     ui_state->current = {};
 }
-
 
 INTERNAL void UI_Panel(Closure *block) {
     char *id = (char *)block->args[0];
@@ -426,78 +411,38 @@ INTERNAL void UI_PanelClosure(char *id, NVGcolor color) {
 INTERNAL void UI_Text(char *id, char *text, f32 font_size, NVGcolor color) {
     // TODO(Cian): Need to work out text wrapping and text spanning multiple rows
     
+    // TODO(Cian): Move font size into the ui_state and set like the other layout params
     font_size = DIPToPixels(font_size);
     
     UI_Item *current = &ui_state->current;
     current->id = id;
+    
     UI_Height(font_size);
-    UI_Width(0); // NOTE(Cian): Bit of a hack but needed due to how nanovg calculates text sizing
+    nvgFontSize(global_vg, current->height);
+    nvgTextAlign(global_vg, NVG_ALIGN_LEFT|NVG_ALIGN_MIDDLE);
+    f32 width = nvgTextBounds(global_vg, 0, 0,text,NULL, NULL);
+    
+    UI_Width(width); 
     b32 all_set = UI_DoLayout(current);
     
-    if(!all_set) {
-        char *heap_id = (char *)Memory_ArenaPush(&global_os->frame_arena, strlen(id) * sizeof(char));
-        char *heap_text = (char *)Memory_ArenaPush(&global_os->frame_arena, strlen(text) * sizeof(char));
-        f32 *heap_font_size = (f32 *)Memory_ArenaPush(&global_os->frame_arena, sizeof(f32));
-        NVGcolor *heap_color = (NVGcolor *)Memory_ArenaPush(&global_os->frame_arena, sizeof(NVGcolor));
-        // TODO(Cian): Pull layout stuff into it's own struct later, this is currently a bit wasteful lol
-        UI_Item *heap_item = (UI_Item*)Memory_ArenaPush(&global_os->frame_arena, sizeof(UI_Item));
-        
-        strcpy(heap_id, id);
-        strcpy(heap_text, text);
-        *heap_font_size = font_size;
-        *heap_color = color;
-        *heap_item = ui_state->current;
-        
-        Closure closure = {};
-        closure.call = &UI_Text_Closure;;
-        closure.args[0] = (void *)heap_id;
-        closure.args[1] = (void *)heap_text;
-        closure.args[2] = (void *)heap_font_size;
-        closure.args[3] = (void *)heap_color;
-        closure.args[4] = (void *)heap_item;
-        
-        QueueClosure(closure);
-        ui_state->current = {};
-        
-        return;
-    }
+    assert(all_set);
     
-    
-    nvgFontSize(global_vg, current->height);
     nvgFontFace(global_vg, "roboto-bold");
-    // NOTE(Cian): Aligning to the left/right means that the left/right (e.g beginning of text/ end of text) is positioned at the given coordinates
-    nvgTextAlign(global_vg, NVG_ALIGN_LEFT|NVG_ALIGN_MIDDLE);
     nvgFillColor(global_vg, color);
-    f32 title_end_x = nvgText(global_vg, current->x0, current->y0, text, NULL);
-    current->width = title_end_x - current->x0;
-    current->x1 =  title_end_x;
+    nvgText(global_vg,current->x0, current->y0, text, NULL);
     
     AddUIItem(id, ui_state->current);
     ui_state->current = {};
 }
 
-INTERNAL void UI_Text_Closure(Closure *block) {
-    char *id = (char *)block->args[0];
-    char *text = (char *)block->args[1];
-    f32 *text_size = (f32 *)block->args[2];
-    NVGcolor *color = (NVGcolor *)block->args[3];
-    UI_Item *item = (UI_Item*)block->args[4];
-    UI_Item *current = &ui_state->current;
-    
-    current->layout_flags = current->layout_flags | item->layout_flags;
-    memcpy(current->constraints_list, item->constraints_list, ArrayCount(item->constraints_list) * sizeof(u32));
-    current->width += item->width;
-    current->height += item->height;
-    current->x0 += item->x0;
-    current->x1 += item->x1;
-    current->y0 += item->y0;
-    current->y1 += item->y1;
-    UI_Text(id, text, *text_size, *color);
-}
-
-
-
 INTERNAL UI_Item *GetUIItem(char *key) {
+    // NOTE(Cian): If the key is a parent escape sequence, simply return the current parent
+    // TODO(Cian): Change to custom String library when done
+    if(*key == UI_ID_ESCAPE) {
+        if(*(key +1) == UI_PARENT)
+            return ViewUIParent();
+    }
+    
     u32 hash_value = StringToCRC32(key);
     u32 hash_index = hash_value & (UI_HASH_SIZE - 1);
     
@@ -526,8 +471,11 @@ INTERNAL UI_Item *AddUIItem(char *key, UI_Item item) {
     UI_Item *p_item = ui_state->ui_items_hash[hash_index];
     
     if(p_item == NULL) {
+        // TODO(Cian): All this memory copying is messy, keep note for UI rewrite
         p_item = (UI_Item *)Memory_ArenaPush(&global_os->frame_arena, sizeof(UI_Item)); 
         *p_item = item;
+        p_item->id = (char*)Memory_ArenaPush(&global_os->frame_arena, (strlen(key)+1) * sizeof(char));
+        strcpy(p_item->id,key);
         p_item->hash_next = NULL;
         ui_state->ui_items_hash[hash_index] = p_item;
         return p_item;
@@ -547,6 +495,10 @@ INTERNAL UI_Item *AddUIItem(char *key, UI_Item item) {
     
     prev->hash_next = (UI_Item *)Memory_ArenaPush(&global_os->frame_arena, sizeof(UI_Item));
     *(prev->hash_next) = item;
+    p_item = (UI_Item *)Memory_ArenaPush(&global_os->frame_arena, sizeof(UI_Item)); 
+    *p_item = item;
+    p_item->id = (char*)Memory_ArenaPush(&global_os->frame_arena, (strlen(key)+1) * sizeof(char));
+    strcpy(p_item->id,key);
     prev->hash_next->hash_next = NULL;
     return prev->hash_next;
 }
@@ -563,7 +515,6 @@ INTERNAL UI_Item *PopUIParent() {
     return popped;
 }
 
-// TODO(Cian): Change Peek to return a pointer and fix all occurences in code
 INTERNAL UI_Item PeekUIParent() {
     UI_Item item = *(ui_state->parent);
     return item;
@@ -599,18 +550,55 @@ INTERNAL Closure *TakeClosure() {
 
 INTERNAL void UI_DrawGraph_Test() {
     
+    f32 max_y = 10;
+    f32 max_x = 50;
+    
+    f32 begin_x = PeekUIParent().x0 + 32;
+    f32 end_x = PeekUIParent().x1 - 48;
+    f32 begin_y = PeekUIParent().y0 + 16;
+    f32 end_y = PeekUIParent().y1 - 32;
+    
+    f32 width = end_x - (begin_x - 16);
+    
+    f32 tick_length = 8;
+    f32 tick_horizontal_x = begin_x - tick_length;
+    for(u32 i = 0; i < 2; ++i) {
+        nvgBeginPath(global_vg);
+        nvgRect(global_vg, tick_horizontal_x,begin_y +(i * (end_y - begin_y)/2), tick_length, 2);
+        nvgFillColor(global_vg, nvgRGBA(0,0,0,255));
+        nvgFill(global_vg);
+    }
+    
+    for(u32 i = 0; i < 2; ++i) {
+        nvgBeginPath(global_vg);
+        nvgRect(global_vg, tick_horizontal_x,begin_y +(i * (end_y - begin_y)/2), tick_length, 2);
+        nvgFillColor(global_vg, nvgRGBA(0,0,0,255));
+        nvgFill(global_vg);
+    }
+    
+    // NOTE(Cian): Vertical graph bar
+    nvgBeginPath(global_vg);
+    nvgRect(global_vg, begin_x,begin_y, 2,PeekUIParent().height - 16);
+    nvgFillColor(global_vg, nvgRGBA(0,0,0,255));
+    nvgFill(global_vg);
+    
+    nvgBeginPath(global_vg);
+    nvgRect(global_vg, begin_x - 16,end_y, PeekUIParent().width - 48, 2);
+    nvgFillColor(global_vg, nvgRGBA(0,0,0,255));
+    nvgFill(global_vg);
+    
     // NOTE(Cian): Some random samples of a Sin wave
     NVGpaint bg;
 	f32 samples[6];
 	f32 sx[6], sy[6];
-	f32 dx = PeekUIParent().width/5.0f;
+	f32 dx = width/5.0f;
     u32 i;
     f32 t = (f32)global_os->current_time;
     
-    f32 h = PeekUIParent().height;
-    f32 x = PeekUIParent().x0;
-    f32 y = PeekUIParent().y0;
-    f32 w = PeekUIParent().width;
+    f32 h = end_y - begin_y;
+    f32 x = begin_x - 16;
+    f32 y = begin_y;
+    f32 w = width;
     
 	samples[0] = (1+sinf(t*1.2345f+cosf(t*0.33457f)*0.44f))*0.5f;
 	samples[1] = (1+sinf(t*0.68363f+cosf(t*1.3f)*1.55f))*0.5f;
@@ -620,22 +608,9 @@ INTERNAL void UI_DrawGraph_Test() {
 	samples[5] = (1+sinf(t*0.345f+cosf(t*0.03f)*0.6f))*0.5f;
     
 	for (i = 0; i < 6; i++) {
-		sx[i] = PeekUIParent().x0+i*dx;
-		sy[i] = PeekUIParent().y0+PeekUIParent().height*samples[i]*0.8f;
+		sx[i] = begin_x+i*dx;
+		sy[i] = begin_y +PeekUIParent().height*samples[i]*0.8f;
 	}
-    
-#if 0
-	// Graph background
-	bg = nvgLinearGradient(global_vg, x,y,x,y+h, nvgRGBA(0,160,192,0), nvgRGBA(0,160,192,64));
-	nvgBeginPath(global_vg);
-	nvgMoveTo(global_vg, sx[0], sy[0]);
-	for (i = 1; i < 6; i++)
-		nvgBezierTo(global_vg, sx[i-1]+dx*0.5f,sy[i-1], sx[i]-dx*0.5f,sy[i], sx[i],sy[i]);
-	nvgLineTo(global_vg, x+w, y+h);
-	nvgLineTo(global_vg, x, y+h);
-	nvgFillPaint(global_vg, bg);
-	nvgFill(global_vg);
-#endif
     
 #if 0
 	// Graph line
@@ -658,7 +633,7 @@ INTERNAL void UI_DrawGraph_Test() {
     
 	// Graph sample pos
     
-#if 1
+    
 	for (i = 0; i < 6; i++) {
 		bg = nvgRadialGradient(global_vg, sx[i],sy[i]+2, 3.0f,8.0f, nvgRGBA(0,0,0,32), nvgRGBA(0,0,0,0));
 		nvgBeginPath(global_vg);
@@ -666,7 +641,6 @@ INTERNAL void UI_DrawGraph_Test() {
 		nvgFillPaint(global_vg, bg);
 		nvgFill(global_vg);
 	}
-#endif
     
 	nvgBeginPath(global_vg);
 	for (i = 0; i < 6; i++)
@@ -683,7 +657,61 @@ INTERNAL void UI_DrawGraph_Test() {
     
 }
 
-#if 0
+// TODO(Cian): Look into this again once we investigate autolayout
+
+INTERNAL void VerticalLinearLayout_Test(Closure *block) {
+    f32 *width = (f32*)block->args[0];
+    f32 *height = (f32*)block->args[1];
+    f32 *margin = (f32*)block->args[2];
+    
+    u32 num_items = PeekUIParent().code_view.size;
+    f32 curr_y = PeekUIParent().y0;
+    
+    
+    Closure *p_current = TakeClosure();
+    ui_state->current = {};
+    while(p_current) {
+        if(p_current) {
+            UI_Height(*height);
+            UI_Width(*width);
+            UI_SetY(curr_y);
+            UI_StartToStartConstraint(PeekUIParent().id,0);
+            p_current->call(p_current);
+            
+            curr_y += *height + *margin;
+            p_current = TakeClosure();
+            ui_state->current = {};
+        }
+    }
+}
+
+INTERNAL void UI_BeginNavMenu(char *id, u32 orientation, f32 width, f32 height, f32 margin) {
+    UI_Item *menu = &ui_state->current;
+    
+    menu->id = id;
+    
+    b32 all_set = UI_DoLayout(menu);
+    assert(all_set);
+    f32 *heap_width =  (f32*)Memory_ArenaPush(&global_os->frame_arena, sizeof(f32));
+    *heap_width = DIPToPixels(width); 
+    f32 *heap_height =  (f32*)Memory_ArenaPush(&global_os->frame_arena, sizeof(f32));
+    *heap_height = DIPToPixels(height); 
+    f32 *heap_margin =  (f32*)Memory_ArenaPush(&global_os->frame_arena, sizeof(f32));
+    *heap_margin = DIPToPixels(margin);; 
+    
+    Closure menu_closure = {};
+    menu_closure.call = &VerticalLinearLayout_Test;
+    menu_closure.args[0] = (void*)heap_width;
+    menu_closure.args[1] = (void*)heap_height;
+    menu_closure.args[2] = (void*)heap_margin;
+    menu = AddUIItem(id, *menu);
+    PushUIParent(menu);
+    QueueClosure(menu_closure);
+    
+}
+
+
+
 // TODO(Cian): Once we get a unit test system in place add this to it
 INTERNAL void TestUIHash() {
     char *generated_strings[256];
@@ -706,4 +734,4 @@ INTERNAL void TestUIHash() {
         
     }
 }
-#endif
+#pragma warning(pop)

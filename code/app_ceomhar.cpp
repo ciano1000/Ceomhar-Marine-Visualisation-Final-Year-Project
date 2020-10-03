@@ -12,23 +12,31 @@ void AppUpdateAndRender() {
     // NOTE(Cian): Trying out UI stuff
 #if 0
     {
-        UI_BeginWindow(LAYOUT_TYPE); // sets up viewport, clears screen,
-        UI_StartToStartConstraint(UI_PARENT, 0);
+        UI_Begin(); // sets up viewport, clears screen,
+        // NOTE(Cian): UI_PARENT is a macro that resolves to some special value e.g -1 that marks this id to point to whatever parent is in context
+        UI_StartToStartConstraint(UI_PARENT, 16);
         UI_Width(30);
+        UI_TopToTopConstraint(UI_PARENT, 16);
         // NOTE(Cian): BeginNavMenu pushes a closure, this closure will be called at UI_End, this closure will loop through the closures created in the block below and perform layout on them based on commands called here before UI_BeginNavMenu
-        UI_BeginNavMenu("nav_menu",UI_VERTICAL, padding, margin);
+        UI_BeginLinearLayout("nav_menu",UI_VERTICAL, padding, margin);
         {
-            PushClosure(UI_ImageButton("Home"));
-            PushClosure(UI_ImageButton("Dashboards"));
+            UI_ImageButton("Home", UI_OpenHomeClosure());
+            UI_ImageButton("Dashboards", UI_OpenDashboardClosure());
+            UI_ImageButton("Data", UI_OpenDataClosure());
         }
         UI_EndLayout();
         
-        UI_MainPanel("main_panel", menu_item_closure, menu_item_list ));
+        UI_CenterX(0);
+        UI_CenterY(0);
+        UI_WrapContent();
+        UI_Text("Some Title##title_id", 32, nvgRGBA(23,243,12,233)); 
+        
+        UI_Workspace("main_panel", menu_item_closure, menu_item_list));
         
         UI_EndToEndConstraint(UI_ID, offset);
         UI_EndToStartConstraint(UI_PARENT, offset);
         UI_TopToTopConstraint(...);
-        UI_CenterXConstraint(offset);
+        UI_CenterX(offset);
         //etc.. Once a ui element is created the state resets the constraints
         UI_Panel(x, y, width, height);
         //when using constraints for those axes, x & y will offset those constraints
@@ -66,28 +74,39 @@ void AppUpdateAndRender() {
         f32 dashboard_item_margin = DIPToPixels(20);
         u32 dashboard_num_items = 4;
         
+        // TODO(Cian): Instead of constantly looking up the same id, is there a better way?
         UI_BeginWindow("main_window");
-        // TODO(Cian): better way of getting parent instead of looking up twice?
-        UI_StartToStartConstraint(PeekUIParent().id,0);
+        
+        UI_StartToStartConstraint("@p",0);
         UI_Width(60);
-        //UI_Height((f32)PeekUIParent.height);
-        UI_BottomToBottomConstraint(PeekUIParent().id, 0);
-        UI_TopToTopConstraint(PeekUIParent().id, 0);
+        UI_BottomToBottomConstraint("@p", 0);
+        UI_TopToTopConstraint("@p", 0);
         UI_Panel("nav_bar", nvgRGBA(40,40,40,255));
         
+        u32 choice = 0;
+        char *menu_labels[] = {
+            "Home","Dashboards","Widgets"
+        };
         
-        UI_BeginWindow("main_window");
-        UI_StartToStartConstraint(PeekUIParent().id,0);
-        UI_Width(60);
-        UI_BottomToBottomConstraint(PeekUIParent().id, 0);
-        UI_TopToTopConstraint(PeekUIParent().id, 0);
-        UI_BeginNavMenu("nav_menu", UI_VERTICAL, 60, 60, 10);
-        {
-            UI_PanelClosure("nav_1", nvgRGBA(89, 222, 195, 200));
-            UI_PanelClosure("nav_2", nvgRGBA(89, 222, 195, 200));
-            UI_PanelClosure("nav_3", nvgRGBA(89, 222, 195, 200));
+        // TODO(Cian): Having to do this id trick makes a case for having menu items be managed by another widget
+        char constraint_id[8];
+        strcpy(constraint_id, "@p");
+        for(u32 i = 0; i < ArrayCount(menu_labels); ++i) {
+            char *id_base = "test_%d";
+            char id_buffer[8];
+            snprintf(id_buffer,8,id_base, i);
+            
+            // TODO(Cian): This is a case where centering would be nice (-:
+            // TODO(Cian): Font size and width should be separate, should have commands like UI_FontSize(14), UI_FitContent(), UI_WrapContent
+            UI_StartToStartConstraint("@p",0);
+            UI_Width(60);
+            UI_Height(60);
+            UI_SetY((f32)i*60);
+            UI_Button(id_buffer,nvgRGBA(0,255,255,255));
+            
+            strcpy(constraint_id, id_buffer);
         }
-        UI_EndLayout();
+        
         //main panel
         UI_StartToEndConstraint("nav_bar",0);
         UI_EndToEndConstraint(PeekUIParent().id,0);
@@ -164,6 +183,8 @@ void AppUpdateAndRender() {
             pos_in_row++;
             remaining_width -= dashboard_item_width + (2 * dashboard_item_margin); 
         }
+        
+        
 #if 0
         // NOTE(Cian): NanoVG sample from Github, draws a RECT with a circle cut out
         {

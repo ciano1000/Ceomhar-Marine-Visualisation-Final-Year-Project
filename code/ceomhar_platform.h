@@ -20,10 +20,6 @@ struct AppDisplay
     f32 pixel_ratio;
 };
 
-struct AppState 
-{
-};
-
 // TODO(Cian): Look at pulling this out to an os.h file later
 /** NOTE(Cian): This struct should contain all OS specific info that the app layer needs
 *   e.g fps, fullscreen, input, exe folder as well as OS functions for RW files, memory management etc
@@ -33,6 +29,8 @@ struct OS_State
 	AppDisplay display;
     u64 current_time;
     // TODO(Cian): File IO function pointers
+    
+    V2 mouse_pos;
     
     platform_reserve_memory *ReserveMemory;
     platform_commit_memory *CommitMemory;

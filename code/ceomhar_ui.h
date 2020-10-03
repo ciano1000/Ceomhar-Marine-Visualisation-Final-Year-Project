@@ -1,6 +1,7 @@
 #define UI_DEFAULT_DENSITY 96.00f
-#define UI_PARENT (ui_state->parent.id)
 #define UI_HASH_SIZE 256
+#define UI_ID_ESCAPE '@'
+#define UI_PARENT 'p'
 
 // TODO(Cian): Pull this out into it's DataDesk generated ceomhar_closure.h
 #define MAX_CLOSURE_ARGS 16
@@ -70,6 +71,7 @@ struct CodeView {
     u32 front, rear, size;
 };
 
+// TODO(Cian): UI state and other stuff needs to be moved into a "core" megastruct
 struct UI_Item {
     char *id;
     u32 layout_flags;
@@ -81,7 +83,7 @@ struct UI_Item {
     f32 y0;
     f32 x1;
     f32 y1;
-    // TODO(Cian): Placing this here for now so I don't have to make another set of stack methods, once I get DataDesk setup move this as a stack in UI_State
+    // TODO(Cian): This is redundant, in future we'll probably move to a deferred ui system
     CodeView code_view;
     UI_Item *hash_next;
     UI_Item *stack_next;
@@ -152,6 +154,7 @@ INTERNAL void RemoveUIItem(char *key);
 // NOTE(Cian): UI Parent Stack Methods - Used for keeping track of current parent
 INTERNAL void PushUIParent(UI_Item *parent);
 INTERNAL UI_Item *PopUIParent();
+INTERNAL UI_Item *ViewUIParent();
 INTERNAL UI_Item PeekUIParent();
 
 // NOTE(Cian): UI closure queue methods to defer things

@@ -11,6 +11,7 @@
 #include "win32_gl_init.cpp"
 #include "win32_ceomhar.h"
 
+#include "ceomhar_math.h"
 #include "ceomhar_memory.h"
 #include "ceomhar_platform.h"
 
@@ -21,6 +22,7 @@
 
 GLOBAL NVGcontext *global_vg = {};
 GLOBAL OS_State *global_os = {};
+
 #include "ceomhar_string.h"
 #include "ceomhar_string.cpp"
 #include "ceomhar_ui.h"
@@ -95,6 +97,17 @@ LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LP
         case WM_CLOSE:
         {
             Running = false;
+        }
+        break;
+        case WM_MOUSEMOVE:
+        {
+            u16 x = LOWORD(l_param);
+            u16 y = HIWORD(l_param);
+            POINT mouse_pos;
+            GetCursorPos(&mouse_pos);
+            ScreenToClient(window_handle, &mouse_pos);
+            V2 pos = {(f32)mouse_pos.x, (f32)mouse_pos.y};
+            global_os->mouse_pos = pos;
         }
         break;
         default:
