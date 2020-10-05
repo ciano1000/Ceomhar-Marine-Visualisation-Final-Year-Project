@@ -1,4 +1,5 @@
-
+#pragma warning(push)
+#pragma warning(disable: 4505)
 INTERNAL MemoryArena Memory_ArenaInitialise() {
     MemoryArena arena = {};
     arena.max = MEMORY_ARENA_MAX;
@@ -37,3 +38,4 @@ INTERNAL void Memory_ArenaClear(MemoryArena *arena) {
 INTERNAL void Memory_ArenaRelease(MemoryArena *arena) { 
     global_os->ReleaseMemory(arena->base, arena->commit_pos);
 }
+#pragma warning(pop)
