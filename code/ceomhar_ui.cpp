@@ -12,104 +12,122 @@ INTERNAL f32 DIPToPixels(float dp) {
 }
 
 INTERNAL void UI_Begin() {
-    V2 pos = {
-        0,0
-    };
-    V2 size = {
-        global_os->display.width,
-        global_os->display.height
-    };
-    
-    PushPos(pos);
-    PushSize(size);
-    PushLayout(UI_FLOW_LAYOUT);
+    ui_state->auto_layout_state.pos = {0,0};
+    ui_state->auto_layout_state.size = {0,0};;
+    ui_state->auto_layout_state.size_remaining = {(f32)global_os->display.width,
+        (f32)global_os->display.height};
 }
 
 INTERNAL void UI_End() {
     // NOTE(Cian): Loop through everything, calculate layout and then process input
+    *ui_state = {};
 }
 
 INTERNAL void UI_PushRow() {
-    f32 init_width = 0;
     
-    if(ui_state->AutoLayoutState.fill_width == TRUE){
-        init_width = ui_state->AutoLayoutState.width;
-    } else {
-        ui_state->AutoLayoutState.auto_width = TRUE;
-    }
-    
-    V2 init_size = {
-        init_width,
-        0
-    };
-    UI_PushPos(ui_state->AutoLayoutState.pos);
-    UI_PushLayout(FALSE);
-    UI_PushSize(init_size);
+    UI_PushPos(ui_state->auto_layout_state.pos);
+    UI_PushGroupMode(FALSE);
+    UI_PushWidth(ui_state->auto_layout_state.size.width);
+    UI_PushHeightAuto();
 }
 
 INTERNAL void UI_PushRow(V2 size) {
-    UI_PushPos(ui_state->AutoLayoutState.pos);
-    UI_PushLayout(UI_ROW);
+    UI_PushPos(ui_state->auto_layout_state.pos);
+    UI_PushGroupMode(FALSE);
+    UI_PushSize(size);
+}
+
+INTERNAL void UI_PushRow(V2 pos, V2 size) {
+    UI_PushPos(pos);
+    UI_PushGroupMode(FALSE);
     UI_PushSize(size);
 }
 
 INTERNAL void UI_PopRow() {
     // NOTE(Cian): At this point we now know the height of the row, loop through child layouts and adjust accordingly
     //Loop through Widgets in the current context and adjust their heights if the CurrLayout contains UI_AUTO
-    V2 widgets_indices = GetChildIndices();
+    u32 start = ui_state->auto_layout_state.start;
+    u32 end = ui_state->auto_layout_state.end;
     
-    for(u32 i = widgets_indices.start; i < widgets_indices.end; ++i) {
+    for(u32 i = start; i < end; ++i) {
         
     }
+    
+    UI_PopWidgetIndices();
 }
 
-INTERNAL void UI_PushPanel() {
+INTERNAL void UI_PushPanel(V2 padding) {
+    UI_PushRow();
+    UI_PushPadding(padding);
+}
+
+INTERNAL void UI_PushPanel(char *title, V2 padding) {
     
 }
 
-INTERNAL void PushX(f32 x) {
-    assert(ui_state->x_pos_size < UI_STACK_MAX);
+INTERNAL void UI_PopPanel() {
+    // NOTE(Cian):  If auto_height/auto_width, each widget will calculate it's required height, if smaller than current height it will extend to match, if larger it will add to the global height. If not auto_height/auto_width, the widget will simply match the given dimensions
+    u32 start = ui_state->auto_layout_state.start;
+    u32 end = ui_state->auto_layout_state.end;
+    
+    for(u32 i = start; i < end; ++i) {
+        
+    }
+    UI_PopRow();
+    UI_PopPadding();
+    
+    // NOTE(Cian): Down here, update the current autolayout values with our panels final width, height whatever
+}
+
+INTERNAL void UI_PushButton(Closure closure, char *label) {
+    // NOTE(Cian): 
+}
+
+INTERNAL void UI_PushX(f32 x) {
+    assert(ui_state->x_pos_size < UI_MAX_STACK);
     ui_state->x_pos_stack[ui_state->x_pos_size++].x = ui_state->auto_layout_state.pos.x;
     ui_state->auto_layout_state.pos.x += x;
 }
 
-INTERNAL void PopX() {
+INTERNAL void UI_PopX() {
     assert(ui_state->x_pos_size > 0);
     --ui_state->x_pos_size;
     ui_state->auto_layout_state.pos.x = ui_state->x_pos_stack[ui_state->x_pos_size].x;
 }
 
-INTERNAL void PushY(f32 y) {
-    assert(ui_state->y_pos_size < UI_STACK_MAX);
+INTERNAL void UI_PushY(f32 y) {
+    assert(ui_state->y_pos_size < UI_MAX_STACK);
     ui_state->y_pos_stack[ui_state->y_pos_size++].y = ui_state->auto_layout_state.pos.y;;
     ui_state->auto_layout_state.pos.y += y;
 }
 
-INTERNAL void PopX() {
+INTERNAL void UI_PopY() {
     assert(ui_state->y_pos_size > 0);
     --ui_state->y_pos_size;
     ui_state->auto_layout_state.pos.y = ui_state->y_pos_stack[ui_state->y_pos_size].y;
 }
 
-INTERNAL void PushWidth(f32 width, b32 auto) {
-    assert(ui_state->width_size < UI_STACK_MAX);
+INTERNAL void UI_PushWidth(f32 width, b32 auto_width) {
+    assert(ui_state->width_size < UI_MAX_STACK);
     ui_state->width_stack[ui_state->width_size].width = ui_state->auto_layout_state.size.width;
     ui_state->width_stack[ui_state->width_size].auto_width = ui_state->auto_layout_state.auto_width;
     ui_state->width_stack[ui_state->width_size].width_remaining = ui_state->auto_layout_state.size_remaining.width;
+    ui_state->width_size++;
+    
     ui_state->auto_layout_state.size.width = width;
-    ui_state->auto_layout_state.auto_width = auto;
+    ui_state->auto_layout_state.auto_width = auto_width;
     ui_state->auto_layout_state.size_remaining.width = width;
 }
 
-INTERNAL void PushWidth(f32 width) {
-    PushWidth(width, FALSE);
+INTERNAL void UI_PushWidth(f32 width) {
+    UI_PushWidth(width, FALSE);
 }
 
-INTERNAL void PushWidthAuto() {
-    PushWidth(0, TRUE);
+INTERNAL void UI_PushWidthAuto() {
+    UI_PushWidth(0, TRUE);
 }
 
-INTERNAL void PopWidth() {
+INTERNAL void UI_PopWidth() {
     assert(ui_state->x_pos_size > 0);
     --ui_state->x_pos_size;
     ui_state->auto_layout_state.size.width = ui_state->width_stack[ui_state->width_size].width;
@@ -117,61 +135,94 @@ INTERNAL void PopWidth() {
     ui_state->auto_layout_state.size_remaining.width = ui_state->width_stack[ui_state->width_size].width_remaining;
 }
 
-INTERNAL void PushHeight(f32 height, b32 auto) {
-    assert(ui_state->height_size < UI_STACK_MAX);
+INTERNAL void UI_PushHeight(f32 height, b32 auto_height) {
+    assert(ui_state->height_size < UI_MAX_STACK);
     ui_state->height_stack[ui_state->height_size].height = ui_state->auto_layout_state.size.height;
-    ui_state->height_stack[ui_state->height_size].auto_height = ui_state->auto_layout_state.size.auto_height;
+    ui_state->height_stack[ui_state->height_size].auto_height = ui_state->auto_layout_state.auto_height;
     ui_state->height_stack[ui_state->height_size].height_remaining = ui_state->auto_layout_state.size_remaining.height;
+    ui_state->height_size++;
+    
     ui_state->auto_layout_state.size.height = height;
-    ui_state->auto_layout_state.size.auto_height = auto;
+    ui_state->auto_layout_state.auto_height = auto_height;
     ui_state->auto_layout_state.size_remaining.height = height;
 }
 
-INTERNAL void PushHeight(f32 height) {
-    PushWidth(height, FALSE);
+INTERNAL void UI_PushHeight(f32 height) {
+    UI_PushHeight(height, FALSE);
 }
 
-INTERNAL void PushHeightAuto() {
-    PushHeight(0, TRUE);
+INTERNAL void UI_PushHeightAuto() {
+    UI_PushHeight(0, TRUE);
 }
 
-INTERNAL void PopHeight() {
+INTERNAL void UI_PopHeight() {
     assert(ui_state->x_pos_size > 0);
     --ui_state->x_pos_size;
     ui_state->auto_layout_state.size.height = ui_state->height_stack[ui_state->height_size].height;
-    ui_state->auto_layout_state.size.auto_height = ui_state->height_stack[ui_state->height_size].auto_height;
+    ui_state->auto_layout_state.auto_height = ui_state->height_stack[ui_state->height_size].auto_height;
     ui_state->auto_layout_state.size_remaining.height = ui_state->height_stack[ui_state->height_size].height_remaining;
 }
 
-INTERNAL void PushPos(V2 pos) {
-    PushX(pos.x);
-    PushY(pos.y);
+INTERNAL void UI_PushPos(V2 pos) {
+    UI_PushX(pos.x);
+    UI_PushY(pos.y);
 }
 
-INTERNAL void PopPos() {
-    PopX();
-    PopY();
+INTERNAL void UI_PopPos() {
+    UI_PopX();
+    UI_PopY();
 }
 
-INTERNAL void PushGroupMode(b32 column) {
-    assert(ui_state->group_mode_stack_size < UI_STACK_MAX);
-    ui_state->group_mode_stack[ui_state->group_mode_stack_size] = ui_state->auto_layout_state.is_col;
+INTERNAL void UI_PushGroupMode(b32 column) {
+    assert(ui_state->group_mode_stack_size < UI_MAX_STACK);
+    ui_state->group_mode_stack[ui_state->group_mode_stack_size++].is_column = ui_state->auto_layout_state.is_col;
     ui_state->auto_layout_state.is_col = column;
 }
 
-INTERNAL void PopGroupMode() {
-    assert(ui_state->layout_flags_size > 0);
-    ui_state->layout_flags_size--;
-    ui_state->auto_layout_state.is_col = ui_state->group_mode_stack[ui_state->group_mode_stack_size];
+INTERNAL void UI_PopGroupMode() {
+    assert(ui_state->group_mode_stack_size > 0);
+    ui_state->group_mode_stack_size--;
+    ui_state->auto_layout_state.is_col = ui_state->group_mode_stack[ui_state->group_mode_stack_size].is_column;
 }
 
-INTERNAL void PushSize(V2 size) {
-    PushWidth(size.width);
-    PushHeight(size.height);
+INTERNAL void UI_PushSize(V2 size) {
+    UI_PushWidth(size.width);
+    UI_PushHeight(size.height);
 }
 
-INTERNAL void PopSize() {
-    PopWidth();
-    PopHeight();
+INTERNAL void UI_PopSize() {
+    UI_PopWidth();
+    UI_PopHeight();
+}
+
+INTERNAL void UI_PushPadding(V2 padding) {
+    assert(ui_state->padding_stack_size < UI_MAX_STACK);
+    ui_state->padding_stack[ui_state->padding_stack_size++].padding = ui_state->auto_layout_state.padding;
+    ui_state->auto_layout_state.padding = padding;
+}
+
+INTERNAL void UI_PopPadding() {
+    assert(ui_state->padding_stack_size > 0);
+    --ui_state->padding_stack_size;
+    ui_state->auto_layout_state.padding = ui_state->padding_stack[ui_state->padding_stack_size].padding;
+}
+
+INTERNAL void UI_PushWidgetIndices() {
+    assert(ui_state->child_widgets_size < UI_MAX_STACK);
+    ui_state->child_widgets_stack[ui_state->child_widgets_size].start = ui_state->auto_layout_state.start;
+    ui_state->child_widgets_stack[ui_state->child_widgets_size].end = ui_state->auto_layout_state.end;
+    ui_state->child_widgets_size++;
+    
+    ui_state->auto_layout_state.start = ui_state->auto_layout_state.end;
+}
+
+INTERNAL void UI_IncrementWidgetIndices() {
+    ui_state->auto_layout_state.end++;
+}
+
+INTERNAL void UI_PopWidgetIndices(){
+    ui_state->group_mode_stack_size--;
+    ui_state->auto_layout_state.start = ui_state->child_widgets_stack[ui_state->child_widgets_size].start;
+    ui_state->auto_layout_state.end = ui_state->child_widgets_stack[ui_state->child_widgets_size].end;
 }
 #pragma warning(pop)
