@@ -7,7 +7,7 @@
 #define _UI_DEFER_LOOP(begin, end, var) for(int _##var##_ = (begin, 0); !_##var##_; ++_##var##_,end)
 #define UI_BEGIN _UI_DEFER_LOOP(UI_Begin(), UI_End(), i)
 #define UI_ROW _UI_DEFER_LOOP(UI_PushRow(), UI_PopRow(), j)
-#define UI_PANEL _UI_DEFER_LOOP(UI_PushPanel(), UI_PopPanel(), k)
+#define UI_PANEL(padding, fill_color, border_color)  _UI_DEFER_LOOP(UI_PushPanel(padding, fill_color, border_color), UI_PopPanel(), k)
 #define UI_X(x) _UI_DEFER_LOOP(UI_PushX(x), UI_PopX(), l)
 #define UI_Y(y) _UI_DEFER_LOOP(UI_PushY(y), UI_PopY(), m)
 #define UI_WIDTH(w) _UI_DEFER_LOOP(UI_PushWidth(w), UI_PopWidth(), n)
@@ -23,13 +23,7 @@
 
 
 // NOTE(Cian): Preliminary
-enum UI_LayoutFlags {
-    UI_ROW = 1 << 0,
-    UI_COL = 1 << 1,
-    UI_FLOW = 1 << 2,
-    UI_AUTO_WIDTH = 1 << 3,
-    UI_AUTO_HEIGHT = 1 << 4,
-};
+
 
 struct UI_Panel {
     V4 layout;
@@ -142,7 +136,7 @@ INTERNAL void UI_PushRow();
 INTERNAL void UI_PushRow(V2 size);
 INTERNAL void UI_PushRow(V2 pos, V2 size);
 INTERNAL void UI_PopRow();
-INTERNAL void UI_PushPanel(V2 padding);
+INTERNAL void UI_PushPanel(V2 padding, NVGcolor fill_color, NVGcolor border_color);
 INTERNAL void UI_PopPanel();
 INTERNAL void UI_PushWidth(f32 width, b32 auto_width);
 INTERNAL void UI_PushWidth(f32 width);
@@ -151,6 +145,8 @@ INTERNAL void UI_PopWidth();
 INTERNAL void UI_PushHeight(f32 width);
 INTERNAL void UI_PushHeightAuto();
 INTERNAL void UI_PopHeight();
+INTERNAL void UI_PushX(f32 x);
+INTERNAL void UI_PopX();
 INTERNAL void UI_PushPos(V2 pos);
 INTERNAL void UI_PopPos();
 INTERNAL void UI_PushSize(V2 size);

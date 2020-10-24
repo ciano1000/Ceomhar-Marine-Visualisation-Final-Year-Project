@@ -10,18 +10,25 @@ void AppUpdateAndRender() {
     
     // NOTE(Cian): Begin creates a blank panel and sets up UI, at every UI_End or UI_Pop we do some very simple auto layout, e.g fit everything to the the row height, draw everything, and perform input
     
+    glViewport( 0, 0, global_os->display.width, global_os->display.height);
+    glClearColor(0.0f,0.0f,0.0f,0.0f);
+    glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
+    nvgBeginFrame(global_vg, (f32)global_os->display.width,  (f32)global_os->display.height, 1);
+    
+    
     UI_Begin();
     {
         // TODO(Cian): Instead of hardcoding panels/rows to fill width, make it a method
         // TODO(Cian): Overloaded panel methods that take pos and sizing
-        UI_PushPanel(v2(2,2));
+        UI_WIDTH_FILL UI_HEIGHT(60) UI_PANEL(v2(6,6), nvgRGBA(20,22,25,255), nvgRGBA(108,170,33,255))
         {
             
             // NOTE(Cian): Buttons dimensions aare determined by font size, text length & padding
-            UI_PushButton();
-            UI_PushButton();
-            UI_PushButton();
-            
+            UI_WIDTH_AUTO {
+                UI_PushButton("Test1");
+                UI_PushButton("Dashboard");
+                UI_PushButton("Test3");
+            }
 #if 0
             UI_Center {
                 UI_Label();
@@ -32,7 +39,11 @@ void AppUpdateAndRender() {
             }
 #endif
         }
-        UI_PopPanel();
+        UI_HEIGHT((f32)global_os->display.height - 64) UI_WIDTH_FILL UI_POS(v2(0,62)) UI_PANEL(v2(6,6), nvgRGBA(11,12,14,255), nvgRGBA(56,162,214,255))
+        {
+            
+        }
+        
     }
     UI_End();
     

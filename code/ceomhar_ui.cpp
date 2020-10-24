@@ -24,11 +24,8 @@ INTERNAL void UI_End() {
 }
 
 INTERNAL void UI_PushRow() {
-    
     UI_PushPos(ui_state->auto_layout_state.pos);
     UI_PushGroupMode(FALSE);
-    UI_PushWidth(ui_state->auto_layout_state.size.width);
-    UI_PushHeightAuto();
 }
 
 INTERNAL void UI_PushRow(V2 size) {
@@ -56,8 +53,26 @@ INTERNAL void UI_PopRow() {
     UI_PopWidgetIndices();
 }
 
-INTERNAL void UI_PushPanel(V2 padding) {
-    UI_PushRow();
+INTERNAL void UI_PushPanel(V2 padding, NVGcolor fill_color, NVGcolor border_color) {
+    V2 pos = {
+        ui_state->auto_layout_state.pos.x + padding.x,
+        ui_state->auto_layout_state.pos.y + padding.y
+    };
+    
+    nvgBeginPath(global_vg);
+    nvgRect(global_vg, ui_state->auto_layout_state.pos.x, ui_state->auto_layout_state.pos.y, ui_state->auto_layout_state.size.width, ui_state->auto_layout_state.size.height);
+    nvgFillColor(global_vg, fill_color);
+    nvgFill(global_vg);
+    
+    nvgBeginPath(global_vg);
+    nvgRect(global_vg, ui_state->auto_layout_state.pos.x, ui_state->auto_layout_state.pos.y, ui_state->auto_layout_state.size.width, ui_state->auto_layout_state.size.height);
+    nvgRect(global_vg, ui_state->auto_layout_state.pos.x + 2, ui_state->auto_layout_state.pos.y + 2, ui_state->auto_layout_state.size.width - 4, ui_state->auto_layout_state.size.height - 4);
+    nvgPathWinding(global_vg, NVG_HOLE);
+    nvgFillColor(global_vg, border_color);
+    nvgFill(global_vg);
+    
+    UI_PushPos(pos);
+    UI_PushGroupMode(FALSE); 
     UI_PushPadding(padding);
 }
 
@@ -75,12 +90,38 @@ INTERNAL void UI_PopPanel() {
     }
     UI_PopRow();
     UI_PopPadding();
-    
+    UI_PopPos();
     // NOTE(Cian): Down here, update the current autolayout values with our panels final width, height whatever
 }
-
-INTERNAL void UI_PushButton(Closure closure, char *label) {
-    // NOTE(Cian): 
+// TODO(Cian): Closures for button clicks
+INTERNAL void UI_PushButton(char *label) {
+    V2 button_size = ui_state->auto_layout_state.size;
+    V2 button_pos = ui_state->auto_layout_state.pos;
+    // TODO(Cian): make this customizable
+    V2 button_padding = {
+        8,4
+    };
+    
+    f32 font_size = DIPToPixels(16);
+    nvgFontSize(global_vg, font_size);
+    nvgTextAlign(global_vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
+    V2 text_size = {
+        nvgTextBounds(global_vg, 0, 0, label, NULL, NULL),
+        font_size
+    };
+    // TODO(Cian): make a PushFontSize method
+    if(ui_state->auto_layout_state.auto_width) {
+        button_size.width = text_size.width + (button_padding.x*2);
+    }
+    
+    f32 text_x = ((button_size.width / 2) + button_pos.x) - (text_size.width / 2);
+    f32 text_y = (button_size.y / 2);
+    
+    nvgFontFace(global_vg, "roboto-bold");
+    nvgFillColor(global_vg, nvgRGBA(255,255,255,255));
+    nvgText(global_vg,text_x,text_y, label, NULL);
+    
+    ui_state->auto_layout_state.pos.x += button_size.x;
 }
 
 INTERNAL void UI_PushX(f32 x) {
@@ -128,8 +169,8 @@ INTERNAL void UI_PushWidthAuto() {
 }
 
 INTERNAL void UI_PopWidth() {
-    assert(ui_state->x_pos_size > 0);
-    --ui_state->x_pos_size;
+    assert(ui_state->width_size > 0);
+    --ui_state->width_size;
     ui_state->auto_layout_state.size.width = ui_state->width_stack[ui_state->width_size].width;
     ui_state->auto_layout_state.auto_width = ui_state->width_stack[ui_state->width_size].auto_width;
     ui_state->auto_layout_state.size_remaining.width = ui_state->width_stack[ui_state->width_size].width_remaining;
@@ -156,8 +197,8 @@ INTERNAL void UI_PushHeightAuto() {
 }
 
 INTERNAL void UI_PopHeight() {
-    assert(ui_state->x_pos_size > 0);
-    --ui_state->x_pos_size;
+    assert(ui_state->height_size > 0);
+    --ui_state->height_size;
     ui_state->auto_layout_state.size.height = ui_state->height_stack[ui_state->height_size].height;
     ui_state->auto_layout_state.auto_height = ui_state->height_stack[ui_state->height_size].auto_height;
     ui_state->auto_layout_state.size_remaining.height = ui_state->height_stack[ui_state->height_size].height_remaining;
