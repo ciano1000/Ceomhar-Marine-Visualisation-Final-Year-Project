@@ -12,38 +12,44 @@ void AppUpdateAndRender() {
     
     glViewport( 0, 0, global_os->display.width, global_os->display.height);
     glClearColor(0.0f,0.0f,0.0f,0.0f);
-    glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);                                         
     nvgBeginFrame(global_vg, (f32)global_os->display.width,  (f32)global_os->display.height, 1);
-    
     
     UI_Begin();
     {
-        // TODO(Cian): Instead of hardcoding panels/rows to fill width, make it a method
-        // TODO(Cian): Overloaded panel methods that take pos and sizing
-        UI_WIDTH_FILL UI_HEIGHT(60) UI_PANEL(v2(6,6), nvgRGBA(20,22,25,255), nvgRGBA(108,170,33,255))
+        UI_WidthFill UI_Row {
+            UI_WidthFill
+                UI_TestBox(nvgRGBA(50, 168, 82,255));
+            UI_Width(50, 200, 400)
+                UI_TestBox(nvgRGBA(58, 50, 168,255));
+            UI_WidthAuto
+                UI_TestBox(nvgRGBA(168, 50, 137,255));
+        }
+        
+        /*UI_Panel(v4(0, 0, ui_state->display.width, ui_state->display.height), nvgRGBA(20,22,25,255), nvgRGBA(108,170,33,255));
         {
             
-            // NOTE(Cian): Buttons dimensions aare determined by font size, text length & padding
-            UI_WIDTH_AUTO {
+            UI_FillWidth UI_Row {
                 UI_PushButton("Test1");
                 UI_PushButton("Dashboard");
                 UI_PushButton("Test3");
+                
+                UI_Center {
+                    // NOTE(Cian): Title that takes a va_arg
+                    UI_Title("Some text %i", 12);
+                }
+                
+                UI_Right {
+                    UI_PushButton();
+                    UI_PushButton();
+                }
             }
-#if 0
-            UI_Center {
-                UI_Label();
-            }
-            UI_Right {
-                UI_PushButton();
-                UI_PushButton();
-            }
-#endif
         }
         UI_HEIGHT((f32)global_os->display.height - 64) UI_WIDTH_FILL UI_POS(v2(0,62)) UI_PANEL(v2(6,6), nvgRGBA(11,12,14,255), nvgRGBA(56,162,214,255))
         {
             
         }
-        
+*/
     }
     UI_End();
     
