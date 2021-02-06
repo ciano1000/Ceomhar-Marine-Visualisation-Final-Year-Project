@@ -4,8 +4,8 @@
 #define CRC32_LUT
 
 #ifndef CRC32_LUT
-INTERNAL void GenerateCRC32Table();
+internal void GenerateCRC32Table();
 #endif
 
-INTERNAL u32 StringToCRC32(char *string, u32 n);
-INTERNAL u32 StringToCRC32(char *string);
+internal u32 StringToCRC32(char *string, u32 n);
+internal u32 StringToCRC32(char *string);

@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <limits.h>
 
 typedef int8_t s8;
 typedef uint8_t u8;
@@ -16,11 +17,12 @@ typedef float f32;
 typedef double f64;
 
 typedef u32 b32;
-#define TRUE 1
-#define FALSE 0
+#define true 1
+#define false 0
+#define null 0
 
-#define GLOBAL static
-#define INTERNAL static
+#define global static
+#define internal static
 
 #define Kilobytes(kb) (((u64)kb) << 10 )
 #define Megabytes(mb) (((u64)mb) << 20 )
@@ -34,3 +36,10 @@ typedef u32 b32;
 
 
 #define _DEFER_LOOP(begin, end) for(int _i_ = (begin,0); !_i_; ++_i_, end)
+
+#define  OVERFLOW_ADD(a, b, res, type)  \
+if(a > type##_MAX - b)  { \
+res = type##_MAX; \
+} else { \
+res = a + b\
+}\

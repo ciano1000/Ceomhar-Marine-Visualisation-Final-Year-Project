@@ -2,7 +2,7 @@
 #pragma warning(push)
 #pragma warning(disable: 4505)
 
-GLOBAL u32 CRC32_Table[256] = {
+global u32 CRC32_Table[256] = {
     0x00000000,0x77073096,0xee0e612c,0x990951ba,0x076dc419,0x706af48f,0xe963a535,0x9e6495a3,                                                                                             
     0x0edb8832,0x79dcb8a4,0xe0d5e91e,0x97d2d988,0x09b64c2b,0x7eb17cbd,0xe7b82d07,0x90bf1d91,                                                                                             
     0x1db71064,0x6ab020f2,0xf3b97148,0x84be41de,0x1adad47d,0x6ddde4eb,0xf4d4b551,0x83d385c7,                                                                                             
@@ -38,7 +38,7 @@ GLOBAL u32 CRC32_Table[256] = {
 };
 
 #ifndef CRC32_LUT
-INTERNAL void GenerateCRC32Table() {
+internal void GenerateCRC32Table() {
     
     u32 n, crc;
     for(n = 0; n < 256; ++n) {
@@ -58,7 +58,7 @@ INTERNAL void GenerateCRC32Table() {
 #endif
 
 
-INTERNAL u32 StringToCRC32(char *string, u32 n) {
+internal u32 StringToCRC32(char *string, u32 n) {
 #ifndef CRC32_LUT
     GenerateCRC32Table();
 #endif
@@ -70,7 +70,7 @@ INTERNAL u32 StringToCRC32(char *string, u32 n) {
     return crc;
 }
 
-INTERNAL u32 StringToCRC32(char *string) {
+internal u32 StringToCRC32(char *string) {
     u32 crc = StringToCRC32(string, (u32)strlen(string));
     return crc;
 }

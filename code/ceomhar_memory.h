@@ -9,8 +9,8 @@ struct MemoryArena
     u64 allocation_pos;
 };
 
-INTERNAL MemoryArena Memory_ArenaInitialise();
-INTERNAL void * Memory_ArenaPush(MemoryArena *arena, u64 size);
-INTERNAL void Memory_ArenaPop(MemoryArena *arena, u64 size);
-INTERNAL void Memory_ArenaClear(MemoryArena *arena);
-INTERNAL void Memory_ArenaRelease(MemoryArena *arena);
+internal MemoryArena Memory_ArenaInitialise();
+internal void * Memory_ArenaPush(MemoryArena *arena, u64 size);
+internal void Memory_ArenaPop(MemoryArena *arena, u64 size);
+internal void Memory_ArenaClear(MemoryArena *arena);
+internal void Memory_ArenaRelease(MemoryArena *arena);

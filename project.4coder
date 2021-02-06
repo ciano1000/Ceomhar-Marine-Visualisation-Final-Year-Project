@@ -9,7 +9,9 @@ patterns = {
 	"*.h",
 	"*.bat",
 	"*.4coder",
-	"*.inc"
+	"*.inc",
+	"*.gitignore",
+	"*.txt"
 };
 
 blacklist_patterns = {

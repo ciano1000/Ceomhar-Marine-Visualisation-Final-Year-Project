@@ -20,8 +20,9 @@
 #define NANOVG_GL3_IMPLEMENTATION
 #include "nano\nanovg_gl.h"
 
-GLOBAL NVGcontext *global_vg = {};
-GLOBAL OS_State *global_os = {};
+// TODO(Cian): Standardise where globals are defined because I found it hard to find where this is, maybe also, we should just have one single global struct pointer that contains everything we need?
+global NVGcontext *global_vg = {};
+global OS_State *global_os = {};
 
 #include "ceomhar_string.h"
 #include "ceomhar_string.cpp"
@@ -63,7 +64,7 @@ void Win32GetScreenInfo(HWND window_handle, AppDisplay  *screen_dimension) {
     screen_dimension->dpi = GetDpiForWindow(window_handle);
 }
 
-GLOBAL b32 Running;
+global b32 Running;
 LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LPARAM l_param)
 {
     LRESULT result = 0;
@@ -108,6 +109,12 @@ LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LP
             ScreenToClient(window_handle, &mouse_pos);
             V2 pos = {(f32)mouse_pos.x, (f32)mouse_pos.y};
             global_os->mouse_pos = pos;
+        } break;
+        case WM_GETMINMAXINFO:
+        {
+            LPMINMAXINFO lpMMI = (LPMINMAXINFO)l_param;
+            lpMMI->ptMinTrackSize.x = 600;
+            lpMMI->ptMinTrackSize.y = 600;
         }
         break;
         default:
