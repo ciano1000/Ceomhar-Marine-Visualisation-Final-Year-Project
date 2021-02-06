@@ -1,0 +1,157 @@
+f32 parent_width = (f32)global_os->display.width;
+    f32 parent_height = (f32)global_os->display.height;
+    f32 parent_x = 0;
+    f32 parent_y = 0;
+    
+    
+    f32 child_1_min_width;
+    f32 child_1_preferred_width;
+    f32 child_1_max_width;
+    
+    f32 child_1_min_height;
+    f32 child_1_preferred_height;
+    f32 child_1_max_height;
+    
+    // NOTE(Cian): Always set by the parent
+    f32 child_1_x = 0;
+    f32 child_1_y = 0;
+    
+    f32 child_2_min_width;
+    f32 child_2_preferred_width;
+    f32 child_2_max_width;
+    
+    f32 child_1_width = 0;
+    
+    f32 child_2_min_height;
+    f32 child_2_preferred_height;
+    f32 child_2_max_height;
+    
+    f32 child_2_x = 0;
+    f32 child_2_y = 0;
+    
+    f32 child_2_width = 0;
+    
+    f32 child_3_min_width;
+    f32 child_3_preferred_width;
+    f32 child_3_max_width;
+    
+    f32 child_3_min_height;
+    f32 child_3_preferred_height;
+    f32 child_3_max_height;
+    
+    f32 child_3_width = 0;
+    
+    // NOTE(Cian): Always set by the parent
+    f32 child_3_x = 0;
+    f32 child_3_y = 0;
+    
+    // NOTE(Cian): Init variables to different values for different tests
+    
+    // NOTE(Cian): Split space equally
+#if 1  
+    {
+        child_1_min_width = UI_MIN_SIZE;
+        child_1_preferred_width = 30;
+        child_1_max_width = UI_MAX_SIZE * 2;
+        
+        child_1_min_height = 60;
+        child_1_preferred_height = 60;
+        child_1_max_height = 60;
+        
+        
+        child_2_min_width = 20;
+        child_2_preferred_width = 120;
+        child_2_max_width = 150;
+        
+        child_2_min_height = 60;
+        child_2_preferred_height = 60;
+        child_2_max_height = 60;
+        
+        child_3_min_width = UI_MIN_SIZE;
+        child_3_preferred_width = 30;
+        child_3_max_width = UI_MAX_SIZE;
+        
+        child_3_min_height = 60;
+        child_3_preferred_height = 60;
+        child_3_max_height = 60;
+        
+    }
+#endif
+    
+#if 0    
+    // NOTE(Cian): Center Child 2 with two spacers either side
+    {
+        
+    }
+#endif
+    
+    // NOTE(Cian): Horizontal Layout
+    {
+        // TODO(Cian): In the final version remember that there will be a high chance of overflow when adding many child widths/heights together
+        // NOTE(Cian): Sum childrens width/height
+        f32 min_x_span = child_1_min_width + child_2_min_width + child_3_min_width;
+        // NOTE(Cian): In reality this will have to find the largest min_height val
+        f32 min_y_span = 60;
+        
+        
+        f32 preferred_x_span = child_1_preferred_width + child_2_preferred_width + child_3_preferred_width;
+        f32 preferred_y_span = 60;
+        
+        f32 max_x_span = child_1_max_width + child_2_max_width + child_3_max_width;
+        f32 max_y_span = 60;
+        
+        // NOTE(Cian): If we had padding rn this would be subtracted from this
+        f32 available_x = parent_width;
+        f32 available_y = parent_height;
+        
+        if (preferred_x_span > available_x) {
+            // NOTE(Cian): If too large then adjust smaller
+            // NOTE(Cian): sumDelta is the sum of all differences between the preferred and min sizes
+            f32 sum_delta = (child_1_preferred_width - child_1_min_width) +  (child_2_preferred_width - child_2_min_width) +  (child_3_preferred_width - child_3_min_width);
+            
+            // NOTE(Cian): if sum_delta is == 0 then it means all the min vals are == to their preferred vals which means we can't shrink anything, in the full version this can be handled with by adding a scrollbar or something
+            if(sum_delta != 0) {
+                // NOTE(Cian): for each child compute a factor, which is pref - min/ sum_delta, e.g. widgets with a greater difference between their pref and their min will have more taken off them
+                
+                f32 factor_1 = (child_1_preferred_width - child_1_min_width) / sum_delta;
+                f32 factor_2 = (child_2_preferred_width - child_2_min_width) / sum_delta;
+                f32 factor_3 = (child_3_preferred_width - child_3_min_width) / sum_delta;
+                
+                // NOTE(Cian): In final version should probably try out Java's AWT way of having an array of child "spans" that you then subtract/add to and from
+                child_1_width = child_1_preferred_width - (factor_1 * ( preferred_x_span - available_x));
+                child_2_width = child_2_preferred_width - (factor_2 * ( preferred_x_span - available_x));
+                child_3_width = child_3_preferred_width - (factor_3 * ( preferred_x_span - available_x));
+            }
+            
+        } else if (preferred_x_span < available_x) {
+            // NOTE(Cian): If space is remaining attempt to fill it
+            f32 sum_delta = (child_1_max_width - child_1_preferred_width) + (child_2_max_width - child_2_preferred_width) +  (child_3_max_width - child_3_preferred_width);
+            
+            if(sum_delta != 0) {
+                f32 factor_1 = (child_1_max_width - child_1_preferred_width) / sum_delta;
+                f32 factor_2 = (child_2_max_width - child_2_preferred_width) / sum_delta;
+                f32 factor_3 = (child_3_max_width - child_3_preferred_width) / sum_delta;
+                
+                child_1_width = child_1_preferred_width + (factor_1 * ( available_x - preferred_x_span));
+                child_2_width = child_2_preferred_width + (factor_2 * ( available_x - preferred_x_span));
+                child_3_width = child_3_preferred_width + (factor_3 * ( available_x - preferred_x_span));
+            }
+        }
+        
+        child_1_x = 0;
+        child_2_x = child_1_width;
+        child_3_x = child_2_x + child_2_width;
+        nvgBeginPath(global_vg);
+        nvgRect(global_vg, (f32)child_1_x, 0, (f32)child_1_width, (f32)child_1_preferred_height);
+        nvgFillColor(global_vg, nvgRGBA(255,192,0,255));
+        nvgFill(global_vg);
+        
+        nvgBeginPath(global_vg);
+        nvgRect(global_vg, (f32)child_2_x, 0, (f32)child_2_width, (f32)child_2_preferred_height);
+        nvgFillColor(global_vg, nvgRGBA(66, 135, 245,255));
+        nvgFill(global_vg);
+        
+        nvgBeginPath(global_vg);
+        nvgRect(global_vg, (f32)child_3_x, 0, (f32)child_3_width, (f32)child_3_preferred_height);
+        nvgFillColor(global_vg, nvgRGBA(66, 245, 75,255));
+        nvgFill(global_vg);

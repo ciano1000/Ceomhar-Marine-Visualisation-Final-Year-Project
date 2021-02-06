@@ -1,0 +1,10 @@
+1/02/2021 - Started UI from scratch for 3rd time with a fresh heart and a strong will... Got some basic stuff back up, have  alot of new ideas behind how I want this to work now, took some influence from Flutter and their "constraints go down, sizes come up" model. A lot of Flutter is just bloat IMO and not necessary, and occasionally we will deviate from the "one pass" model but what I was thinking was a system that integrates some of it's principles as follows...
+
+	-	Basic layouts are Containers, Panels, Windows(won't be in initial version), Rows & Columns
+	-	Root(e.g. first widget in tree) is always a Container with it's width and height = to the display, it will always give 		hard constraints to it's child(Containers can only have one child, for now at least) e.g. it's child will always fill 		 the display..
+	-	Panels automatically create a Container and a Row, the Container is there to add padding etc. again it passes a hard
+		 constraint to the Row(minus any padding ofc)
+	-	All widgets should report their size to their parent (that size should obviously be within a certain limit), this will 		be in a small array in the parents struct, the parent can adjust and apply these if needs be
+	-	Each widget should have 2 layouts, old and current, old will be used for immediate input handling, current will be
+		 used for layout, e,g, input is a frame off rendering is always up to date.
+	-	TODO add more as I remember it :)
