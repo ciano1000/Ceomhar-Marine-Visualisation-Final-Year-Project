@@ -96,6 +96,10 @@ internal void UI_Begin() {
     UI_PushWidth(display_width, 1.0f);
     UI_PushHeight(display_height, 1.0f);
     UI_Widget *main_row_container = UI_InitWidget("main");
+    UI_PopWidth();
+    UI_PopHeight();
+    
+    // TODO(Cian): Push size auto for both dimensions, e.g. by default widgets placed directly in the main_container are size auto
     
     ui_state->root_widget = main_row_container;
     UI_PushParent(main_row_container);
@@ -109,39 +113,92 @@ internal void UI_TraverseTree(UI_Widget *root) {
     f32 parent_width = root->curr_layout.width;
     f32 parent_height = root->curr_layout.width;
     
-    f32 min_sum_delta = 0;
-    f32 span_sum = 0;
-    
-    f32 offset = 0;
-    UI_Widget *curr = root->tree_first_child;
-    while(curr) {
+    if(UI_WidgetHasProperty(root, UI_WidgetProperty_Container)) {
+        if(UI_WidgetHasProperty(root, UI_WidgetProperty_LayoutHorizontal)) {
+            f32 min_sum_delta = 0;
+            f32 span_sum = 0;
+            
+            f32 offset = 0;
+            UI_Widget *curr = root->tree_first_child;
+            // TODO(Cian): Pull this out into its own thing, should probably grab width & height before the if blocks at top of func
+            while(curr) {
+                if(curr->widths.is_ratio) {
+                    curr->curr_layout.width = parent_width * curr->widths.ratio;
+                    curr->widths.size = curr->curr_layout.width;
+                }else {
+                    curr->curr_layout.width = curr->widths.size; 
+                }
+                
+                min_sum_delta +=  (curr->widths.size * (1 - curr->widths.strictness));
+                
+                span_sum += curr->widths.size;
+                
+                // NOTE(Cian): Attempt to layoyt with the preferred size
+                
+                
+                curr->curr_layout.x = offset;
+                offset += curr->curr_layout.width;
+                
+                curr = curr->tree_next_sibling;
+            }
+            
+            offset = 0;
+            if(span_sum > parent_width && min_sum_delta != 0) {
+                curr = root->tree_first_child;
+                
+                while(curr) {
+                    
+                    f32 factor = (curr->widths.size * (1 - curr->widths.strictness)) / min_sum_delta; 
+                    
+                    curr->curr_layout.width -= (factor * (span_sum - root->curr_layout.width)); 
+                    curr->curr_layout.x = offset;
+                    offset += curr->curr_layout.width;
+                    
+                    // TODO(Cian): Take into account differing heights here later
+                    curr->curr_layout.y = 0;
+                    curr = curr->tree_next_sibling;
+                }
+            } 
+        } else if (UI_WidgetHasProperty(root, UI_WidgetProperty_LayoutVertical)) {
+            // TODO(Cian): Columns
+        } else {
+            // TODO(Cian): handle container padding etc
+            UI_Widget *child = root->tree_first_child;
+            if(child) {
+                // NOTE(Cian): Containers only have one child
+                assert(root->tree_first_child->tree_next_sibling == null);
+                
+                f32 width = 0;
+                if(child->widths.is_ratio)
+                    width = parent_width * child->widths.ratio;
+                else 
+                    width = child->widths.size;
+                
+                if(width > root->curr_layout.width &&  width * (1 - child->widths.strictness) != 0) {
+                    f32 factor = (width - root->curr_layout.width) / ((1 - child->widths.strictness) * width);
+                    if(factor > 1) {
+                        child->curr_layout.width = width;
+                    } else {
+                        child->curr_layout.width = width - (factor * width);
+                    }
+                } else {
+                    child->curr_layout.width = width;
+                }
+                // TODO(Cian): Be more smort
+                child->curr_layout.x = 0;
+                child->curr_layout.y = 0;
+            }
+        }
         
-        min_sum_delta +=  (curr->widths.size * (1 - curr->widths.strictness));
-        
-        span_sum += curr->widths.size;
-        
-        // NOTE(Cian): Attempt to layoyt with the preferred size
-        offset+= curr->curr_layout.width;
-        curr = curr->tree_next_sibling;
-    }
-    
-    offset = 0;
-    if(span_sum > parent_width) {
-        curr = root->tree_first_child;
-        
+        // TODO(Cian): Lil annoying that I have a third loop here, need to try and clean this up once I get things working
+        UI_Widget *curr = root->tree_first_child;
         while(curr) {
-            
-            f32 factor = (curr->widths.size * (1 - curr->widths.strictness)) / min_sum_delta; 
-            
-            curr->curr_layout.width = curr->widths.size - (factor * (span_sum - root->curr_layout.width)); 
-            curr->curr_layout.x = offset;
-            offset += curr->curr_layout.width;
-            
-            // TODO(Cian): Take into account differeing heights here later
-            curr->curr_layout.y = 0;
+            if(UI_WidgetHasProperty(curr, UI_WidgetProperty_Container)) {
+                UI_TraverseTree(curr);
+            }
             curr = curr->tree_next_sibling;
         }
-    } 
+    }
 }
 
 internal void UI_DoLayout() {
@@ -152,39 +209,43 @@ internal void UI_DoLayout() {
     UI_TraverseTree(root);
 }
 
-internal void UI_Render() {
-    // TODO(Cian): Just presuming everything is a TestBox for now
-    UI_Widget *root = ui_state->root_widget;
+internal void UI_Render(UI_Widget *root) {
     UI_Widget *curr = root->tree_first_child;
     
     while(curr) {
+        if(UI_WidgetHasProperty(curr, UI_WidgetProperty_RenderBackground)){
+            f32 height = 60;
+            if(UI_WidgetHasProperty(curr, UI_WidgetProperty_Container))
+                height = 120;
+            nvgBeginPath(global_vg);
+            nvgRect(global_vg, curr->curr_layout.x,  curr->curr_layout.y, curr->curr_layout.width, height);
+            nvgFillColor(global_vg, curr->color);
+            nvgFill(global_vg);
+        }
         
-        nvgBeginPath(global_vg);
-        nvgRect(global_vg, curr->curr_layout.x,  curr->curr_layout.y, curr->curr_layout.width, 60);
-        nvgFillColor(global_vg, curr->color);
-        nvgFill(global_vg);
+        if(UI_WidgetHasProperty(curr, UI_WidgetProperty_Container)) {
+            UI_Render(curr);
+        }
         curr = curr->tree_next_sibling;
     }
 }
 
 internal void UI_End() {
     // TODO(Cian): Need to either clear autolayout state here or, make the UI_State as part of the frame_arena and UI_Widgets be maintained seperately in permanent arena
-    
-    UI_PopParent();
-    UI_PopWidth();
-    UI_PopHeight();
-    
-    
     ui_state->parent_stack.size = 0;
     ui_state->width_stack.size = 0;
     ui_state->height_stack.size = 0;
+    
+    ui_state->prev_widget = null;
+    ui_state->parent_stack.current = null;
+    
     //Autolayout for rendering and next frame goes here
     /* NOTE(Cian): Auto-layout works as follows:
     *  Traverse downwards through the tree, for every parent, measure it's children, this may
 *  need to be recursive, we add childrens 
 */
     UI_DoLayout();
-    UI_Render();
+    UI_Render(ui_state->root_widget);
 }
 
 internal void UI_BeginRow(char *string) {
@@ -198,12 +259,15 @@ internal void UI_EndRow() {
     UI_PopParent();
 }
 
-internal void UI_BeginPanel(char *string) {
+internal void UI_BeginPanel(char *string, NVGcolor color) {
     UI_Widget *panel_container = UI_InitWidget(string);
     UI_WidgetAddProperty(panel_container, UI_WidgetProperty_Container);
+    UI_WidgetAddProperty(panel_container, UI_WidgetProperty_RenderBackground);
+    panel_container->color = color;
     UI_PushParent(panel_container);
     // TODO(Cian): Need to come up with a proper string ID generator for cases where user can't specify
-    UI_BeginRow("temporary");
+    UI_WidthFill
+        UI_BeginRow("panel_row");
 }
 
 internal void UI_EndPanel() {
@@ -245,7 +309,7 @@ internal void UI_PushWidth(f32 size, f32 strictness) {
     ui_state->width_stack.stack[*s_size] = ui_state->width_stack.current;
     (*s_size)++;
     
-    ui_state->height_stack.current.is_ratio = false;
+    ui_state->width_stack.current.is_ratio = false;
     ui_state->width_stack.current.size = size;
     ui_state->width_stack.current.strictness = strictness;
 }

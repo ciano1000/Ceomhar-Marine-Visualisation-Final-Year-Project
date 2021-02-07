@@ -20,16 +20,21 @@ void AppUpdateAndRender() {
     UI_BeginUI
     {
         
-        UI_WidthFill
-        {
-            UI_TestBox("Temp1", nvgRGBA(123, 210, 70, 255));
-            UI_TestBox("Temp2", nvgRGBA(210, 123, 70, 255));
-            UI_TestBox("Temp3", nvgRGBA(70, 250, 150, 255));
-        }
         // NOTE(Cian): Panels auto-create a Row container(for padding etc), it's row fills its width
-        /*UI_WidthRatio(0.4f, 1.0f) UI_Panel("Test_Panel") {
-            
-        }*/
+        UI_Width(800, 0.8f) UI_HeightFill UI_Panel("Test_Panel", nvgRGBA(50, 54, 57, 255))
+        {
+            // NOTE(Cian): Blue
+            UI_WidthFill {
+                UI_TestBox("Temp1", nvgRGBA(3, 219, 252, 255));
+                // NOTE(Cian): Purple
+                UI_TestBox("Temp2", nvgRGBA(252, 3, 152, 255));
+                
+                // NOTE(Cian): Yellow
+                UI_TestBox("Temp3", nvgRGBA(252, 252, 3, 255));
+            }
+        }
+        
+        
     }
     
     /*// NOTE(Cian): Naive way we're gonna do layout and input first

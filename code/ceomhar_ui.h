@@ -76,7 +76,7 @@ global UI_State *ui_state;
 
 #define _UI_DEFER_LOOP(begin, end, var) for(int var  = (begin, 0); !var; ++var,end)
 #define UI_BeginUI _UI_DEFER_LOOP(UI_Begin(), UI_End(), UNIQUE_INT)
-#define UI_Row _UI_DEFER_LOOP(UI_PushRow(), UI_PopRow(), UNIQUE_INT)
+#define UI_Row _UI_DEFER_LOOP(UI_BeginRow(), UI_EndRow(), UNIQUE_INT)
 #define UI_P(padding, fill_color, border_color)  _UI_DEFER_LOOP(UI_PushPanel(padding, fill_color, border_color), UI_PopPanel(), k)
 #define UI_X(x) _UI_DEFER_LOOP(UI_PushX(x), UI_PopX(), UNIQUE_INT)
 #define UI_Y(y) _UI_DEFER_LOOP(UI_PushY(y), UI_PopY(), UNIQUE_INT)
@@ -89,7 +89,7 @@ global UI_State *ui_state;
 #define UI_HeightAuto UI_Height(0.0f, 0.0f)
 #define UI_HeightFill UI_Height(UI_MAX_SIZE, 0.0f)
 #define UI_Pos(pos) _UI_DEFER_LOOP(UI_PushPos(pos), UI_PopPos(), UNIQUE_INT)
-#define UI_Panel(panel_string) _UI_DEFER_LOOP(UI_BeginPanel(panel_string), UI_EndPanel(), UNIQUE_INT)
+#define UI_Panel(panel_string, color) _UI_DEFER_LOOP(UI_BeginPanel(panel_string, color), UI_EndPanel(), UNIQUE_INT)
 
 #define UI_MIN_ROW_HEIGHT DIPToPixels(16);
 
