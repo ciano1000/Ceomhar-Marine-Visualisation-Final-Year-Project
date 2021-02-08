@@ -65,8 +65,8 @@ internal UI_Widget* UI_InitWidget(char *name) {
     }
     // NOTE(Cian): Widget data stuff
     under_construction->string = name;
-    under_construction->widths = ui_state->width_stack.current;
-    under_construction->heights = ui_state->height_stack.current;
+    under_construction->parameters[0] = ui_state->width_stack.current;
+    under_construction->parameters[1] = ui_state->height_stack.current;
     // TODO(Cian): add more thingys here when we start actually doing them
     
     // NOTE(Cian): Widget Tree stuff
@@ -108,86 +108,76 @@ internal void UI_Begin() {
     
 }
 
+internal inline f32 UI_GetSize(UI_Widget *widget, u32 axis) {
+    f32 result = 0;
+    
+    if(widget->parameters[axis].is_ratio) {
+        f32 parent_size = widget->tree_parent->curr_layout.elements[axis + 2];
+        result = widget->parameters[axis].ratio * parent_size;
+    }else {
+        result = widget->parameters[axis].size; 
+    }
+    
+    return result;
+}
+
+// TODO(Cian): Both of these layout functions loop through the children, maybe these loops could occur at the same time? Doubt it really matters for performance whatsoever but it's kinda bothering my OCD
+// NOTE(Cian): Lays out the widgets in the direction of the Container e.g. if a row it will lay out/re-size horizontally
+internal void UI_LayoutInFlow(UI_Widget *first_child, f32 available, u32 axis) {
+    f32 sum_delta = 0;
+    f32 sum = 0;
+    
+    f32 offset = 0;
+    UI_Widget *curr = first_child;
+    while(curr) {
+        f32 pref_size = curr->parameters[axis].size;
+        
+        sum_delta +=  (pref_size * (1 - curr->parameters[axis].strictness));
+        sum += curr->parameters[axis].size;
+        
+        // NOTE(Cian): Attempt to layout with the preferred size
+        curr->curr_layout.elements[axis] = offset;
+        curr->curr_layout.elements[axis + 2] = pref_size;
+        offset += curr->curr_layout.elements[axis + 2];
+        
+        curr = curr->tree_next_sibling;
+    }
+    
+    offset = 0;
+    if(sum > available && sum_delta != 0) {
+        
+        curr = first_child;
+        while(curr) {
+            
+            f32 factor = (curr->parameters[axis].size * (1 - curr->parameters[axis].strictness)) / sum_delta; 
+            
+            curr->curr_layout.width -= (factor * (sum - available)); 
+            curr->curr_layout.elements[axis] = offset;
+            offset += curr->curr_layout.elements[axis + 2];
+            
+            curr = curr->tree_next_sibling;
+        }
+    } 
+}
+
+// NOTE(Cian): Lays out the widgets in the non-flow axis e.g. if a row it will do layout/re-sizing on the height, simply "centers" the widget on this axis
+internal void UI_LayoutNonFlow() {
+    
+}
 // NOTE(Cian): 
 internal void UI_TraverseTree(UI_Widget *root) {
+    // TODO(Cian): Take padding into account here;
     f32 parent_width = root->curr_layout.width;
-    f32 parent_height = root->curr_layout.width;
+    f32 parent_height = root->curr_layout.height;
     
     if(UI_WidgetHasProperty(root, UI_WidgetProperty_Container)) {
         if(UI_WidgetHasProperty(root, UI_WidgetProperty_LayoutHorizontal)) {
-            f32 min_sum_delta = 0;
-            f32 span_sum = 0;
-            
-            f32 offset = 0;
-            UI_Widget *curr = root->tree_first_child;
-            // TODO(Cian): Pull this out into its own thing, should probably grab width & height before the if blocks at top of func
-            while(curr) {
-                if(curr->widths.is_ratio) {
-                    curr->curr_layout.width = parent_width * curr->widths.ratio;
-                    curr->widths.size = curr->curr_layout.width;
-                }else {
-                    curr->curr_layout.width = curr->widths.size; 
-                }
-                
-                min_sum_delta +=  (curr->widths.size * (1 - curr->widths.strictness));
-                
-                span_sum += curr->widths.size;
-                
-                // NOTE(Cian): Attempt to layoyt with the preferred size
-                
-                
-                curr->curr_layout.x = offset;
-                offset += curr->curr_layout.width;
-                
-                curr = curr->tree_next_sibling;
-            }
-            
-            offset = 0;
-            if(span_sum > parent_width && min_sum_delta != 0) {
-                curr = root->tree_first_child;
-                
-                while(curr) {
-                    
-                    f32 factor = (curr->widths.size * (1 - curr->widths.strictness)) / min_sum_delta; 
-                    
-                    curr->curr_layout.width -= (factor * (span_sum - root->curr_layout.width)); 
-                    curr->curr_layout.x = offset;
-                    offset += curr->curr_layout.width;
-                    
-                    // TODO(Cian): Take into account differing heights here later
-                    curr->curr_layout.y = 0;
-                    curr = curr->tree_next_sibling;
-                }
-            } 
+            UI_LayoutInFlow(root->tree_first_child, parent_width, 0);
         } else if (UI_WidgetHasProperty(root, UI_WidgetProperty_LayoutVertical)) {
             // TODO(Cian): Columns
+            UI_LayoutInFlow(root->tree_first_child, parent_height, 1);
         } else {
-            // TODO(Cian): handle container padding etc
-            UI_Widget *child = root->tree_first_child;
-            if(child) {
-                // NOTE(Cian): Containers only have one child
-                assert(root->tree_first_child->tree_next_sibling == null);
-                
-                f32 width = 0;
-                if(child->widths.is_ratio)
-                    width = parent_width * child->widths.ratio;
-                else 
-                    width = child->widths.size;
-                
-                if(width > root->curr_layout.width &&  width * (1 - child->widths.strictness) != 0) {
-                    f32 factor = (width - root->curr_layout.width) / ((1 - child->widths.strictness) * width);
-                    if(factor > 1) {
-                        child->curr_layout.width = width;
-                    } else {
-                        child->curr_layout.width = width - (factor * width);
-                    }
-                } else {
-                    child->curr_layout.width = width;
-                }
-                // TODO(Cian): Be more smort
-                child->curr_layout.x = 0;
-                child->curr_layout.y = 0;
-            }
+            UI_LayoutInFlow(root->tree_first_child, parent_width, 0);
         }
         
         // TODO(Cian): Lil annoying that I have a third loop here, need to try and clean this up once I get things working
@@ -204,7 +194,7 @@ internal void UI_TraverseTree(UI_Widget *root) {
 internal void UI_DoLayout() {
     UI_Widget *root = ui_state->root_widget;
     // NOTE(Cian): Roots incoming constraints will always be tight so just set it's layout to be that
-    root->curr_layout = {0, 0, root->widths.size, root->heights.size};
+    root->curr_layout = {0, 0, root->parameters[0].size, root->parameters[1].size};
     
     UI_TraverseTree(root);
 }

@@ -37,8 +37,7 @@ struct UI_Widget{
     UI_Widget *tree_parent;
     V4 curr_layout;
     V4 old_layout;
-    UI_SizeParameters widths;
-    UI_SizeParameters heights;
+    UI_SizeParameters parameters[2];
     NVGcolor color;
 };
 
