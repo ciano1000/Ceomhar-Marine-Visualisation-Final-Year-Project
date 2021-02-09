@@ -121,6 +121,37 @@ internal inline f32 UI_GetSize(UI_Widget *widget, u32 axis) {
     return result;
 }
 
+internal inline b32 UI_IsAutoSize(UI_Widget *widget, u32 axis) {
+    // TODO(Cian): Maybe a better way of deciding this
+    if(widget->parameters[axis].size == 0 && widget->parameters[axis].strictness == 0) {
+        return true;
+    }
+    
+    return false;
+}
+
+
+internal void UI_MeasureWidget(UI_Widget *widget, u32 axis) {
+    if(UI_WidgetHasProperty(widget, UI_WidgetProperty_Container)){
+        f32 min_sum = 0;
+        f32 sum = 0;
+        
+        UI_Widget *curr = widget->tree_first_child;
+        while(curr) {
+            if(UI_IsAutoSize(curr, axis)) {
+                UI_MeasureWidget(curr, axis);
+            }
+            
+            sum += curr->parameters[axis].size;
+            min_sum += curr->parameters[axis].size * curr->parameters[axis].strictness;
+        }
+        
+        widget->parameters[axis].size = sum;
+        widget->parameters[axis].strictness = min_sum / sum;
+    } else {
+        // TODO(Cian): Handle things like widgets that have text etc, if a widget doesn't fall into any category here just set some default size
+    }
+}
 // TODO(Cian): Both of these layout functions loop through the children, maybe these loops could occur at the same time? Doubt it really matters for performance whatsoever but it's kinda bothering my OCD
 // NOTE(Cian): Lays out the widgets in the direction of the Container e.g. if a row it will lay out/re-size horizontally
 internal void UI_LayoutInFlow(UI_Widget *first_child, f32 available, u32 axis) {
@@ -130,7 +161,12 @@ internal void UI_LayoutInFlow(UI_Widget *first_child, f32 available, u32 axis) {
     f32 offset = 0;
     UI_Widget *curr = first_child;
     while(curr) {
-        f32 pref_size = curr->parameters[axis].size;
+        // TODO(Cian): This is pretty piggy, if both sizes are auto we will measure children 2 times for each axis
+        if(UI_IsAutoSize(curr, axis)) {
+            UI_MeasureWidget(curr, axis);
+        }
+        
+        f32 pref_size = UI_GetSize(curr, axis);
         
         sum_delta +=  (pref_size * (1 - curr->parameters[axis].strictness));
         sum += curr->parameters[axis].size;
@@ -161,7 +197,7 @@ internal void UI_LayoutInFlow(UI_Widget *first_child, f32 available, u32 axis) {
 }
 
 // NOTE(Cian): Lays out the widgets in the non-flow axis e.g. if a row it will do layout/re-sizing on the height, simply "centers" the widget on this axis
-internal void UI_LayoutNonFlow() {
+internal void UI_LayoutNonFlow(UI_Widget *first_child, f32 available, u32 axis) {
     
 }
 // NOTE(Cian): 
