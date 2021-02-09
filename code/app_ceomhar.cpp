@@ -24,7 +24,7 @@ void AppUpdateAndRender() {
         UI_Width(800, 0.8f) UI_HeightFill UI_Panel("Test_Panel", nvgRGBA(50, 54, 57, 255))
         {
             // NOTE(Cian): Blue
-            UI_WidthFill {
+            UI_WidthFill UI_HeightAuto{
                 UI_TestBox("Temp1", nvgRGBA(3, 219, 252, 255));
                 // NOTE(Cian): Purple
                 UI_TestBox("Temp2", nvgRGBA(252, 3, 152, 255));

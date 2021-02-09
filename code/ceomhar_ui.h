@@ -15,6 +15,18 @@ enum UI_WidgetProperty{
     UI_WidgetProperty_MAX
 };
 
+enum UI_SizeParametersIndex {
+    UI_ParameterIndex_Width,
+    UI_ParameterIndex_Height
+};
+
+enum UI_LayoutIndices {
+    UI_LayoutIndex_X,
+    UI_LayoutIndex_Y,
+    UI_LayoutIndex_Width,
+    UI_LayoutIndex_Height
+};
+
 struct UI_SizeParameters {
     b32 is_ratio;
     union {
@@ -76,6 +88,7 @@ global UI_State *ui_state;
 #define _UI_DEFER_LOOP(begin, end, var) for(int var  = (begin, 0); !var; ++var,end)
 #define UI_BeginUI _UI_DEFER_LOOP(UI_Begin(), UI_End(), UNIQUE_INT)
 #define UI_Row _UI_DEFER_LOOP(UI_BeginRow(), UI_EndRow(), UNIQUE_INT)
+#define UI_Col _UI_DEFER_LOOP(UI_BeginColumn(), UI_EndColumn(), UNIQUE_INT)
 #define UI_P(padding, fill_color, border_color)  _UI_DEFER_LOOP(UI_PushPanel(padding, fill_color, border_color), UI_PopPanel(), k)
 #define UI_X(x) _UI_DEFER_LOOP(UI_PushX(x), UI_PopX(), UNIQUE_INT)
 #define UI_Y(y) _UI_DEFER_LOOP(UI_PushY(y), UI_PopY(), UNIQUE_INT)

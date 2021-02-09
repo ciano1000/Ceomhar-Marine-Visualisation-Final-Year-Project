@@ -3,7 +3,7 @@
 
 
 internal f32 PixelsToDIP(float pixels) {
-    // TODO(Cian): Fix rendering so that rounding isn't necessary
+    // TODO(Cian): @UI Fix rendering so that rounding isn't necessary
     return F32_ROUND(pixels / (global_os->display.dpi / UI_DEFAULT_DENSITY));
 }
 
@@ -29,6 +29,20 @@ internal void UI_WidgetRemoveProperty(UI_Widget *widget, UI_WidgetProperty prope
     widget->properties[idx] &= (~((u64)1 << (property % 64)));
 }
 
+internal b32 UI_WidgetsCompareProperty(UI_Widget *widget_1, UI_Widget *widget_2, UI_WidgetProperty property) {
+    b32 result = false;
+    
+    if(UI_WidgetHasProperty(widget_1, property) && UI_WidgetHasProperty(widget_2, property)) {
+        result = true;
+    }
+    
+    return result;
+}
+
+internal b32 UI_WidgetsShareOneProperty(UI_Widget *widget_1, UI_Widget *widget_2, UI_WidgetProperty property_1, UI_WidgetProperty property_2) {
+    return UI_WidgetsCompareProperty(widget_1, widget_2, property_1) || UI_WidgetsCompareProperty(widget_1, widget_2, property_2);
+}
+
 internal UI_Widget* UI_InitWidget(char *name) {
     // NOTE(Cian): All temporary and very liable to change lol
     
@@ -45,7 +59,7 @@ internal UI_Widget* UI_InitWidget(char *name) {
     } else {
         UI_Widget *prev = null;
         while(at_location) {
-            // TODO(Cian): @string_function_replace when we have our own string functions replace this with our comparision equivalent
+            // TODO(Cian): @UI @string_function_replace when we have our own string functions replace this with our comparision equivalent
             // NOTE(Cian): This means we have found our widget that was previously created, how do we know if instead this was us accidentally creating a 2nd widget with the same name??
             if(strcmp(name, at_location->string) == 0) {
                 under_construction = at_location;
@@ -67,7 +81,7 @@ internal UI_Widget* UI_InitWidget(char *name) {
     under_construction->string = name;
     under_construction->parameters[0] = ui_state->width_stack.current;
     under_construction->parameters[1] = ui_state->height_stack.current;
-    // TODO(Cian): add more thingys here when we start actually doing them
+    // TODO(Cian): @UI add more thingys here when we start actually doing them
     
     // NOTE(Cian): Widget Tree stuff
     if(ui_state->parent_stack.current) {
@@ -89,7 +103,7 @@ internal UI_Widget* UI_InitWidget(char *name) {
 
 internal void UI_Begin() {
     // NOTE(Cian): Create the main window and add as parent
-    // TODO(Cian): Make a Widget init function once we have more knowledge about different use cases
+    // TODO(Cian):  @UI Make a Widget init function once we have more knowledge about different use cases
     f32 display_width = (f32)global_os->display.width;
     f32 display_height = (f32)global_os->display.height;
     
@@ -99,7 +113,7 @@ internal void UI_Begin() {
     UI_PopWidth();
     UI_PopHeight();
     
-    // TODO(Cian): Push size auto for both dimensions, e.g. by default widgets placed directly in the main_container are size auto
+    // TODO(Cian): @UI Push size auto for both dimensions, e.g. by default widgets placed directly in the main_container are size auto
     
     ui_state->root_widget = main_row_container;
     UI_PushParent(main_row_container);
@@ -122,7 +136,7 @@ internal inline f32 UI_GetSize(UI_Widget *widget, u32 axis) {
 }
 
 internal inline b32 UI_IsAutoSize(UI_Widget *widget, u32 axis) {
-    // TODO(Cian): Maybe a better way of deciding this
+    // TODO(Cian): @UI Maybe a better way of deciding this
     if(widget->parameters[axis].size == 0 && widget->parameters[axis].strictness == 0) {
         return true;
     }
@@ -131,28 +145,81 @@ internal inline b32 UI_IsAutoSize(UI_Widget *widget, u32 axis) {
 }
 
 
-internal void UI_MeasureWidget(UI_Widget *widget, u32 axis) {
+internal void UI_MeasureWidget(UI_Widget *widget, b32 is_tiled, u32 axis) {
     if(UI_WidgetHasProperty(widget, UI_WidgetProperty_Container)){
-        f32 min_sum = 0;
-        f32 sum = 0;
+        f32 size = 0;
+        f32 strictness = 0;
         
         UI_Widget *curr = widget->tree_first_child;
-        while(curr) {
-            if(UI_IsAutoSize(curr, axis)) {
-                UI_MeasureWidget(curr, axis);
-            }
+        if(is_tiled) {
+            f32 min_sum = 0;
+            f32 sum = 0;
             
-            sum += curr->parameters[axis].size;
-            min_sum += curr->parameters[axis].size * curr->parameters[axis].strictness;
+            while(curr) {
+                // NOTE(Cian): Child widget may not share same layout direction
+                if(UI_IsAutoSize(curr, axis)) {
+                    if(UI_WidgetsShareOneProperty(widget, curr, UI_WidgetProperty_LayoutHorizontal, UI_WidgetProperty_LayoutVertical)){
+                        UI_MeasureWidget(curr, is_tiled, axis);
+                    } else {
+                        UI_MeasureWidget(curr, !is_tiled, axis);
+                    }
+                }
+                
+                sum += curr->parameters[axis].size;
+                min_sum += curr->parameters[axis].size * curr->parameters[axis].strictness;
+                
+                curr = curr->tree_next_sibling;
+            }
+            size = sum;
+            strictness =  min_sum / sum;
+        } else {
+            f32 max_pref_size = 0;
+            f32 max_min_size = 0;
+            
+            while(curr) {
+                // TODO(Cian): @UI Could probably simplify this, may as well check in an if this info, ok for now
+                // NOTE(Cian): Child widget may not share same layout direction
+                if(UI_IsAutoSize(curr, axis)) {
+                    if(UI_WidgetsShareOneProperty(widget, curr, UI_WidgetProperty_LayoutHorizontal, UI_WidgetProperty_LayoutVertical)){
+                        UI_MeasureWidget(curr, is_tiled, axis);
+                    } else {
+                        UI_MeasureWidget(curr, !is_tiled, axis);
+                    }
+                }
+                
+                f32 pref_size = curr->parameters[axis].size;
+                f32 min_size = pref_size * curr->parameters[axis].strictness;
+                
+                if(pref_size > max_pref_size)
+                    max_pref_size = pref_size;
+                if(min_size > max_min_size)
+                    max_min_size = min_size;
+                
+                curr = curr->tree_next_sibling;
+            }
+            size = max_pref_size;
+            strictness = max_min_size / max_pref_size;
         }
         
-        widget->parameters[axis].size = sum;
-        widget->parameters[axis].strictness = min_sum / sum;
+        widget->parameters[axis].size = size;
+        widget->parameters[axis].strictness = strictness;
     } else {
-        // TODO(Cian): Handle things like widgets that have text etc, if a widget doesn't fall into any category here just set some default size
+        // TODO(Cian): @UI Handle things like widgets that have text etc, if a widget doesn't fall into any category here just set some default size
+        
+        // NOTE(Cian): Just a test
+        /*widget->parameters[axis].size = 120;
+        widget->parameters[axis].strictness = 1.0f;*/
+        if(axis == UI_ParameterIndex_Width){
+            widget->parameters[axis].size = 120;
+            widget->parameters[axis].strictness = 1.0f;
+        } else {
+            widget->parameters[axis].size = 60;
+            widget->parameters[axis].strictness = 1.0f;
+        }
+        
     }
 }
-// TODO(Cian): Both of these layout functions loop through the children, maybe these loops could occur at the same time? Doubt it really matters for performance whatsoever but it's kinda bothering my OCD
+// TODO(Cian): @UI Both of these layout functions loop through the children, maybe these loops could occur at the same time? Doubt it really matters for performance whatsoever but it's kinda bothering my OCD
 // NOTE(Cian): Lays out the widgets in the direction of the Container e.g. if a row it will lay out/re-size horizontally
 internal void UI_LayoutInFlow(UI_Widget *first_child, f32 available, u32 axis) {
     f32 sum_delta = 0;
@@ -161,9 +228,9 @@ internal void UI_LayoutInFlow(UI_Widget *first_child, f32 available, u32 axis) {
     f32 offset = 0;
     UI_Widget *curr = first_child;
     while(curr) {
-        // TODO(Cian): This is pretty piggy, if both sizes are auto we will measure children 2 times for each axis
+        // TODO(Cian): @UI This is pretty piggy, if both sizes are auto we will measure children 2 times for each axis
         if(UI_IsAutoSize(curr, axis)) {
-            UI_MeasureWidget(curr, axis);
+            UI_MeasureWidget(curr, true, axis);
         }
         
         f32 pref_size = UI_GetSize(curr, axis);
@@ -187,8 +254,8 @@ internal void UI_LayoutInFlow(UI_Widget *first_child, f32 available, u32 axis) {
             
             f32 factor = (curr->parameters[axis].size * (1 - curr->parameters[axis].strictness)) / sum_delta; 
             
-            curr->curr_layout.width -= (factor * (sum - available)); 
             curr->curr_layout.elements[axis] = offset;
+            curr->curr_layout.width -= (factor * (sum - available)); 
             offset += curr->curr_layout.elements[axis + 2];
             
             curr = curr->tree_next_sibling;
@@ -198,25 +265,57 @@ internal void UI_LayoutInFlow(UI_Widget *first_child, f32 available, u32 axis) {
 
 // NOTE(Cian): Lays out the widgets in the non-flow axis e.g. if a row it will do layout/re-sizing on the height, simply "centers" the widget on this axis
 internal void UI_LayoutNonFlow(UI_Widget *first_child, f32 available, u32 axis) {
-    
+    UI_Widget *curr = first_child;
+    while(curr) {
+        if(UI_IsAutoSize(curr, axis)) {
+            UI_MeasureWidget(curr, false, axis);
+        }
+        // TODO(Cian): @UI Maybe do fancy alignment stuff?
+        
+        f32 size = 0;
+        
+        f32 pref_size = UI_GetSize(curr, axis);
+        f32 delta_size = pref_size * (1 - curr->parameters[axis].strictness);
+        
+        f32 factor = (pref_size - available) / delta_size;
+        if(pref_size > available && factor <= 1) {
+            size = pref_size - (factor * delta_size);
+        } else {
+            size = pref_size;
+        }
+        // NOTE(Cian): Center the widget 
+        // TODO(Cian): @UI Might wanna use ABS here, also might wanna round but whatever
+        f32 pos_offset = (available - size) / 2;
+        
+        // TODO(Cian): @UI need to sort out alignment later
+        //The offset...
+        curr->curr_layout.elements[axis] = 0;
+        //The size...
+        curr->curr_layout.elements[axis + 2] = size;
+        
+        curr = curr->tree_next_sibling;
+    }
 }
+
 // NOTE(Cian): 
 internal void UI_TraverseTree(UI_Widget *root) {
-    // TODO(Cian): Take padding into account here;
+    // TODO(Cian): @UI Take padding into account here;
     f32 parent_width = root->curr_layout.width;
     f32 parent_height = root->curr_layout.height;
     
     if(UI_WidgetHasProperty(root, UI_WidgetProperty_Container)) {
         if(UI_WidgetHasProperty(root, UI_WidgetProperty_LayoutHorizontal)) {
             UI_LayoutInFlow(root->tree_first_child, parent_width, 0);
+            UI_LayoutNonFlow(root->tree_first_child, parent_height, 1);
         } else if (UI_WidgetHasProperty(root, UI_WidgetProperty_LayoutVertical)) {
-            // TODO(Cian): Columns
             UI_LayoutInFlow(root->tree_first_child, parent_height, 1);
+            UI_LayoutNonFlow(root->tree_first_child, parent_width, 0);
         } else {
             UI_LayoutInFlow(root->tree_first_child, parent_width, 0);
+            UI_LayoutNonFlow(root->tree_first_child, parent_height, 1);
         }
         
-        // TODO(Cian): Lil annoying that I have a third loop here, need to try and clean this up once I get things working
+        // TODO(Cian): @UI Lil annoying that I have a third loop here, need to try and clean this up once I get things working
         UI_Widget *curr = root->tree_first_child;
         while(curr) {
             if(UI_WidgetHasProperty(curr, UI_WidgetProperty_Container)) {
@@ -235,29 +334,31 @@ internal void UI_DoLayout() {
     UI_TraverseTree(root);
 }
 
-internal void UI_Render(UI_Widget *root) {
+internal void UI_Render(UI_Widget *root, f32 start_x, f32 start_y) {
     UI_Widget *curr = root->tree_first_child;
     
     while(curr) {
+        f32 x = start_x + curr->curr_layout.x;
+        f32 y = start_y + curr->curr_layout.y;
+        
         if(UI_WidgetHasProperty(curr, UI_WidgetProperty_RenderBackground)){
-            f32 height = 60;
-            if(UI_WidgetHasProperty(curr, UI_WidgetProperty_Container))
-                height = 120;
+            
             nvgBeginPath(global_vg);
-            nvgRect(global_vg, curr->curr_layout.x,  curr->curr_layout.y, curr->curr_layout.width, height);
+            nvgRect(global_vg, x, y, curr->curr_layout.width,  curr->curr_layout.height);
             nvgFillColor(global_vg, curr->color);
             nvgFill(global_vg);
         }
         
         if(UI_WidgetHasProperty(curr, UI_WidgetProperty_Container)) {
-            UI_Render(curr);
+            
+            UI_Render(curr, x, y);
         }
         curr = curr->tree_next_sibling;
     }
 }
 
 internal void UI_End() {
-    // TODO(Cian): Need to either clear autolayout state here or, make the UI_State as part of the frame_arena and UI_Widgets be maintained seperately in permanent arena
+    // TODO(Cian): @UI Need to either clear autolayout state here or, make the UI_State as part of the frame_arena and UI_Widgets be maintained seperately in permanent arena
     ui_state->parent_stack.size = 0;
     ui_state->width_stack.size = 0;
     ui_state->height_stack.size = 0;
@@ -271,7 +372,7 @@ internal void UI_End() {
 *  need to be recursive, we add childrens 
 */
     UI_DoLayout();
-    UI_Render(ui_state->root_widget);
+    UI_Render(ui_state->root_widget, 0, 0);
 }
 
 internal void UI_BeginRow(char *string) {
@@ -285,18 +386,31 @@ internal void UI_EndRow() {
     UI_PopParent();
 }
 
+internal void UI_BeginColumn(char *string) {
+    UI_Widget *col = UI_InitWidget(string);
+    UI_PushParent(col);
+    UI_WidgetAddProperty(col, UI_WidgetProperty_Container);
+    UI_WidgetAddProperty(col, UI_WidgetProperty_LayoutVertical);
+}
+
+internal void UI_EndColumn() {
+    UI_PopParent();
+}
+
 internal void UI_BeginPanel(char *string, NVGcolor color) {
     UI_Widget *panel_container = UI_InitWidget(string);
     UI_WidgetAddProperty(panel_container, UI_WidgetProperty_Container);
     UI_WidgetAddProperty(panel_container, UI_WidgetProperty_RenderBackground);
     panel_container->color = color;
     UI_PushParent(panel_container);
-    // TODO(Cian): Need to come up with a proper string ID generator for cases where user can't specify
-    UI_WidthFill
+    // TODO(Cian): @UI Need to come up with a proper string ID generator for cases where user can't specify
+    UI_WidthAuto UI_HeightAuto
         UI_BeginRow("panel_row");
+    //UI_BeginColumn("panel_col");
 }
 
 internal void UI_EndPanel() {
+    //UI_EndColumn();
     UI_EndRow();
     UI_PopParent();
 }
