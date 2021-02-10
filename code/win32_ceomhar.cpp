@@ -190,6 +190,7 @@ int main(u32 argc, char **argv) {
         
         global_os->permanent_arena = Memory_ArenaInitialise();
         global_os->frame_arena = Memory_ArenaInitialise();
+        global_os->scope_arena = Memory_ArenaInitialise();
         
         // TODO(Cian): ReCalculate window RECT on size change and notify game layer
         AppDisplay screen_dimension = {};
@@ -229,6 +230,7 @@ int main(u32 argc, char **argv) {
         }
         Memory_ArenaRelease(&global_os->permanent_arena);
         Memory_ArenaRelease(&global_os->frame_arena);
+        Memory_ArenaRelease(&global_os->scope_arena);
         
         // TODO(Cian): Clean up contexts and memory arenas
     }

@@ -3,7 +3,6 @@ void AppStart(OS_State *state, NVGcontext *vg) {
     // TODO(Cian): when app and platform are split into seperate TU's, put OS_State stuff here
     ui_state = (UI_State*)Memory_ArenaPush(&global_os->permanent_arena, sizeof(UI_State));
     *ui_state = {};
-    
 }
 
 // TODO(Cian): How should we pass the vgContext???

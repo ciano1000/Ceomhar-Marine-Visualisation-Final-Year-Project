@@ -36,6 +36,12 @@ struct UI_SizeParameters {
     f32 strictness;
 };
 
+struct UI_ID {
+    b32 non_interactive;
+    u32 hash;
+    u32 parent_hash;
+};
+
 struct UI_Widget{
     // NOTE(Cian): properties declare the type and functionality of the UI_Component, e.g layout-> vertical, horizontal etc, widget -> slider, button, text etc
     u64 properties[UI_WidgetProperty_MAX / 64 + 1];
@@ -47,6 +53,8 @@ struct UI_Widget{
     UI_Widget *tree_first_child;
     UI_Widget *tree_last_child;
     UI_Widget *tree_parent;
+    UI_ID id;
+    u64 last_frame;
     V4 curr_layout;
     V4 old_layout;
     UI_SizeParameters parameters[2];
@@ -59,6 +67,7 @@ struct UI_State {
     UI_Widget *widgets[UI_MAX_WIDGETS];
     UI_Widget *root_widget;
     UI_Widget *prev_widget;
+    u64 curr_frame;
     //UI_Panel panels[UI_MAX_PANELS];
     u32 panel_size;
 #define UI_STACK(name, type) \
@@ -81,10 +90,6 @@ struct UI_RecursiveQueue {
 };
 
 global UI_State *ui_state;
-#define TOKEN_PASTE(x, y) x##y
-#define CAT(x,y) TOKEN_PASTE(x,y)
-#define UNIQUE_INT CAT(prefix, __COUNTER__)
-
 #define _UI_DEFER_LOOP(begin, end, var) for(int var  = (begin, 0); !var; ++var,end)
 #define UI_BeginUI _UI_DEFER_LOOP(UI_Begin(), UI_End(), UNIQUE_INT)
 #define UI_Row _UI_DEFER_LOOP(UI_BeginRow(), UI_EndRow(), UNIQUE_INT)

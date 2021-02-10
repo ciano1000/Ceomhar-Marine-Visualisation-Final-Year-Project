@@ -365,7 +365,7 @@ internal void UI_End() {
     
     ui_state->prev_widget = null;
     ui_state->parent_stack.current = null;
-    
+    ui_state->curr_frame++;
     //Autolayout for rendering and next frame goes here
     /* NOTE(Cian): Auto-layout works as follows:
     *  Traverse downwards through the tree, for every parent, measure it's children, this may
@@ -405,8 +405,8 @@ internal void UI_BeginPanel(char *string, NVGcolor color) {
     UI_PushParent(panel_container);
     // TODO(Cian): @UI Need to come up with a proper string ID generator for cases where user can't specify
     UI_WidthAuto UI_HeightAuto
-        UI_BeginRow("panel_row");
-    //UI_BeginColumn("panel_col");
+        //UI_BeginRow("panel_row");
+        UI_BeginColumn("panel_col");
 }
 
 internal void UI_EndPanel() {

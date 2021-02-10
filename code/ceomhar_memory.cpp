@@ -32,6 +32,7 @@ internal void Memory_ArenaPop(MemoryArena *arena, u64 size) {
     arena->allocation_pos -= size;
 }
 
+// TODO(Cian): @Memory need to think about a deallocation strategy, current strategy is probably fine for the permanent arena and the frame arena since memory use is always likely to be very consistent, however the scratch arena could vary wildly
 internal void Memory_ArenaClear(MemoryArena *arena) {
     Memory_ArenaPop(arena, arena->allocation_pos);
 }

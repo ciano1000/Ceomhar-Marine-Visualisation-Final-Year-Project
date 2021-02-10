@@ -39,4 +39,6 @@ struct OS_State
     
     MemoryArena frame_arena;
     MemoryArena permanent_arena; 
+    // NOTE(Cian): A scope arena has a lifetime of some local scope, useful for very temporary strings etc.
+    MemoryArena scope_arena; 
 };
