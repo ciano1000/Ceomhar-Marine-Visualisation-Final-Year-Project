@@ -3,6 +3,7 @@
 #include <string.h>
 #include <assert.h>
 #include <math.h>
+#include <stdarg.h>
 
 #include <windows.h>
 #include <Shellscalingapi.h>
@@ -219,6 +220,17 @@ int main(u32 argc, char **argv) {
             SwapBuffers(dc);
             ReleaseDC(window_handle, device_context);
             
+            // NOTE(Cian): Testing string
+            // TODO(Cian): @Testing need to create some kinda automated seperate testing thingy where I can test functions once off
+            /*Memory_ScopeBlock(){
+                String str_1 = String_MakeString(&global_os->scope_arena, "My name is: %s", "Cian");
+                String str_2 = String_MakeString(&global_os->scope_arena, " I am %d years old", 22);
+                String appended = String_AppendString(&global_os->scope_arena, &str_1, &str_2);
+                
+                printf("\n %s \n", str_1.data);
+                printf("%s \n", str_2.data);
+                printf("%s \n", appended.data);
+            }*/
             while(PeekMessage(&message,0,0,0,PM_REMOVE|PM_NOYIELD))
             {
                 TranslateMessage(&message);

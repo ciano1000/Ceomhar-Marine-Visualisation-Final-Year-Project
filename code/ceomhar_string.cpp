@@ -75,8 +75,105 @@ internal u32 StringToCRC32(char *string) {
     return crc;
 }
 
+internal String String_MakeFromCString(char *string) {
+    String result = {};
+    result.data = string;
+    
+    u32 size = 0;
+    
+    char *curr = string;
+    while((*curr) != null) {
+        size++;
+        curr = string + 1;
+    }
+    size++;
+    
+    result.size = size;
+    
+    return result;
+}
+
+// TODO(Cian): @String might get around to either replacing C string funcs like snprintf etc myself or by using stb headers
+internal String String_MakeString(MemoryArena *arena, char *string,...) {
+    String result = {};
+    
+    va_list args;
+    va_start(args, string);
+    u32 size = vsnprintf(null, 0, string, args) + 1;
+    va_end(args);
+    
+    result.data = (char*)Memory_ArenaPush(arena, size);
+    // TODO(Cian): Have error logging to check if memory allocation was successful or not
+    if(result.data) {
+        result.size = size;
+        
+        va_start(args, string);
+        vsnprintf(result.data, size, string, args);
+        va_end(args);
+        
+        result.data[size - 1] = null;
+    }
+    
+    return result;
+}
+
+internal String String_MakeString(MemoryArena *arena, char *string, va_list args) {
+    String result = {};
+    
+    u32 size = vsnprintf(null, 0, string, args) + 1;
+    
+    result.data = (char*)Memory_ArenaPush(arena, size);
+    // TODO(Cian): Have error logging to check if memory allocation was successful or not
+    if(result.data) {
+        result.size = size;
+        vsnprintf(result.data, size, string, args);
+        result.data[size - 1] = null;
+    }
+    
+    return result;
+}
+
+internal String String_AppendString(MemoryArena *arena, String *string_1, String *string_2) {
+    String result = {};
+    
+    u32 size = (string_1->size + string_2->size) - 1;
+    result.data = (char*)Memory_ArenaPush(arena, size);
+    result.size = size;
+    
+    if(result.data) {
+        snprintf(result.data, string_1->size, string_1->data);
+        snprintf(result.data + (string_1->size - 1), string_2->size, string_2->data);
+        result.data[size - 1] = null;
+    }
+    
+    return result;
+}
+
+// TODO(Cian): Maybe this shouldn't return a new string and should just reallocate the original?? Idk, revaluate after using it for a bit
+internal String String_AppendString(MemoryArena *arena, String *string_1, char *string_2,...) {
+    // TODO(Cian): Seem to be redoing a lot of stuff here?
+    String result = {};
+    
+    va_list args;
+    va_start(args, string_2);
+    // NOTE(Cian): String.size already includes null terminator so don't need to +1 vsnprintf result
+    u32 str_2_size = string_1->size + (vsnprintf(null, 0, string_2, args));
+    u32 size = string_1->size + str_2_size;
+    va_end(args);
+    
+    result.data = (char*)Memory_ArenaPush(arena, size);
+    
+    if(result.data) {
+        snprintf(result.data, string_1->size, string_1->data);
+        vsnprintf(result.data + (string_1->size - 1), size, string_2, args);
+        result.data[size - 1] = null;
+    }
+    
+    return result;
+}
+
 void StringGenRandom(char *s, int len) {
-    static const char alphanum[] =     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    static const char alphanum[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
     
     for (int i = 0; i < len -1; ++i) {
         s[i] = alphanum[rand() % (sizeof(alphanum) - 1)];

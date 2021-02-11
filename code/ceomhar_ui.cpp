@@ -43,10 +43,64 @@ internal b32 UI_WidgetsShareOneProperty(UI_Widget *widget_1, UI_Widget *widget_2
     return UI_WidgetsCompareProperty(widget_1, widget_2, property_1) || UI_WidgetsCompareProperty(widget_1, widget_2, property_2);
 }
 
-internal UI_Widget* UI_InitWidget(char *name) {
+internal UI_Widget* UI_InitWidget(String string) {
     // NOTE(Cian): All temporary and very liable to change lol
     
-    u32 idx = StringToCRC32(name) % UI_MAX_WIDGETS;
+    // NOTE(Cian): Process our string to obtain the correct string for hashing
+    String hash_string = {};
+    
+    u32 pound_count = 0;
+    u32 first_pound_loc = 0;
+    for(u32 i = 0; i < string.size; i++) {
+        char curr = string.data[i];
+        
+        if(curr == '#') {
+            if(pound_count == 0) {
+                first_pound_loc = i;
+            }
+            pound_count++;
+        } else {
+            pound_count = 0;
+        }
+    }
+    
+    if(pound_count == 2) {
+        // NOTE(Cian): We want to append the string after the two pound signs to the string for hashing(not for display)
+        // TODO(Cian): Might pull this out, doubt I'll need it
+        
+        hash_string.size = string.size - 2;
+        hash_string.data = (char*)Memory_ArenaPush(&global_os->frame_arena, hash_string.size);
+        // TODO(Cian): @UI should probably check if this memory is ok
+        
+        u32 size_1 = first_pound_loc + 1;
+        u32 src_offset_2 = first_pound_loc + 2;
+        u32 size_2 = string.size - src_offset_2;
+        
+        //Copy string preceding ##
+        snprintf(hash_string.data, size_1, string.data);
+        //Copy string following ##
+        snprintf(hash_string.data + size_1, size_2, string.data + src_offset_2);
+        hash_string.data[hash_string.size - 1] = null;
+        
+        //Remove appended piece from main string;
+        string.data[first_pound_loc] = null;
+    } else if(pound_count == 3) {
+        // NOTE(Cian): We want to use just the string after the two pound signs for hashing
+        u32 src_offset = first_pound_loc + 3;
+        
+        hash_string.size = string.size - src_offset;
+        hash_string.data = (char*)Memory_ArenaPush(&global_os->frame_arena, hash_string.size);
+        
+        snprintf(hash_string.data, hash_string.size, string.data + src_offset);
+        
+        //Remove appended piece from main string;
+        string.data[first_pound_loc] = null;
+    } else {
+        hash_string = string;
+    }
+    
+    u32 hash =  StringToCRC32(hash_string.data);
+    u32 idx = hash % UI_MAX_WIDGETS;
     
     UI_Widget *at_location = ui_state->widgets[idx];
     
@@ -78,7 +132,7 @@ internal UI_Widget* UI_InitWidget(char *name) {
         }
     }
     // NOTE(Cian): Widget data stuff
-    under_construction->string = name;
+    under_construction->string = string;
     under_construction->parameters[0] = ui_state->width_stack.current;
     under_construction->parameters[1] = ui_state->height_stack.current;
     // TODO(Cian): @UI add more thingys here when we start actually doing them
@@ -109,7 +163,10 @@ internal void UI_Begin() {
     
     UI_PushWidth(display_width, 1.0f);
     UI_PushHeight(display_height, 1.0f);
-    UI_Widget *main_row_container = UI_InitWidget("main");
+    // NOTE(Cian): Some non-interactable widgets will still be explicitly named for debugging purposes
+    // TODO(Cian): @UI might reqork this so it only does this in debug mode?
+    String main_row_string = String_MakeFromCString("main");
+    UI_Widget *main_row_container = UI_InitWidget(main_row_string);
     UI_PopWidth();
     UI_PopHeight();
     
@@ -376,7 +433,8 @@ internal void UI_End() {
 }
 
 internal void UI_BeginRow(char *string) {
-    UI_Widget *row = UI_InitWidget(string);
+    String widget_string = String_MakeFromCString(string);
+    UI_Widget *row = UI_InitWidget(widget_string);
     UI_PushParent(row);
     UI_WidgetAddProperty(row, UI_WidgetProperty_Container);
     UI_WidgetAddProperty(row, UI_WidgetProperty_LayoutHorizontal);
@@ -387,7 +445,8 @@ internal void UI_EndRow() {
 }
 
 internal void UI_BeginColumn(char *string) {
-    UI_Widget *col = UI_InitWidget(string);
+    String widget_string = String_MakeFromCString(string);
+    UI_Widget *col = UI_InitWidget(widget_string);
     UI_PushParent(col);
     UI_WidgetAddProperty(col, UI_WidgetProperty_Container);
     UI_WidgetAddProperty(col, UI_WidgetProperty_LayoutVertical);
@@ -397,7 +456,9 @@ internal void UI_EndColumn() {
     UI_PopParent();
 }
 
-internal void UI_BeginPanel(char *string, NVGcolor color) {
+internal void UI_BeginPanel(NVGcolor color, char *format,...) {
+    String string = {};
+    UI_MakeFormatString(string, format);
     UI_Widget *panel_container = UI_InitWidget(string);
     UI_WidgetAddProperty(panel_container, UI_WidgetProperty_Container);
     UI_WidgetAddProperty(panel_container, UI_WidgetProperty_RenderBackground);
@@ -415,7 +476,9 @@ internal void UI_EndPanel() {
     UI_PopParent();
 }
 
-internal void UI_TestBox(char *string, NVGcolor color) {
+internal void UI_TestBox(NVGcolor color, char *format,...) {
+    String string = {};
+    UI_MakeFormatString(string, format);
     UI_Widget *test_box = UI_InitWidget(string);
     test_box->color = color;
     UI_WidgetAddProperty(test_box, UI_WidgetProperty_RenderBackground);

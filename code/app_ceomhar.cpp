@@ -20,16 +20,16 @@ void AppUpdateAndRender() {
     {
         
         // NOTE(Cian): Panels auto-create a Row container(for padding etc), it's row fills its width
-        UI_Width(800, 0.8f) UI_HeightFill UI_Panel("Test_Panel", nvgRGBA(50, 54, 57, 255))
+        UI_Width(800, 0.8f) UI_HeightFill UI_Panel(nvgRGBA(50, 54, 57, 255), "Test_Panel##test_append")
         {
             // NOTE(Cian): Blue
             UI_WidthFill UI_HeightAuto{
-                UI_TestBox("Temp1", nvgRGBA(3, 219, 252, 255));
+                UI_TestBox(nvgRGBA(3, 219, 252, 255), "Temp1###test_replace");
                 // NOTE(Cian): Purple
-                UI_TestBox("Temp2", nvgRGBA(252, 3, 152, 255));
+                UI_TestBox(nvgRGBA(252, 3, 152, 255), "Temp2");
                 
                 // NOTE(Cian): Yellow
-                UI_TestBox("Temp3", nvgRGBA(252, 252, 3, 255));
+                UI_TestBox(nvgRGBA(252, 252, 3, 255), "Temp3");
             }
         }
         

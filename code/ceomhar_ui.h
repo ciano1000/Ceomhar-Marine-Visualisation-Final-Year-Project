@@ -46,7 +46,7 @@ struct UI_Widget{
     // NOTE(Cian): properties declare the type and functionality of the UI_Component, e.g layout-> vertical, horizontal etc, widget -> slider, button, text etc
     u64 properties[UI_WidgetProperty_MAX / 64 + 1];
     // TODO(Cian): Need to do a proper UI id thingy
-    char *string;
+    String string;
     UI_Widget *hash_next;
     UI_Widget *tree_next_sibling;
     UI_Widget *tree_prev_sibling;
@@ -88,6 +88,14 @@ struct UI_RecursiveQueue {
     u32 size;
     UI_Widget *widget_queue[UI_MAX_WIDGETS];
 };
+
+// NOTE(Cian): Macro to handle varargs boilerplate
+#define UI_MakeFormatString(string, format) \
+va_list args;\
+va_start(args, format);\
+string = String_MakeString(&global_os->frame_arena, format, args);\
+va_end(args);
+
 
 global UI_State *ui_state;
 #define _UI_DEFER_LOOP(begin, end, var) for(int var  = (begin, 0); !var; ++var,end)
