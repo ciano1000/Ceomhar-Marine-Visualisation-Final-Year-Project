@@ -1,9 +1,10 @@
 // TODO(Cian): Replace some of these C std libs with our own
-#include <stdio.h>
-#include <string.h>
 #include <assert.h>
 #include <math.h>
 #include <stdarg.h>
+
+#define STB_SPRINTF_IMPLEMENTATION
+#include "stb\stb_sprintf.h"
 
 #include <windows.h>
 #include <Shellscalingapi.h>
@@ -154,7 +155,7 @@ int main(u32 argc, char **argv) {
     
     if(RegisterClassA(&window_class))
     {
-        window_handle = CreateWindowExA(0, window_class.lpszClassName,"UITests", WS_OVERLAPPEDWINDOW
+        window_handle = CreateWindowExA(0, window_class.lpszClassName,"Ceomhar Trawl Analysis: FYP", WS_OVERLAPPEDWINDOW
                                         | WS_VISIBLE,CW_USEDEFAULT,CW_USEDEFAULT,
                                         CW_USEDEFAULT,CW_USEDEFAULT,0,0,instance,0);
         
@@ -172,13 +173,15 @@ int main(u32 argc, char **argv) {
         
         //nanovg init
         // TODO(Cian): Rework so that vgcontext is stored in an arena
-        global_vg = nvgCreateGL3( NVG_STENCIL_STROKES);
+        global_vg = nvgCreateGL3( NVG_STENCIL_STROKES|NVG_ANTIALIAS| NVG_DEBUG );
         Running = true;
         
         // NOTE(Cian): Load font(s)
         // TODO(Cian): Get the CWD instead of hardcoding location
-        char *fontLocation = "D:\\dev\\nanovg_tests\\code\\fonts\\Roboto-Bold.ttf";
-        nvgCreateFont(global_vg,"roboto-bold", fontLocation);
+        char *fontLocation_1 = "D:\\dev\\fyp_ceomhar\\code\\fonts\\Roboto-Bold.ttf";
+        nvgCreateFont(global_vg,"roboto-bold", fontLocation_1);
+        char *fontLocation_2 = "D:\\dev\\fyp_ceomhar\\code\\fonts\\Roboto-Medium.ttf";
+        nvgCreateFont(global_vg,"roboto-medium", fontLocation_2);
         
         
         OS_State os_state;
@@ -200,10 +203,11 @@ int main(u32 argc, char **argv) {
         
         AppStart(global_os, global_vg);
         
+        wglSwapIntervalEXT(1);
+        
         SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
         while(Running)
         {
-            
             LARGE_INTEGER win_perf_counter_large;
             QueryPerformanceCounter(&win_perf_counter_large);
             

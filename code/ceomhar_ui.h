@@ -7,8 +7,37 @@
 #define UI_MAX_SIZE 1000000
 #define UI_MIN_SIZE 0
 
+#define UI_DEFAULT_TEXT_PADDING_X 16.0f
+#define UI_DEFAULT_TEXT_PADDING_Y 10.0f
+
+#define UI_MIN_TEXT_PADDING_X 4.0f
+#define UI_MIN_TEXT_PADDING_Y 4.0f
+
+#define UI_BORDER_SIZE 2.0f
+
+#define UI_DEFAULT_FONT_SIZE 16.0f
+
+#define DEFAULT_TEXT_COLOR nvgRGBA(225,225,225,255)
+#define DARK_TEXT_COLOR nvgRGBA(0,0,0,255)
+#define PRIMARY_COLOR nvgRGBA(18,18,18,255)
+#define PRIMARY_COLOR_DARK nvgRGBA(0,0,0,255)
+#define PRIMARY_COLOR_LIGHT nvgRGBA(50,50,50,255)
+#define SECONDARY_COLOR nvgRGBA(187,134,252,255)
+#define SECONDARY_COLOR_LIGHT nvgRGBA(239,183,255,255)
+#define SECONDARY_COLOR_DARK nvgRGBA(136,88,200,255)
+#define HIGHLIGHT_COLOR nvgRGBA(3,218,198,255)
+#define HIGHLIGHT_COLOR_2 nvgRGBA(207,102,121,255)
+
+#define DEFAULT_ROUNDNESS 4
+
 enum UI_WidgetProperty{
     UI_WidgetProperty_RenderBackground,
+    UI_WidgetProperty_RenderBackgroundRounded,
+    UI_WidgetProperty_Clickable,
+    UI_WidgetProperty_RenderText,
+    UI_WidgetProperty_RenderBorder,
+    UI_WidgetProperty_RenderHot,
+    UI_WidgetProperty_RenderActive,
     UI_WidgetProperty_Container,
     UI_WidgetProperty_LayoutHorizontal,
     UI_WidgetProperty_LayoutVertical,
@@ -45,7 +74,6 @@ struct UI_ID {
 struct UI_Widget{
     // NOTE(Cian): properties declare the type and functionality of the UI_Component, e.g layout-> vertical, horizontal etc, widget -> slider, button, text etc
     u64 properties[UI_WidgetProperty_MAX / 64 + 1];
-    // TODO(Cian): Need to do a proper UI id thingy
     String string;
     UI_Widget *hash_next;
     UI_Widget *tree_next_sibling;
@@ -58,7 +86,10 @@ struct UI_Widget{
     V4 curr_layout;
     V4 old_layout;
     UI_SizeParameters parameters[2];
+    V4 padding;
     NVGcolor color;
+    NVGcolor text_color;
+    f32 font_size;
 };
 
 struct UI_State {
@@ -68,7 +99,8 @@ struct UI_State {
     UI_Widget *root_widget;
     UI_Widget *prev_widget;
     u64 curr_frame;
-    //UI_Panel panels[UI_MAX_PANELS];
+    UI_ID hot;
+    UI_ID active;
     u32 panel_size;
 #define UI_STACK(name, type) \
 struct { \
@@ -80,6 +112,9 @@ type current;\
     UI_STACK(parent, UI_Widget*);
     UI_STACK(width, UI_SizeParameters);
     UI_STACK(height, UI_SizeParameters);
+    UI_STACK(padding, V4);
+    // TODO(Cian): @UI not sure if this is the best approach for non-interactive stuff but what the heck
+    u32 non_interactive_count;
 };
 
 struct UI_RecursiveQueue {
@@ -96,13 +131,13 @@ va_start(args, format);\
 string = String_MakeString(&global_os->frame_arena, format, args);\
 va_end(args);
 
-
 global UI_State *ui_state;
 #define _UI_DEFER_LOOP(begin, end, var) for(int var  = (begin, 0); !var; ++var,end)
 #define UI_BeginUI _UI_DEFER_LOOP(UI_Begin(), UI_End(), UNIQUE_INT)
-#define UI_Row _UI_DEFER_LOOP(UI_BeginRow(), UI_EndRow(), UNIQUE_INT)
-#define UI_Col _UI_DEFER_LOOP(UI_BeginColumn(), UI_EndColumn(), UNIQUE_INT)
-#define UI_P(padding, fill_color, border_color)  _UI_DEFER_LOOP(UI_PushPanel(padding, fill_color, border_color), UI_PopPanel(), k)
+#define UI_Row _UI_DEFER_LOOP(UI_BeginRow(0), UI_EndRow(), UNIQUE_INT)
+#define UI_Col _UI_DEFER_LOOP(UI_BeginColumn(0), UI_EndColumn(), UNIQUE_INT)
+#define UI_Padding4(pad_v4)  _UI_DEFER_LOOP(UI_PushPadding(pad_v4), UI_PopPadding(), UNIQUE_INT)
+#define UI_Padding2(pad_v2)  _UI_DEFER_LOOP(UI_PushPadding(v4(pad_v2.x, pad_v2.y, pad_v2.x, pad_v2.y)), UI_PopPadding(), UNIQUE_INT)
 #define UI_X(x) _UI_DEFER_LOOP(UI_PushX(x), UI_PopX(), UNIQUE_INT)
 #define UI_Y(y) _UI_DEFER_LOOP(UI_PushY(y), UI_PopY(), UNIQUE_INT)
 #define UI_Width(size, strictness) _UI_DEFER_LOOP(UI_PushWidth(size, strictness), UI_PopWidth(), UNIQUE_INT)
@@ -115,6 +150,8 @@ global UI_State *ui_state;
 #define UI_HeightFill UI_Height(UI_MAX_SIZE, 0.0f)
 #define UI_Pos(pos) _UI_DEFER_LOOP(UI_PushPos(pos), UI_PopPos(), UNIQUE_INT)
 #define UI_Panel(panel_string, color) _UI_DEFER_LOOP(UI_BeginPanel(panel_string, color), UI_EndPanel(), UNIQUE_INT)
+#define UI_Filler(factor) UI_Spacer(factor * UI_MAX_SIZE, 0.0f)
+
 
 #define UI_MIN_ROW_HEIGHT DIPToPixels(16);
 

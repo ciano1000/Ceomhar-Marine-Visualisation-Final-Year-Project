@@ -80,16 +80,18 @@ internal String String_MakeFromCString(char *string) {
     result.data = string;
     
     u32 size = 0;
-    
-    char *curr = string;
-    while((*curr) != null) {
+    if(string) {
+        
+        
+        char *curr = string;
+        while((*curr) != null) {
+            size++;
+            curr += 1;
+        }
         size++;
-        curr = string + 1;
+        
+        result.size = size;
     }
-    size++;
-    
-    result.size = size;
-    
     return result;
 }
 
@@ -99,7 +101,7 @@ internal String String_MakeString(MemoryArena *arena, char *string,...) {
     
     va_list args;
     va_start(args, string);
-    u32 size = vsnprintf(null, 0, string, args) + 1;
+    u32 size = stbsp_vsnprintf(null, 0, string, args) + 1;
     va_end(args);
     
     result.data = (char*)Memory_ArenaPush(arena, size);
@@ -108,7 +110,7 @@ internal String String_MakeString(MemoryArena *arena, char *string,...) {
         result.size = size;
         
         va_start(args, string);
-        vsnprintf(result.data, size, string, args);
+        stbsp_vsnprintf(result.data, size, string, args);
         va_end(args);
         
         result.data[size - 1] = null;
@@ -126,7 +128,7 @@ internal String String_MakeString(MemoryArena *arena, char *string, va_list args
     // TODO(Cian): Have error logging to check if memory allocation was successful or not
     if(result.data) {
         result.size = size;
-        vsnprintf(result.data, size, string, args);
+        stbsp_vsnprintf(result.data, size, string, args);
         result.data[size - 1] = null;
     }
     
@@ -141,8 +143,8 @@ internal String String_AppendString(MemoryArena *arena, String *string_1, String
     result.size = size;
     
     if(result.data) {
-        snprintf(result.data, string_1->size, string_1->data);
-        snprintf(result.data + (string_1->size - 1), string_2->size, string_2->data);
+        stbsp_snprintf(result.data, string_1->size, string_1->data);
+        stbsp_snprintf(result.data + (string_1->size - 1), string_2->size, string_2->data);
         result.data[size - 1] = null;
     }
     
@@ -150,23 +152,25 @@ internal String String_AppendString(MemoryArena *arena, String *string_1, String
 }
 
 // TODO(Cian): Maybe this shouldn't return a new string and should just reallocate the original?? Idk, revaluate after using it for a bit
-internal String String_AppendString(MemoryArena *arena, String *string_1, char *string_2,...) {
+internal String String_AppendString(MemoryArena *arena, String string_1, char *string_2, ...) {
     // TODO(Cian): Seem to be redoing a lot of stuff here?
     String result = {};
     
     va_list args;
     va_start(args, string_2);
     // NOTE(Cian): String.size already includes null terminator so don't need to +1 vsnprintf result
-    u32 str_2_size = string_1->size + (vsnprintf(null, 0, string_2, args));
-    u32 size = string_1->size + str_2_size;
+    u32 str_2_size = string_1.size + (stbsp_vsnprintf(null, 0, string_2, args));
+    u32 size = string_1.size + str_2_size;
     va_end(args);
     
     result.data = (char*)Memory_ArenaPush(arena, size);
     
     if(result.data) {
-        snprintf(result.data, string_1->size, string_1->data);
-        vsnprintf(result.data + (string_1->size - 1), size, string_2, args);
-        result.data[size - 1] = null;
+        stbsp_snprintf(result.data, string_1.size, string_1.data);
+        va_start(args, string_2);
+        stbsp_vsnprintf(result.data + (string_1.size - 1), size, string_2, args);
+        va_end(args);
+        
     }
     
     return result;
