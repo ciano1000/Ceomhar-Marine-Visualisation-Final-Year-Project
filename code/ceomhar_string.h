@@ -3,9 +3,18 @@
 #define HASH_POLY 0xedb88320L
 #define CRC32_LUT
 
+struct String {
+    char *data;
+    u32 size;
+};
+// TODO(Cian): Push a string to some memory arena
+
 #ifndef CRC32_LUT
-INTERNAL void GenerateCRC32Table();
+internal void GenerateCRC32Table();
 #endif
 
-INTERNAL u32 StringToCRC32(char *string, u32 n);
-INTERNAL u32 StringToCRC32(char *string);
+internal u32 StringToCRC32(char *string, u32 n, u32 seed);
+internal u32 StringToCRC32(char *string, u32 seed);
+internal String String_MakeString(MemoryArena *arena, char *string,...);
+//internal String String_AppendString(MemoryArena *arena, String *string_1, char *string_2,...);
+//internal String String_AppendString(MemoryArena *arena, String *string_1, String *string_2);

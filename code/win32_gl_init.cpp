@@ -1,4 +1,4 @@
-INTERNAL void * Win32LoadOpenGLProc(char *name)
+internal void * Win32LoadOpenGLProc(char *name)
 {
     void *p = (void *)wglGetProcAddress(name);
     
@@ -18,7 +18,7 @@ PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB;
 PFNWGLMAKECONTEXTCURRENTARBPROC wglMakeContextCurrentARB;
 PFNWGLSWAPINTERVALEXTPROC wglSwapIntervalEXT;
 
-INTERNAL void Win32LoadWGLFunctions()
+internal void Win32LoadWGLFunctions()
 {
     wglChoosePixelFormatARB = (PFNWGLCHOOSEPIXELFORMATARBPROC)Win32LoadOpenGLProc("wglChoosePixelFormatARB");
     wglCreateContextAttribsARB = (PFNWGLCREATECONTEXTATTRIBSARBPROC)Win32LoadOpenGLProc("wglCreateContextAttribsARB");
@@ -26,7 +26,7 @@ INTERNAL void Win32LoadWGLFunctions()
     wglSwapIntervalEXT = (PFNWGLSWAPINTERVALEXTPROC)Win32LoadOpenGLProc("wglSwapIntervalEXT");
 }
 
-INTERNAL HGLRC Win32InitGL(HWND windowHandle, HDC deviceContext)
+internal HGLRC Win32InitGL(HWND windowHandle, HDC deviceContext)
 {
     PIXELFORMATDESCRIPTOR pfd =
     {

@@ -4969,9 +4969,9 @@ void stbi__tga_read_rgb16(stbi__context *s, stbi_uc* out)
     int g = (px >> 5) & fiveBitMask;
     int b = px & fiveBitMask;
     // Note that this saves the data in RGB(A) order, so it doesn't need to be swapped later
-    out[0] = (stbi_uc)((r * 255)/31);
-    out[1] = (stbi_uc)((g * 255)/31);
-    out[2] = (stbi_uc)((b * 255)/31);
+    out[0] = (stbi_uc)(r * 255)/31;
+    out[1] = (stbi_uc)(g * 255)/31;
+    out[2] = (stbi_uc)(b * 255)/31;
     
     // some people claim that the most significant bit might be used for alpha
     // (possibly if an alpha-bit is set in the "image descriptor byte")

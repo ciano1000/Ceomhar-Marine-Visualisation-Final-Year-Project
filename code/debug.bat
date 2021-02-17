@@ -1,3 +1,2 @@
 @echo off
-if not defined DevEnvDir call .\\code\\vcvars.bat
-devenv .\\build\\Ceomhar.exe
+call .\\code\\remedy.bat .\\debug\\ceomhar.rdbg

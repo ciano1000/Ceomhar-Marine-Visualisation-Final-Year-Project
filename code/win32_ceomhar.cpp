@@ -1,8 +1,10 @@
 // TODO(Cian): Replace some of these C std libs with our own
-#include <stdio.h>
-#include <string.h>
 #include <assert.h>
 #include <math.h>
+#include <stdarg.h>
+
+#define STB_SPRINTF_IMPLEMENTATION
+#include "stb\stb_sprintf.h"
 
 #include <windows.h>
 #include <Shellscalingapi.h>
@@ -20,8 +22,9 @@
 #define NANOVG_GL3_IMPLEMENTATION
 #include "nano\nanovg_gl.h"
 
-GLOBAL NVGcontext *global_vg = {};
-GLOBAL OS_State *global_os = {};
+// TODO(Cian): Standardise where globals are defined because I found it hard to find where this is, maybe also, we should just have one single global struct pointer that contains everything we need?
+global NVGcontext *global_vg = {};
+global OS_State *global_os = {};
 
 #include "ceomhar_string.h"
 #include "ceomhar_string.cpp"
@@ -63,7 +66,7 @@ void Win32GetScreenInfo(HWND window_handle, AppDisplay  *screen_dimension) {
     screen_dimension->dpi = GetDpiForWindow(window_handle);
 }
 
-GLOBAL b32 Running;
+global b32 Running;
 LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LPARAM l_param)
 {
     LRESULT result = 0;
@@ -108,6 +111,12 @@ LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LP
             ScreenToClient(window_handle, &mouse_pos);
             V2 pos = {(f32)mouse_pos.x, (f32)mouse_pos.y};
             global_os->mouse_pos = pos;
+        } break;
+        case WM_GETMINMAXINFO:
+        {
+            LPMINMAXINFO lpMMI = (LPMINMAXINFO)l_param;
+            lpMMI->ptMinTrackSize.x = 600;
+            lpMMI->ptMinTrackSize.y = 600;
         }
         break;
         default:
@@ -146,7 +155,7 @@ int main(u32 argc, char **argv) {
     
     if(RegisterClassA(&window_class))
     {
-        window_handle = CreateWindowExA(0, window_class.lpszClassName,"UITests", WS_OVERLAPPEDWINDOW
+        window_handle = CreateWindowExA(0, window_class.lpszClassName,"Ceomhar Trawl Analysis: FYP", WS_OVERLAPPEDWINDOW
                                         | WS_VISIBLE,CW_USEDEFAULT,CW_USEDEFAULT,
                                         CW_USEDEFAULT,CW_USEDEFAULT,0,0,instance,0);
         
@@ -164,13 +173,15 @@ int main(u32 argc, char **argv) {
         
         //nanovg init
         // TODO(Cian): Rework so that vgcontext is stored in an arena
-        global_vg = nvgCreateGL3( NVG_STENCIL_STROKES);
+        global_vg = nvgCreateGL3( NVG_STENCIL_STROKES|NVG_ANTIALIAS| NVG_DEBUG );
         Running = true;
         
         // NOTE(Cian): Load font(s)
         // TODO(Cian): Get the CWD instead of hardcoding location
-        char *fontLocation = "D:\\dev\\nanovg_tests\\code\\fonts\\Roboto-Bold.ttf";
-        nvgCreateFont(global_vg,"roboto-bold", fontLocation);
+        char *fontLocation_1 = "D:\\dev\\fyp_ceomhar\\code\\fonts\\Roboto-Bold.ttf";
+        nvgCreateFont(global_vg,"roboto-bold", fontLocation_1);
+        char *fontLocation_2 = "D:\\dev\\fyp_ceomhar\\code\\fonts\\Roboto-Medium.ttf";
+        nvgCreateFont(global_vg,"roboto-medium", fontLocation_2);
         
         
         OS_State os_state;
@@ -183,6 +194,7 @@ int main(u32 argc, char **argv) {
         
         global_os->permanent_arena = Memory_ArenaInitialise();
         global_os->frame_arena = Memory_ArenaInitialise();
+        global_os->scope_arena = Memory_ArenaInitialise();
         
         // TODO(Cian): ReCalculate window RECT on size change and notify game layer
         AppDisplay screen_dimension = {};
@@ -191,10 +203,11 @@ int main(u32 argc, char **argv) {
         
         AppStart(global_os, global_vg);
         
+        wglSwapIntervalEXT(1);
+        
         SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
         while(Running)
         {
-            
             LARGE_INTEGER win_perf_counter_large;
             QueryPerformanceCounter(&win_perf_counter_large);
             
@@ -211,6 +224,17 @@ int main(u32 argc, char **argv) {
             SwapBuffers(dc);
             ReleaseDC(window_handle, device_context);
             
+            // NOTE(Cian): Testing string
+            // TODO(Cian): @Testing need to create some kinda automated seperate testing thingy where I can test functions once off
+            /*Memory_ScopeBlock(){
+                String str_1 = String_MakeString(&global_os->scope_arena, "My name is: %s", "Cian");
+                String str_2 = String_MakeString(&global_os->scope_arena, " I am %d years old", 22);
+                String appended = String_AppendString(&global_os->scope_arena, &str_1, &str_2);
+                
+                printf("\n %s \n", str_1.data);
+                printf("%s \n", str_2.data);
+                printf("%s \n", appended.data);
+            }*/
             while(PeekMessage(&message,0,0,0,PM_REMOVE|PM_NOYIELD))
             {
                 TranslateMessage(&message);
@@ -222,6 +246,7 @@ int main(u32 argc, char **argv) {
         }
         Memory_ArenaRelease(&global_os->permanent_arena);
         Memory_ArenaRelease(&global_os->frame_arena);
+        Memory_ArenaRelease(&global_os->scope_arena);
         
         // TODO(Cian): Clean up contexts and memory arenas
     }

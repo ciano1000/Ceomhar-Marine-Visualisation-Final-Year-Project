@@ -1,5 +1,8 @@
 // NOTE(Cian): Pre-Computed: All possible 8 bit CRC values for polynomial 0xedb88320
-GLOBAL u32 CRC32_Table[256] = {
+#pragma warning(push)
+#pragma warning(disable: 4505)
+
+global u32 CRC32_Table[256] = {
     0x00000000,0x77073096,0xee0e612c,0x990951ba,0x076dc419,0x706af48f,0xe963a535,0x9e6495a3,                                                                                             
     0x0edb8832,0x79dcb8a4,0xe0d5e91e,0x97d2d988,0x09b64c2b,0x7eb17cbd,0xe7b82d07,0x90bf1d91,                                                                                             
     0x1db71064,0x6ab020f2,0xf3b97148,0x84be41de,0x1adad47d,0x6ddde4eb,0xf4d4b551,0x83d385c7,                                                                                             
@@ -35,7 +38,7 @@ GLOBAL u32 CRC32_Table[256] = {
 };
 
 #ifndef CRC32_LUT
-INTERNAL void GenerateCRC32Table() {
+internal void GenerateCRC32Table() {
     
     u32 n, crc;
     for(n = 0; n < 256; ++n) {
@@ -55,11 +58,11 @@ INTERNAL void GenerateCRC32Table() {
 #endif
 
 
-INTERNAL u32 StringToCRC32(char *string, u32 n) {
+internal u32 StringToCRC32(char *string, u32 n, u32 seed) {
 #ifndef CRC32_LUT
     GenerateCRC32Table();
 #endif
-    u32 crc = 0;
+    u32 crc = seed;
     for(u32 i = 0; i < n; ++i) {
         u32 pos = (crc ^ string[i]) & 255;
         crc =(CRC32_Table[pos] ^ (crc >> 8));
@@ -67,13 +70,114 @@ INTERNAL u32 StringToCRC32(char *string, u32 n) {
     return crc;
 }
 
-INTERNAL u32 StringToCRC32(char *string) {
-    u32 crc = StringToCRC32(string, (u32)strlen(string));
+internal u32 StringToCRC32(char *string, u32 seed) {
+    u32 crc = StringToCRC32(string, (u32)strlen(string), seed);
     return crc;
 }
 
+internal String String_MakeFromCString(char *string) {
+    String result = {};
+    result.data = string;
+    
+    u32 size = 0;
+    if(string) {
+        
+        
+        char *curr = string;
+        while((*curr) != null) {
+            size++;
+            curr += 1;
+        }
+        size++;
+        
+        result.size = size;
+    }
+    return result;
+}
+
+// TODO(Cian): @String might get around to either replacing C string funcs like snprintf etc myself or by using stb headers
+internal String String_MakeString(MemoryArena *arena, char *string,...) {
+    String result = {};
+    
+    va_list args;
+    va_start(args, string);
+    u32 size = stbsp_vsnprintf(null, 0, string, args) + 1;
+    va_end(args);
+    
+    result.data = (char*)Memory_ArenaPush(arena, size);
+    // TODO(Cian): Have error logging to check if memory allocation was successful or not
+    if(result.data) {
+        result.size = size;
+        
+        va_start(args, string);
+        stbsp_vsnprintf(result.data, size, string, args);
+        va_end(args);
+        
+        result.data[size - 1] = null;
+    }
+    
+    return result;
+}
+
+internal String String_MakeString(MemoryArena *arena, char *string, va_list args) {
+    String result = {};
+    
+    u32 size = vsnprintf(null, 0, string, args) + 1;
+    
+    result.data = (char*)Memory_ArenaPush(arena, size);
+    // TODO(Cian): Have error logging to check if memory allocation was successful or not
+    if(result.data) {
+        result.size = size;
+        stbsp_vsnprintf(result.data, size, string, args);
+        result.data[size - 1] = null;
+    }
+    
+    return result;
+}
+
+internal String String_AppendString(MemoryArena *arena, String *string_1, String *string_2) {
+    String result = {};
+    
+    u32 size = (string_1->size + string_2->size) - 1;
+    result.data = (char*)Memory_ArenaPush(arena, size);
+    result.size = size;
+    
+    if(result.data) {
+        stbsp_snprintf(result.data, string_1->size, string_1->data);
+        stbsp_snprintf(result.data + (string_1->size - 1), string_2->size, string_2->data);
+        result.data[size - 1] = null;
+    }
+    
+    return result;
+}
+
+// TODO(Cian): Maybe this shouldn't return a new string and should just reallocate the original?? Idk, revaluate after using it for a bit
+internal String String_AppendString(MemoryArena *arena, String string_1, char *string_2, ...) {
+    // TODO(Cian): Seem to be redoing a lot of stuff here?
+    String result = {};
+    
+    va_list args;
+    va_start(args, string_2);
+    // NOTE(Cian): String.size already includes null terminator so don't need to +1 vsnprintf result
+    u32 str_2_size = string_1.size + (stbsp_vsnprintf(null, 0, string_2, args));
+    u32 size = string_1.size + str_2_size;
+    va_end(args);
+    
+    result.data = (char*)Memory_ArenaPush(arena, size);
+    
+    if(result.data) {
+        stbsp_snprintf(result.data, string_1.size, string_1.data);
+        va_start(args, string_2);
+        stbsp_vsnprintf(result.data + (string_1.size - 1), size, string_2, args);
+        va_end(args);
+        
+    }
+    
+    return result;
+}
+
 void StringGenRandom(char *s, int len) {
-    static const char alphanum[] =     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    static const char alphanum[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
     
     for (int i = 0; i < len -1; ++i) {
         s[i] = alphanum[rand() % (sizeof(alphanum) - 1)];
@@ -81,3 +185,4 @@ void StringGenRandom(char *s, int len) {
     
     s[len-1] = 0;
 }
+#pragma warning(pop)

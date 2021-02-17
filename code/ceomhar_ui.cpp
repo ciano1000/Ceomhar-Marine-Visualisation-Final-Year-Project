@@ -1,737 +1,719 @@
 #pragma warning(push)
 #pragma warning(disable: 4505)
 
+// TODO(Cian): @UI @Important Having some perf issues since latest UI changes, not sure why, after demo implement some basic profiling and will probably have to rewrite the UI system with those insights in mind
 
-INTERNAL f32 PixelsToDIP(float pixels) {
-    // TODO(Cian): Fix rendering so that rounding isn't necessary
+
+internal f32 PixelsToDIP(float pixels) {
     return F32_ROUND(pixels / (global_os->display.dpi / UI_DEFAULT_DENSITY));
 }
 
-INTERNAL f32 DIPToPixels(float dp) {
+internal f32 DIPToPixels(float dp) {
     return F32_ROUND (dp  * (global_os->display.dpi / UI_DEFAULT_DENSITY));
 }
 
-INTERNAL UI_State *UI_InitState() {
-    UI_State *state = (UI_State *)Memory_ArenaPush(&global_os->frame_arena, sizeof(UI_State));
+internal void UI_WidgetAddProperty(UI_Widget *widget, UI_WidgetProperty property) {
+    u32 idx = property / 64;
+    widget->properties[idx] |= ((u64)1 << (property % 64));
+}
+
+internal b32 UI_WidgetHasProperty(UI_Widget *widget, UI_WidgetProperty property) {
+    u32 idx = property / 64;
+    // NOTE(Cian): Can think of !! as a clamp between {0,1}, it's just 2 NOTS together, not really required here but kinda cool
+    return !!((u64)widget->properties[idx] & ((u64)1 <<  (property % 64)));
+}
+
+internal void UI_WidgetRemoveProperty(UI_Widget *widget, UI_WidgetProperty property) {
+    u32 idx = property / 64;
+    // NOTE(Cian): ~ is the complement of a series of bits, e.g. flips the bits
+    widget->properties[idx] &= (~((u64)1 << (property % 64)));
+}
+
+internal b32 UI_WidgetsCompareProperty(UI_Widget *widget_1, UI_Widget *widget_2, UI_WidgetProperty property) {
+    b32 result = false;
     
-    // NOTE(Cian): Init pointers to null
-    for(u32 i=0;i< UI_HASH_SIZE; i++) {
-        state->ui_items_hash[i] = NULL;
+    if(UI_WidgetHasProperty(widget_1, property) && UI_WidgetHasProperty(widget_2, property)) {
+        result = true;
     }
-    
-    state->parent = NULL;
-    state->current = {};
-    state->current.constraints_list[0] = 0;
-    
-    return state;
-}
-
-INTERNAL void UI_BeginWindow(char *id) {
-    // NOTE(Cian): Init state
-    UI_Item window = {};
-    window.id = id;
-    window.layout_flags = UI_LAYOUT_COMPLETE;;
-    window.width = (f32)global_os->display.width;
-    window.height = (f32)global_os->display.height;
-    window.x0 = 0;
-    window.y0 = 0;
-    window.x1 = window.width;
-    window.y1 = window.height;
-    window.code_view = {};
-    
-    UI_Item *p_item = AddUIItem(id, window);
-    
-    PushUIParent(p_item);
-}
-
-// TODO(Cian): This is messy
-INTERNAL void UI_BeginPanel(char *id, NVGcolor color) {
-    UI_Panel(id, color);
-    PushUIParent(GetUIItem(id));
-}
-
-INTERNAL void UI_EndPanel() {
-    PopUIParent();
-}
-
-INTERNAL void UI_EndWindow() {
-    PopUIParent();
-    ui_state->current = {};
-}
-
-INTERNAL void UI_EndLayout() {
-    
-    Closure *p_current = TakeClosure();
-    p_current->call(p_current);
-    
-    
-    while(p_current) {
-        if(p_current) {
-            p_current->call(p_current);
-            p_current = TakeClosure();
-        }
-    }
-    
-    PopUIParent();
-}
-
-INTERNAL void UI_StartToStartConstraint(char *id, f32 offset) {
-    
-    UI_Item *relative = GetUIItem(id);
-    
-    assert(relative);
-    
-    ui_state->current.x0 = relative->x0 + offset;
-    ui_state->current.layout_flags = ui_state->current.layout_flags | UI_X0_SET;
-}
-
-INTERNAL void UI_StartToEndConstraint(char *id, f32 offset) {
-    UI_Item *relative = GetUIItem(id);
-    
-    assert(relative);
-    
-    ui_state->current.x0 = relative->x1 + offset;
-    ui_state->current.layout_flags = ui_state->current.layout_flags | UI_X0_SET;
-}
-
-INTERNAL void UI_EndToEndConstraint(char *id, f32 offset) {
-    UI_Item *relative = GetUIItem(id);
-    
-    assert(relative);
-    
-    ui_state->current.x1 = relative->x1 - offset;
-    ui_state->current.layout_flags = ui_state->current.layout_flags | UI_X1_SET;
-}
-
-INTERNAL void UI_EndToStartConstraint(char *id, f32 offset) {
-    UI_Item *relative = GetUIItem(id);
-    
-    assert(relative);
-    
-    ui_state->current.x1 = relative->x0 - offset;
-    ui_state->current.layout_flags = ui_state->current.layout_flags | UI_X1_SET;
-}
-
-INTERNAL void UI_BottomToBottomConstraint(char *id, f32 offset) {
-    UI_Item *relative = GetUIItem(id);
-    
-    assert(relative);
-    
-    ui_state->current.y1 = relative->y1 - offset;;
-    ui_state->current.layout_flags = ui_state->current.layout_flags | UI_Y1_SET;
-}
-
-
-INTERNAL void UI_TopToTopConstraint(char *id, f32 offset) {
-    UI_Item *relative = GetUIItem(id);
-    
-    assert(relative);
-    
-    ui_state->current.y0 = relative->y0 + offset;;
-    ui_state->current.layout_flags = ui_state->current.layout_flags | UI_Y0_SET;
-}
-
-
-INTERNAL void UI_Width(f32 width) {
-    ui_state->current.width = DIPToPixels(width);
-    ui_state->current.layout_flags = ui_state->current.layout_flags | UI_WIDTH_SET;
-}
-
-INTERNAL void UI_FillWidth(f32 offset) {
-    ui_state->current.width = PeekUIParent().width - offset;
-    ui_state->current.layout_flags = ui_state->current.layout_flags | UI_WIDTH_SET;
-}
-
-INTERNAL void UI_Height(f32 height) {
-    ui_state->current.height = DIPToPixels(height);
-    ui_state->current.layout_flags = ui_state->current.layout_flags | UI_HEIGHT_SET;
-}
-
-INTERNAL void UI_FillHeight(f32 offset) {
-    ui_state->current.height = PeekUIParent().height -offset;
-    ui_state->current.layout_flags = ui_state->current.layout_flags | UI_HEIGHT_SET;
-}
-
-INTERNAL void UI_SetY(f32 y) {
-    
-    ui_state->current.y0 = y;
-    ui_state->current.layout_flags = ui_state->current.layout_flags | UI_Y0_SET;
-}
-
-INTERNAL void UI_SetX(f32 x) {
-    
-    ui_state->current.x0 = x;
-    ui_state->current.layout_flags = ui_state->current.layout_flags | UI_X0_SET;
-}
-
-
-INTERNAL void UI_MinHeight(f32 min) {
-    
-    u32 i;
-    
-    for(i = 0; i < ArrayCount(ui_state->current.constraints_list) - 1;++i) {
-        if(ui_state->current.constraints_list[i] == 0) {
-            ui_state->current.constraints_list[i] = UI_MIN_HEIGHT;
-            ui_state->current.constraints_list[i + 1] = (u32)min;
-            
-            break;
-        }
-    }
-}
-
-INTERNAL void UI_MaxHeight(f32 max) {
-    
-    u32 i;
-    
-    for(i = 0; i < ArrayCount(ui_state->current.constraints_list) - 1;++i) {
-        if(ui_state->current.constraints_list[i] == 0) {
-            ui_state->current.constraints_list[i] = UI_MAX_HEIGHT;
-            ui_state->current.constraints_list[i + 1] = (u32)max;
-            
-            break;
-        }
-    }
-}
-
-INTERNAL void UI_MinWidth(f32 min) {
-    
-    u32 i;
-    
-    for(i = 0; i < ArrayCount(ui_state->current.constraints_list) - 1;++i) {
-        if(ui_state->current.constraints_list[i] == 0) {
-            ui_state->current.constraints_list[i] = UI_MIN_WIDTH;
-            ui_state->current.constraints_list[i + 1] = (u32)min;
-            
-            break;
-        }
-    }
-}
-INTERNAL void UI_MaxWidth(f32 max) {
-    
-    u32 i;
-    
-    for(i = 0; i < ArrayCount(ui_state->current.constraints_list) - 1;++i) {
-        if(ui_state->current.constraints_list[i] == 0) {
-            ui_state->current.constraints_list[i] = UI_MAX_WIDTH;
-            ui_state->current.constraints_list[i + 1] = (u32)max;
-            
-            break;
-        }
-    }
-}
-
-INTERNAL b32 UI_DoLayout(UI_Item *current) {
-    b32 all_set = TRUE;
-    switch(current->layout_flags) {
-        case UI_W_H_X0_Y0:
-        current->x1 = current->x0 + current->width;
-        current->y1 = current->y0 + current->height;
-        break;
-        
-        case UI_W_H_X1_Y1:
-        current->x0 = current->x1 - current->width;
-        current->y0 = current->y1 - current->height;
-        break;
-        
-        case UI_W_H_X1_Y0:
-        current->x0 = current->x1 - current->width;
-        current->y1 = current->y0 + current->height;
-        break;
-        
-        case UI_W_H_X0_Y1:
-        current->x1 = current->x0 + current->width;
-        current->y0 = current->y1 - current->height;
-        break;
-        
-        case UI_H_X0_X1_Y0:
-        current->width = current->x1 - current->x0;
-        current->y1 = current->y0 + current->height;
-        break;
-        
-        case UI_H_X0_X1_Y1:
-        current->y0 = current->y1 - current->height;
-        break;
-        
-        case UI_W_X0_Y0_Y1:
-        current->height = current->y1 - current->y0;
-        current->x1 = current->x0 + current->width;
-        break;
-        
-        case UI_W_X1_Y0_Y1:
-        current->height = current->y1 - current->y0;
-        current->x0 = current->x1 - current->width;
-        break;
-        
-        case UI_X0_X1_Y0_Y1:
-        current->width = current->x1 - current->x0;
-        current->height = current->y1 - current->y0;
-        break;
-        
-        default:
-        all_set = FALSE;
-        break;
-    }
-    
-    for(u32 i = 0; i < ArrayCount(ui_state->current.constraints_list) - 1;++i) {
-        u32 current_val = current->constraints_list[i];
-        u32 next_val = current->constraints_list[i + 1];
-        
-        switch(current_val) {
-            case UI_MIN_HEIGHT: {
-                current->height = CLAMP_MIN(current->height, (f32)next_val);
-                current->y1 = ui_state->current.y0 + ui_state->current.height;
-            } break;
-            
-            case UI_MAX_HEIGHT: {
-                current->height = CLAMP_MAX(current->height, (f32)next_val);
-                current->y1 = ui_state->current.y0 + ui_state->current.height;
-            } break;
-            
-            case UI_MIN_WIDTH: {
-                current->width = CLAMP_MIN(current->width, (f32)next_val);
-                current->x1 = ui_state->current.x0 + ui_state->current.width;
-            } break;
-            
-            case UI_MAX_WIDTH: {
-                current->width = CLAMP_MAX(current->width, (f32)next_val);
-                current->x1 = ui_state->current.x0 + ui_state->current.width;
-            } break;
-            default:
-            break;
-        }
-        // NOTE(Cian): skip over value to get to next definition
-        ++i;
-    }
-    
-    return all_set;
-    
-}
-// NOTE(Cian): this is all being redone
-INTERNAL void UI_Button(char *id, NVGcolor color) {
-    // TODO(Cian): UI Element should check it's parent type to see if it should handle it's layout or it's parent should
-    
-    UI_Item *current = &ui_state->current;
-    current->id = id;
-    
-    b32 all_set = UI_DoLayout(current);
-    
-    // TODO(Cian): Add Min/Max functions for width and height values that get applied here
-    // TODO(Cian): Here is where we will check for unfinished constraints in the buffer and register closures that will be attempted later when necessary info is potentially available.
-    assert(all_set);
-    
-    NVGcolor curr_color = color;
-    f32 mx = global_os->mouse_pos.x;
-    f32 my = global_os->mouse_pos.y;
-    
-    f32 px0 = ui_state->current.x0;
-    f32 px1 = ui_state->current.x1;
-    f32 py0 = ui_state->current.y0;
-    f32 py1 = ui_state->current.y1;
-    if(mx > px0 && mx < px1 && my > py0 && my < py1) {
-        curr_color = nvgRGBA(255,255,255,255);
-    }
-    AddUIItem(id, ui_state->current);
-    
-    nvgBeginPath(global_vg);
-    nvgRect(global_vg,  ui_state->current.x0, ui_state->current.y0, ui_state->current.width, ui_state->current.height);
-    nvgFillColor(global_vg, curr_color);
-    nvgFill(global_vg);
-    
-    // TODO(Cian): reset ui_state stuff
-    ui_state->current = {};
-}
-INTERNAL void UI_Button(Closure *block) {
-    char *id = (char *)block->args[0];
-    NVGcolor *color = (NVGcolor*)block->args[1];
-    
-    UI_Button(id, *color);
-}
-
-INTERNAL void UI_ButtonClosure(char *id, NVGcolor color) {
-    char *heap_id = (char *)Memory_ArenaPush(&global_os->frame_arena, sizeof(char) * strlen(id));
-    strcpy(heap_id, id);
-    
-    NVGcolor *heap_color = (NVGcolor*)Memory_ArenaPush(&global_os->frame_arena, sizeof(NVGcolor));
-    *heap_color = color;
-    
-    Closure closure = {};
-    closure.args[0] = (void*)id;
-    closure.args[1] = (void*)heap_color;
-    closure.call = &UI_Button;
-    
-    QueueClosure(closure);
-}
-INTERNAL void UI_Panel(char *id, NVGcolor color) {
-    // TODO(Cian): UI Element should check it's parent type to see if it should handle it's layout or it's parent should
-    
-    UI_Item *current = &ui_state->current;
-    current->id = id;
-    
-    b32 all_set = UI_DoLayout(current);
-    
-    // TODO(Cian): Add Min/Max functions for width and height values that get applied here
-    // TODO(Cian): Here is where we will check for unfinished constraints in the buffer and register closures that will be attempted later when necessary info is potentially available.
-    assert(all_set);
-    
-    NVGcolor curr_color = color;
-    
-    AddUIItem(id, ui_state->current);
-    
-    nvgBeginPath(global_vg);
-    nvgRect(global_vg,  ui_state->current.x0, ui_state->current.y0, ui_state->current.width, ui_state->current.height);
-    nvgFillColor(global_vg, curr_color);
-    nvgFill(global_vg);
-    
-    // TODO(Cian): reset ui_state stuff
-    ui_state->current = {};
-}
-
-INTERNAL void UI_Panel(Closure *block) {
-    char *id = (char *)block->args[0];
-    NVGcolor *color = (NVGcolor*)block->args[1];
-    
-    UI_Panel(id, *color);
-}
-
-INTERNAL void UI_PanelClosure(char *id, NVGcolor color) {
-    char *heap_id = (char *)Memory_ArenaPush(&global_os->frame_arena, sizeof(char) * strlen(id));
-    strcpy(heap_id, id);
-    
-    NVGcolor *heap_color = (NVGcolor*)Memory_ArenaPush(&global_os->frame_arena, sizeof(NVGcolor));
-    *heap_color = color;
-    
-    Closure closure = {};
-    closure.args[0] = (void*)id;
-    closure.args[1] = (void*)heap_color;
-    closure.call = &UI_Panel;
-    
-    QueueClosure(closure);
-}
-
-INTERNAL void UI_Text(char *id, char *text, f32 font_size, NVGcolor color) {
-    // TODO(Cian): Need to work out text wrapping and text spanning multiple rows
-    
-    // TODO(Cian): Move font size into the ui_state and set like the other layout params
-    font_size = DIPToPixels(font_size);
-    
-    UI_Item *current = &ui_state->current;
-    current->id = id;
-    
-    UI_Height(font_size);
-    nvgFontSize(global_vg, current->height);
-    nvgTextAlign(global_vg, NVG_ALIGN_LEFT|NVG_ALIGN_MIDDLE);
-    f32 width = nvgTextBounds(global_vg, 0, 0,text,NULL, NULL);
-    
-    UI_Width(width); 
-    b32 all_set = UI_DoLayout(current);
-    
-    assert(all_set);
-    
-    nvgFontFace(global_vg, "roboto-bold");
-    nvgFillColor(global_vg, color);
-    nvgText(global_vg,current->x0, current->y0, text, NULL);
-    
-    AddUIItem(id, ui_state->current);
-    ui_state->current = {};
-}
-
-INTERNAL UI_Item *GetUIItem(char *key) {
-    // NOTE(Cian): If the key is a parent escape sequence, simply return the current parent
-    // TODO(Cian): Change to custom String library when done
-    if(*key == UI_ID_ESCAPE) {
-        if(*(key +1) == UI_PARENT)
-            return ViewUIParent();
-    }
-    
-    u32 hash_value = StringToCRC32(key);
-    u32 hash_index = hash_value & (UI_HASH_SIZE - 1);
-    
-    UI_Item *item = ui_state->ui_items_hash[hash_index];
-    
-    if(item) {
-        do {
-            if(strcmp(item->id, key) == 0) {
-                break;
-            } else {
-                item = item->hash_next;
-            }
-        } while(item);
-    } else {
-        return NULL;
-    }
-    
-    return item;
-}
-
-INTERNAL UI_Item *AddUIItem(char *key, UI_Item item) {
-    u32 hash_value = StringToCRC32(key);
-    u32 hash_index = hash_value & (UI_HASH_SIZE - 1);
-    
-    // TODO(Cian): re-use "deleted" UI_Item pointers that have been cleared?? Maybe
-    UI_Item *p_item = ui_state->ui_items_hash[hash_index];
-    
-    if(p_item == NULL) {
-        // TODO(Cian): All this memory copying is messy, keep note for UI rewrite
-        p_item = (UI_Item *)Memory_ArenaPush(&global_os->frame_arena, sizeof(UI_Item)); 
-        *p_item = item;
-        p_item->id = (char*)Memory_ArenaPush(&global_os->frame_arena, (strlen(key)+1) * sizeof(char));
-        strcpy(p_item->id,key);
-        p_item->hash_next = NULL;
-        ui_state->ui_items_hash[hash_index] = p_item;
-        return p_item;
-    }
-    
-    UI_Item *prev = 0;
-    while(p_item) {
-        
-        if(strcmp(p_item->id, key) == 0) {
-            item.hash_next = p_item->hash_next;
-            *p_item = item;
-            return p_item;
-        }
-        prev = p_item;
-        p_item = p_item->hash_next;
-    }
-    
-    prev->hash_next = (UI_Item *)Memory_ArenaPush(&global_os->frame_arena, sizeof(UI_Item));
-    *(prev->hash_next) = item;
-    p_item = (UI_Item *)Memory_ArenaPush(&global_os->frame_arena, sizeof(UI_Item)); 
-    *p_item = item;
-    p_item->id = (char*)Memory_ArenaPush(&global_os->frame_arena, (strlen(key)+1) * sizeof(char));
-    strcpy(p_item->id,key);
-    prev->hash_next->hash_next = NULL;
-    return prev->hash_next;
-}
-
-INTERNAL void PushUIParent(UI_Item *parent) {
-    parent->stack_next = ui_state->parent;
-    ui_state->parent = parent;
-}
-
-INTERNAL UI_Item *PopUIParent() {
-    UI_Item *popped = ui_state->parent;
-    ui_state->parent = popped->stack_next;
-    
-    return popped;
-}
-
-INTERNAL UI_Item PeekUIParent() {
-    UI_Item item = *(ui_state->parent);
-    return item;
-}
-
-INTERNAL UI_Item *ViewUIParent() {
-    UI_Item *item = ui_state->parent;
-    return item;
-}
-
-INTERNAL void QueueClosure(Closure closure) {
-    // NOTE(Cian): We should never run out of space for closures
-    CodeView *code_view = &ViewUIParent()->code_view;
-    assert(code_view->size <= ArrayCount(code_view->closure_register)); 
-    
-    code_view->closure_register[code_view->rear] = closure;
-    code_view->rear = (code_view->rear + 1) % ArrayCount(code_view->closure_register);
-    code_view->size += 1;
-}
-
-INTERNAL Closure *TakeClosure() {
-    CodeView *code_view = &ViewUIParent()->code_view;
-    Closure *result = NULL;
-    if(code_view->size == 0) 
-        return result;
-    
-    result = &code_view->closure_register[code_view->front];
-    code_view->front = (code_view->front + 1) % ArrayCount(code_view->closure_register);
-    code_view->size -= 1;
     
     return result;
 }
 
-INTERNAL void UI_DrawGraph_Test() {
-    
-    f32 max_y = 10;
-    f32 max_x = 50;
-    
-    f32 begin_x = PeekUIParent().x0 + 32;
-    f32 end_x = PeekUIParent().x1 - 48;
-    f32 begin_y = PeekUIParent().y0 + 16;
-    f32 end_y = PeekUIParent().y1 - 32;
-    
-    f32 width = end_x - (begin_x - 16);
-    
-    f32 tick_length = 8;
-    f32 tick_horizontal_x = begin_x - tick_length;
-    for(u32 i = 0; i < 2; ++i) {
-        nvgBeginPath(global_vg);
-        nvgRect(global_vg, tick_horizontal_x,begin_y +(i * (end_y - begin_y)/2), tick_length, 2);
-        nvgFillColor(global_vg, nvgRGBA(0,0,0,255));
-        nvgFill(global_vg);
-    }
-    
-    for(u32 i = 0; i < 2; ++i) {
-        nvgBeginPath(global_vg);
-        nvgRect(global_vg, tick_horizontal_x,begin_y +(i * (end_y - begin_y)/2), tick_length, 2);
-        nvgFillColor(global_vg, nvgRGBA(0,0,0,255));
-        nvgFill(global_vg);
-    }
-    
-    // NOTE(Cian): Vertical graph bar
-    nvgBeginPath(global_vg);
-    nvgRect(global_vg, begin_x,begin_y, 2,PeekUIParent().height - 16);
-    nvgFillColor(global_vg, nvgRGBA(0,0,0,255));
-    nvgFill(global_vg);
-    
-    nvgBeginPath(global_vg);
-    nvgRect(global_vg, begin_x - 16,end_y, PeekUIParent().width - 48, 2);
-    nvgFillColor(global_vg, nvgRGBA(0,0,0,255));
-    nvgFill(global_vg);
-    
-    // NOTE(Cian): Some random samples of a Sin wave
-    NVGpaint bg;
-	f32 samples[6];
-	f32 sx[6], sy[6];
-	f32 dx = width/5.0f;
-    u32 i;
-    f32 t = (f32)global_os->current_time;
-    
-    f32 h = end_y - begin_y;
-    f32 x = begin_x - 16;
-    f32 y = begin_y;
-    f32 w = width;
-    
-	samples[0] = (1+sinf(t*1.2345f+cosf(t*0.33457f)*0.44f))*0.5f;
-	samples[1] = (1+sinf(t*0.68363f+cosf(t*1.3f)*1.55f))*0.5f;
-	samples[2] = (1+sinf(t*1.1642f+cosf(t*0.33457f)*1.24f))*0.5f;
-	samples[3] = (1+sinf(t*0.56345f+cosf(t*1.63f)*0.14f))*0.5f;
-	samples[4] = (1+sinf(t*1.6245f+cosf(t*0.254f)*0.3f))*0.5f;
-	samples[5] = (1+sinf(t*0.345f+cosf(t*0.03f)*0.6f))*0.5f;
-    
-	for (i = 0; i < 6; i++) {
-		sx[i] = begin_x+i*dx;
-		sy[i] = begin_y +PeekUIParent().height*samples[i]*0.8f;
-	}
-    
-#if 0
-	// Graph line
-	nvgBeginPath(global_vg);
-	nvgMoveTo(global_vg, sx[0], sy[0]+2);
-	for (i = 1; i < 6; i++)
-		nvgBezierTo(global_vg, sx[i-1],sy[i-1], sx[i],sy[i], sx[i],sy[i]);
-	nvgStrokeColor(global_vg, nvgRGBA(0,0,0,32));
-	nvgStrokeWidth(global_vg, 3.0f);
-	nvgStroke(global_vg);
-#endif
-    
-	nvgBeginPath(global_vg);
-	nvgMoveTo(global_vg, sx[0], sy[0]);
-	for (i = 1; i < 6; i++)
-		nvgBezierTo(global_vg, sx[i-1]+dx*0.5f,sy[i-1], sx[i]-dx*0.5f,sy[i], sx[i],sy[i]);
-	nvgStrokeColor(global_vg, nvgRGBA(0,160,192,255));
-	nvgStrokeWidth(global_vg, 3.0f);
-	nvgStroke(global_vg);
-    
-	// Graph sample pos
-    
-    
-	for (i = 0; i < 6; i++) {
-		bg = nvgRadialGradient(global_vg, sx[i],sy[i]+2, 3.0f,8.0f, nvgRGBA(0,0,0,32), nvgRGBA(0,0,0,0));
-		nvgBeginPath(global_vg);
-		nvgRect(global_vg, sx[i]-10, sy[i]-10+2, 20,20);
-		nvgFillPaint(global_vg, bg);
-		nvgFill(global_vg);
-	}
-    
-	nvgBeginPath(global_vg);
-	for (i = 0; i < 6; i++)
-		nvgCircle(global_vg, sx[i], sy[i], 4.0f);
-	nvgFillColor(global_vg, nvgRGBA(0,160,192,255));
-	nvgFill(global_vg);
-	nvgBeginPath(global_vg);
-	for (i = 0; i < 6; i++)
-		nvgCircle(global_vg, sx[i], sy[i], 2.0f);
-	nvgFillColor(global_vg, nvgRGBA(220,220,220,255));
-	nvgFill(global_vg);
-    
-	nvgStrokeWidth(global_vg, 1.0f);
-    
+internal void UI_PushParent(UI_Widget *parent) {
+    u32 *size = &ui_state->parent_stack.size;
+    ui_state->parent_stack.stack[*size] = ui_state->parent_stack.current;
+    *size++;
+    ui_state->parent_stack.current = parent;
 }
 
-// TODO(Cian): Look into this again once we investigate autolayout
+internal void UI_PopParent() {
+    u32 *size = &ui_state->parent_stack.size;
+    //when a parent ends, it needs to be the previous widget, not its last child, so its siblings can correctly reference it
+    ui_state->prev_widget = ui_state->parent_stack.current;
+    *size--;
+    ui_state->parent_stack.current = ui_state->parent_stack.stack[*size];
+}
 
-INTERNAL void VerticalLinearLayout_Test(Closure *block) {
-    f32 *width = (f32*)block->args[0];
-    f32 *height = (f32*)block->args[1];
-    f32 *margin = (f32*)block->args[2];
+internal void UI_PushWidthRatio(f32 ratio, f32 strictness) {
+    u32 *size = &ui_state->width_stack.size;
+    ui_state->width_stack.stack[*size] = ui_state->width_stack.current;
+    (*size)++;
     
-    u32 num_items = PeekUIParent().code_view.size;
-    f32 curr_y = PeekUIParent().y0;
+    ui_state->width_stack.current.is_ratio = true;
+    ui_state->width_stack.current.ratio = ratio;
+    ui_state->width_stack.current.strictness = strictness;
+}
+
+internal void UI_PushWidth(f32 size, f32 strictness) {
+    u32 *s_size = &ui_state->width_stack.size;
+    ui_state->width_stack.stack[*s_size] = ui_state->width_stack.current;
+    (*s_size)++;
+    ui_state->width_stack.current.is_ratio = false;
+    ui_state->width_stack.current.size = size;
+    ui_state->width_stack.current.strictness = strictness;
+}
+
+internal void UI_PopWidth() {
+    u32 *size = &ui_state->width_stack.size;
+    (*size)--;
+    ui_state->width_stack.current = ui_state->width_stack.stack[*size];
+}
+
+internal void UI_PushPadding(V4 padding) {
+    u32 *s_size = &ui_state->padding_stack.size;
+    ui_state->padding_stack.stack[*s_size] = ui_state->padding_stack.current;
+    (*s_size)++;
     
+    ui_state->padding_stack.current = padding;
+}
+
+internal void UI_PopPadding() {
+    u32 *size = &ui_state->padding_stack.size;
+    (*size)--;
+    ui_state->padding_stack.current = ui_state->padding_stack.stack[*size];
+}
+
+internal void UI_PushHeightRatio(f32 ratio, f32 strictness) {
+    u32 *size = &ui_state->height_stack.size;
+    ui_state->height_stack.stack[*size] = ui_state->height_stack.current;
+    (*size)++;
     
-    Closure *p_current = TakeClosure();
-    ui_state->current = {};
-    while(p_current) {
-        if(p_current) {
-            UI_Height(*height);
-            UI_Width(*width);
-            UI_SetY(curr_y);
-            UI_StartToStartConstraint(PeekUIParent().id,0);
-            p_current->call(p_current);
+    ui_state->height_stack.current.is_ratio = true;
+    ui_state->height_stack.current.ratio = ratio;
+    ui_state->height_stack.current.strictness = strictness;
+}
+
+internal void UI_PushHeight(f32 size, f32 strictness) {
+    u32 *s_size = &ui_state->height_stack.size;
+    ui_state->height_stack.stack[*s_size] = ui_state->height_stack.current;
+    (*s_size)++;
+    ui_state->height_stack.current.is_ratio = false;
+    ui_state->height_stack.current.size = size;
+    ui_state->height_stack.current.strictness = strictness;
+}
+
+internal void UI_PopHeight() {
+    u32 *size = &ui_state->height_stack.size;
+    (*size)--;
+    ui_state->height_stack.current = ui_state->height_stack.stack[*size];
+}
+
+internal void UI_Enqueue(UI_RecursiveQueue *queue, UI_Widget *widget) {
+    assert(queue->size != UI_MAX_WIDGETS );
+    
+    queue->rear = (++queue->rear) % UI_MAX_WIDGETS;
+    queue->widget_queue[queue->rear] = widget;
+    queue->size++;
+}
+
+internal UI_Widget*  UI_Dequeue(UI_RecursiveQueue *queue) {
+    assert(queue->size != 0);
+    
+    UI_Widget *result = queue->widget_queue[queue->front];
+    queue->front = (++queue->front) % UI_MAX_WIDGETS;
+    queue->size--;
+    return result;
+}
+
+internal b32 UI_WidgetsShareOneProperty(UI_Widget *widget_1, UI_Widget *widget_2, UI_WidgetProperty property_1, UI_WidgetProperty property_2) {
+    return UI_WidgetsCompareProperty(widget_1, widget_2, property_1) || UI_WidgetsCompareProperty(widget_1, widget_2, property_2);
+}
+
+internal UI_Widget* UI_InitWidget(String string) {
+    UI_Widget *widget = null;
+    
+    if(string.data) {
+        // NOTE(Cian): Process our string to append or replace the hash_string
+        String hash_string = {};
+        
+        u32 pound_count = 0;
+        u32 first_pound_loc = 0;
+        for(u32 i = 0; i < string.size; i++) {
+            char curr = string.data[i];
             
-            curr_y += *height + *margin;
-            p_current = TakeClosure();
-            ui_state->current = {};
+            if(curr == '#') {
+                if(pound_count == 0) {
+                    first_pound_loc = i;
+                }
+                pound_count++;
+            } else {
+                if(pound_count < 2)
+                    pound_count = 0;
+            }
         }
+        
+        if(pound_count == 2) {
+            hash_string.size = string.size - 2;
+            hash_string.data = (char*)Memory_ArenaPush(&global_os->frame_arena, hash_string.size);
+            // TODO(Cian): @UI should probably check if this memory is ok
+            
+            u32 size_1 = first_pound_loc + 1;
+            u32 src_offset_2 = first_pound_loc + 2;
+            u32 size_2 = string.size - src_offset_2;
+            
+            //Copy string preceding ##
+            stbsp_snprintf(hash_string.data, size_1, string.data);
+            //Copy string following ##
+            stbsp_snprintf(hash_string.data + (size_1 - 1), size_2, string.data + src_offset_2);
+            
+            //Remove appended piece from main string;
+            string.data[first_pound_loc] = null;
+            string.size = first_pound_loc + 1;
+        } else if(pound_count == 3) {
+            // NOTE(Cian): We want to use just the string after the two pound signs for hashing
+            u32 src_offset = first_pound_loc + 3;
+            
+            hash_string.size = string.size - src_offset;
+            hash_string.data = (char*)Memory_ArenaPush(&global_os->frame_arena, hash_string.size);
+            
+            stbsp_snprintf(hash_string.data, hash_string.size, string.data + src_offset);
+            
+            //Remove appended piece from main string;
+            string.data[first_pound_loc] = null;
+            string.size = first_pound_loc + 1;
+        } else {
+            hash_string = string;
+        }
+        u32 seed = 0;
+        
+        if(ui_state->parent_stack.current) 
+            seed = ui_state->parent_stack.current->id.table_pos;
+        
+        u32 hash = StringToCRC32(hash_string.data, seed);
+        u32 idx = hash % UI_MAX_WIDGETS;
+        
+        widget = ui_state->widgets[idx];
+        UI_Widget *previous = null;
+        
+        while(widget) {
+            if(widget->id.hash == (s32)hash)
+                break;
+            previous = widget;
+            widget = widget->hash_next;
+        }
+        
+        if(widget == null) 
+            widget = (UI_Widget*)Memory_ArenaPush(&global_os->permanent_arena, sizeof(UI_Widget));
+        if(previous) 
+            previous->hash_next = widget;
+        
+        widget->id.hash = hash;
+        widget->id.table_pos = idx;
+    } else {
+        u32 idx = 0;
+        
+        u64 valid_frame = (ui_state->curr_frame == 0) ? 0 : ui_state->curr_frame - 1;
+        
+        for(idx; idx < UI_MAX_WIDGETS; idx++) {
+            widget = ui_state->widgets[idx];
+            
+            if(widget == null || widget->last_frame < valid_frame || (widget->id.hash == UI_NON_INTERACTABLE_ID && widget->last_frame < valid_frame)) {
+                break;
+            }
+        }
+        
+        if(widget == null) {
+            widget = (UI_Widget*)Memory_ArenaPush(&global_os->permanent_arena, sizeof(UI_Widget));
+            ui_state->widgets[idx] = widget;
+            ui_state->non_interactive_count++;
+        }
+        UI_Widget *hash_next = widget->hash_next;
+        *widget = {};
+        widget->hash_next = hash_next;
+        
+        widget->id.hash = UI_NON_INTERACTABLE_ID;
+        widget->id.table_pos = idx;
+        
+        string = String_MakeFromCString("non_interactable");
+    }
+    
+    widget->old_layout = widget->curr_layout;
+    widget->curr_layout = {0};
+    widget->last_frame = ui_state->curr_frame;
+    
+    widget->string = string;
+    widget->parameters[0] = ui_state->width_stack.current;
+    widget->parameters[1] = ui_state->height_stack.current;
+    widget->padding = ui_state->padding_stack.current;
+    
+    if(ui_state->parent_stack.current) {
+        widget->tree_parent = ui_state->parent_stack.current;
+        if(ui_state->prev_widget == widget->tree_parent) {
+            ui_state->prev_widget->tree_first_child = widget;
+        } else if(ui_state->prev_widget->tree_parent == widget->tree_parent){
+            ui_state->prev_widget->tree_next_sibling = widget;
+            widget->tree_prev_sibling = ui_state->prev_widget;
+        }
+        
+        widget->tree_parent->tree_last_child = widget;
+    }
+    
+    ui_state->prev_widget = widget;
+    ui_state->widget_size++;
+    
+    return widget;
+}
+
+internal void UI_Begin() {
+    // NOTE(Cian): Create the main window and add as parent
+    // TODO(Cian):  @UI Make a Widget init function once we have more knowledge about different use cases
+    f32 display_width = (f32)global_os->display.width;
+    f32 display_height = (f32)global_os->display.height;
+    
+    UI_PushWidth(display_width, 1.0f);
+    UI_PushHeight(display_height, 1.0f);
+    // NOTE(Cian): Some non-interactable widgets will still be explicitly named for debugging purposes
+    // TODO(Cian): @UI might reqork this so it only does this in debug mode?
+    String main_row_string = String_MakeFromCString("main");
+    UI_Widget *main_row_container = UI_InitWidget(main_row_string);
+    UI_PopWidth();
+    UI_PopHeight();
+    
+    // TODO(Cian): @UI Push size auto for both dimensions, e.g. by default widgets placed directly in the main_container are size auto
+    
+    ui_state->root_widget = main_row_container;
+    UI_PushParent(main_row_container);
+    UI_WidgetAddProperty(main_row_container, UI_WidgetProperty_Container);
+    UI_WidgetAddProperty(main_row_container, UI_WidgetProperty_LayoutHorizontal);
+    
+}
+
+internal void UI_BeginRow(char *string) {
+    String widget_string = String_MakeFromCString(string);
+    UI_Widget *row = UI_InitWidget(widget_string);
+    UI_PushParent(row);
+    UI_WidgetAddProperty(row, UI_WidgetProperty_Container);
+    UI_WidgetAddProperty(row, UI_WidgetProperty_LayoutHorizontal);
+}
+
+internal void UI_EndRow() {
+    UI_PopParent();
+}
+
+internal void UI_BeginColumn(char *string) {
+    String widget_string = String_MakeFromCString(string);
+    UI_Widget *col = UI_InitWidget(widget_string);
+    UI_PushParent(col);
+    UI_WidgetAddProperty(col, UI_WidgetProperty_Container);
+    UI_WidgetAddProperty(col, UI_WidgetProperty_LayoutVertical);
+}
+
+internal void UI_EndColumn() {
+    UI_PopParent();
+}
+
+internal void UI_BeginPanel(NVGcolor color, char *format,...) {
+    String string = {};
+    UI_MakeFormatString(string, format);
+    UI_Widget *panel_container = UI_InitWidget(string);
+    UI_WidgetAddProperty(panel_container, UI_WidgetProperty_Container);
+    UI_WidgetAddProperty(panel_container, UI_WidgetProperty_RenderBackground);
+    panel_container->color = color;
+    UI_PushParent(panel_container);
+    // NOTE(Cian): The row inside of the panel shouldn't receive any of the panels padding or sizes, maybe should change this
+    UI_WidthAuto UI_HeightAuto UI_Padding2(v2(0,0))
+        //UI_BeginRow("panel_row");
+        UI_BeginColumn("panel_col");
+}
+
+internal void UI_EndPanel() {
+    //UI_EndColumn();
+    UI_EndRow();
+    UI_PopParent();
+}
+
+internal void UI_TestBox(NVGcolor color, char *format,...) {
+    String string = {};
+    UI_MakeFormatString(string, format);
+    UI_Widget *test_box = UI_InitWidget(string);
+    test_box->color = color;
+    UI_WidgetAddProperty(test_box, UI_WidgetProperty_RenderBackground);
+}
+
+internal void UI_Spacer(f32 size, f32 strictness) {
+    String string = {};
+    UI_Widget *spacer = UI_InitWidget(string);
+    // TODO(Cian): @UI dislike having to do layouting checks here so this is a temp fix
+    if(UI_WidgetHasProperty(spacer->tree_parent, UI_WidgetProperty_LayoutHorizontal)) {
+        spacer->parameters[UI_ParameterIndex_Width].size = size;
+        spacer->parameters[UI_ParameterIndex_Width].strictness = strictness;
+    } else {
+        spacer->parameters[UI_ParameterIndex_Height].size = size;
+        spacer->parameters[UI_ParameterIndex_Height].strictness = strictness;
     }
 }
 
-INTERNAL void UI_BeginNavMenu(char *id, u32 orientation, f32 width, f32 height, f32 margin) {
-    UI_Item *menu = &ui_state->current;
-    
-    menu->id = id;
-    
-    b32 all_set = UI_DoLayout(menu);
-    assert(all_set);
-    f32 *heap_width =  (f32*)Memory_ArenaPush(&global_os->frame_arena, sizeof(f32));
-    *heap_width = DIPToPixels(width); 
-    f32 *heap_height =  (f32*)Memory_ArenaPush(&global_os->frame_arena, sizeof(f32));
-    *heap_height = DIPToPixels(height); 
-    f32 *heap_margin =  (f32*)Memory_ArenaPush(&global_os->frame_arena, sizeof(f32));
-    *heap_margin = DIPToPixels(margin);; 
-    
-    Closure menu_closure = {};
-    menu_closure.call = &VerticalLinearLayout_Test;
-    menu_closure.args[0] = (void*)heap_width;
-    menu_closure.args[1] = (void*)heap_height;
-    menu_closure.args[2] = (void*)heap_margin;
-    menu = AddUIItem(id, *menu);
-    PushUIParent(menu);
-    QueueClosure(menu_closure);
-    
+internal void UI_ButtonHelper(UI_Widget *button, NVGcolor color, NVGcolor text_color, f32 font_size) {
+    // TODO(Cian): @UI add parameters for different functionality as needed
+    button->color = color;
+    button->text_color = text_color;
+    button->font_size = font_size;
+    UI_WidgetAddProperty(button, UI_WidgetProperty_RenderBackgroundRounded);
+    UI_WidgetAddProperty(button, UI_WidgetProperty_Clickable);
+    UI_WidgetAddProperty(button, UI_WidgetProperty_RenderText);
+    UI_WidgetAddProperty(button, UI_WidgetProperty_RenderHot);
+    UI_WidgetAddProperty(button, UI_WidgetProperty_RenderActive);
+    UI_WidgetAddProperty(button, UI_WidgetProperty_RenderBorder);
 }
 
+internal b32 UI_Button(char *format, ...) {
+    String string = {};
+    UI_MakeFormatString(string, format);
+    UI_Widget *button = UI_InitWidget(string);
+    UI_ButtonHelper(button, SECONDARY_COLOR, DEFAULT_TEXT_COLOR, UI_DEFAULT_FONT_SIZE);
+    return true;
+}
 
+internal b32 UI_Button(NVGcolor background_color, char *format, ...) {
+    String string = {};
+    UI_MakeFormatString(string, format);
+    UI_Widget *button = UI_InitWidget(string);
+    UI_ButtonHelper(button, background_color, DEFAULT_TEXT_COLOR, UI_DEFAULT_FONT_SIZE);
+    
+    return true;
+}
 
-// TODO(Cian): Once we get a unit test system in place add this to it
-INTERNAL void TestUIHash() {
-    char *generated_strings[256];
-    for(u32 i = 0; i < 256; ++i) {
-        char rand_string[14];
-        StringGenRandom(rand_string, 14);
-        generated_strings[i] = (char *)Memory_ArenaPush(&global_os->frame_arena, sizeof(rand_string));
-        strcpy(generated_strings[i], rand_string);
-        UI_Item item = {};
-        item.id = (char *)Memory_ArenaPush(&global_os->frame_arena, sizeof(rand_string));
-        strcpy(item.id, rand_string);
-        AddUIItem(rand_string, item);
+internal b32 UI_Button(NVGcolor background_color, NVGcolor text_color, char *format, ...) {
+    String string = {};
+    UI_MakeFormatString(string, format);
+    UI_Widget *button = UI_InitWidget(string);
+    UI_ButtonHelper(button, background_color, text_color, UI_DEFAULT_FONT_SIZE);
+    return true;
+}
+
+internal inline f32 UI_GetSize(UI_Widget *widget, u32 axis) {
+    f32 result = 0;
+    
+    if(widget->parameters[axis].is_ratio) {
+        f32 parent_size = widget->tree_parent->curr_layout.elements[axis + 2];
+        result = widget->parameters[axis].ratio * parent_size;
+    }else {
+        result = widget->parameters[axis].size; 
     }
     
-    for(u32 i =0; i< 256; ++i) {
-        UI_Item *result = GetUIItem(generated_strings[i]);
-        if(result == NULL) {
-            printf("oops");
+    return result;
+}
+
+internal inline b32 UI_IsAutoSize(UI_Widget *widget, u32 axis) {
+    // TODO(Cian): @UI Maybe a better way of deciding this
+    if(widget->parameters[axis].size == 0 && widget->parameters[axis].strictness == 0) {
+        return true;
+    }
+    
+    return false;
+}
+
+internal void UI_MeasureWidget(UI_Widget *widget, b32 is_tiled, u32 axis) {
+    if(UI_WidgetHasProperty(widget, UI_WidgetProperty_Container)){
+        f32 size = 0;
+        f32 strictness = 0;
+        
+        UI_Widget *curr = widget->tree_first_child;
+        if(is_tiled) {
+            f32 min_sum = 0;
+            f32 sum = 0;
+            
+            while(curr) {
+                // NOTE(Cian): Child widget may not share same layout direction
+                if(UI_IsAutoSize(curr, axis)) {
+                    if(UI_WidgetsShareOneProperty(widget, curr, UI_WidgetProperty_LayoutHorizontal, UI_WidgetProperty_LayoutVertical)){
+                        UI_MeasureWidget(curr, is_tiled, axis);
+                    } else {
+                        UI_MeasureWidget(curr, !is_tiled, axis);
+                    }
+                }
+                
+                sum += curr->parameters[axis].size;
+                min_sum += curr->parameters[axis].size * curr->parameters[axis].strictness;
+                
+                curr = curr->tree_next_sibling;
+            }
+            size = sum +  (widget->padding.elements[axis] + widget->padding.elements[axis + 2]);
+            strictness =  min_sum / size;
+        } else {
+            f32 max_pref_size = 0;
+            f32 max_min_size = 0;
+            
+            while(curr) {
+                // TODO(Cian): @UI Could probably simplify this, may as well check in an if this info, ok for now
+                // NOTE(Cian): Child widget may not share same layout direction
+                if(UI_IsAutoSize(curr, axis)) {
+                    if(UI_WidgetsShareOneProperty(widget, curr, UI_WidgetProperty_LayoutHorizontal, UI_WidgetProperty_LayoutVertical)){
+                        UI_MeasureWidget(curr, is_tiled, axis);
+                    } else {
+                        UI_MeasureWidget(curr, !is_tiled, axis);
+                    }
+                }
+                
+                f32 pref_size = curr->parameters[axis].size;
+                f32 min_size = pref_size * curr->parameters[axis].strictness;
+                
+                if(pref_size > max_pref_size)
+                    max_pref_size = pref_size;
+                if(min_size > max_min_size)
+                    max_min_size = min_size;
+                
+                curr = curr->tree_next_sibling;
+            }
+            size = max_pref_size +  (widget->padding.elements[axis] + widget->padding.elements[axis + 2]);
+            strictness = max_min_size / size;
         }
+        // TODO(Cian): @UI padding stuff is a bit crude here
+        widget->parameters[axis].size = size;
+        widget->parameters[axis].strictness = strictness;
+    } else {
+        // TODO(Cian): @UI Handle things like widgets that have text etc, if a widget doesn't fall into any category here just set some default size
+        nvgSave(global_vg);
+        if(UI_WidgetHasProperty(widget, UI_WidgetProperty_RenderText)) {
+            nvgTextAlign(global_vg, NVG_ALIGN_LEFT|NVG_ALIGN_MIDDLE);
+            nvgFontFace(global_vg, "roboto-medium");
+            nvgFontSize(global_vg, widget->font_size);
+            f32 bounds[4];
+            f32 width = nvgTextBounds(global_vg, 0, 0, widget->string.data, null, bounds);
+            f32 height = bounds[3] - bounds[1];
+            
+            if(axis == UI_ParameterIndex_Width) {
+                f32 padding_x0 = UI_DEFAULT_TEXT_PADDING_X;
+                f32 padding_x1 = UI_DEFAULT_TEXT_PADDING_X;
+                
+                if(widget->padding.x0 != 0 || widget->padding.x1 != 0) {
+                    padding_x0 = widget->padding.x0;
+                    padding_x1 = widget->padding.x1;
+                }
+                
+                // TODO(Cian): add padding and appropriate strictness so that there is always enough room for text
+                widget->parameters[axis].size = width + (padding_x0 + padding_x1);
+                widget->parameters[axis].strictness = (width + (2 * UI_MIN_TEXT_PADDING_X)) / widget->parameters[axis].size;
+            } else {
+                f32 padding_y0 = UI_DEFAULT_TEXT_PADDING_Y;
+                f32 padding_y1 = UI_DEFAULT_TEXT_PADDING_Y;
+                
+                if(widget->padding.y0 != 0 || widget->padding.y1 != 0) {
+                    padding_y0 = widget->padding.y0;
+                    padding_y1 = widget->padding.y1;
+                }
+                
+                widget->parameters[axis].size = height + (padding_y0 + padding_y1);
+                widget->parameters[axis].strictness = (height + (2 * UI_MIN_TEXT_PADDING_Y)) / widget->parameters[axis].size;
+            }
+            
+        } else {
+            if(axis == UI_ParameterIndex_Width){
+                widget->parameters[axis].size = 120;
+                widget->parameters[axis].strictness = 1.0f;
+            } else {
+                widget->parameters[axis].size = 60;
+                widget->parameters[axis].strictness = 1.0f;
+            }
+        }
+        nvgRestore(global_vg);
         
     }
 }
-#pragma warning(pop)
+// TODO(Cian): @UI Both of these layout functions loop through the children, maybe these loops could occur at the same time? Doubt it really matters for performance whatsoever but it's kinda bothering my OCD
+// NOTE(Cian): Lays out the widgets in the direction of the Container e.g. if a row it will lay out/re-size horizontally
+internal void UI_LayoutInFlow(UI_Widget *first_child, f32 available, f32 initial_offset, u32 axis) {
+    f32 sum_delta = 0;
+    f32 sum = 0;
+    
+    f32 offset = initial_offset;
+    UI_Widget *curr = first_child;
+    while(curr) {
+        // TODO(Cian): @UI This is pretty piggy, if both sizes are auto we will measure children 2 times for each axis
+        if(UI_IsAutoSize(curr, axis)) {
+            // TODO(Cian): @UI Temporary fix for layouting, simpler rewrite needed later
+            if((axis == UI_ParameterIndex_Width && UI_WidgetHasProperty(curr, UI_WidgetProperty_LayoutHorizontal))
+               || (axis == UI_ParameterIndex_Height && UI_WidgetHasProperty(curr, UI_WidgetProperty_LayoutVertical))) {
+                UI_MeasureWidget(curr, true, axis);
+            } else {
+                UI_MeasureWidget(curr, false, axis);
+            }
+        }
+        
+        f32 pref_size = UI_GetSize(curr, axis);
+        
+        sum_delta +=  (pref_size * (1 - curr->parameters[axis].strictness));
+        sum += curr->parameters[axis].size;
+        
+        // NOTE(Cian): Attempt to layout with the preferred size
+        curr->curr_layout.elements[axis] = offset;
+        curr->curr_layout.elements[axis + 2] = pref_size;
+        offset += curr->curr_layout.elements[axis + 2];
+        
+        curr = curr->tree_next_sibling;
+    }
+    
+    offset = initial_offset;
+    if(sum > available && sum_delta != 0) {
+        
+        curr = first_child;
+        while(curr) {
+            
+            f32 factor = (curr->parameters[axis].size * (1 - curr->parameters[axis].strictness)) / sum_delta; 
+            
+            curr->curr_layout.elements[axis] = offset;
+            curr->curr_layout.elements[axis + 2] -= (factor * (sum - available)); 
+            offset += curr->curr_layout.elements[axis + 2];
+            
+            curr = curr->tree_next_sibling;
+        }
+    } 
+}
+
+// NOTE(Cian): Lays out the widgets in the non-flow axis e.g. if a row it will do layout/re-sizing on the height, simply "centers" the widget on this axis
+internal void UI_LayoutNonFlow(UI_Widget *first_child, f32 available, f32 initial_offset, u32 axis) {
+    UI_Widget *curr = first_child;
+    while(curr) {
+        if(UI_IsAutoSize(curr, axis)) {
+            // TODO(Cian): @UI Temporary fix for layouting, simpler rewrite needed later
+            if((axis == UI_ParameterIndex_Width && UI_WidgetHasProperty(curr, UI_WidgetProperty_LayoutHorizontal))
+               || (axis == UI_ParameterIndex_Height && UI_WidgetHasProperty(curr, UI_WidgetProperty_LayoutVertical))) {
+                UI_MeasureWidget(curr, true, axis);
+            } else {
+                UI_MeasureWidget(curr, false, axis);
+            }
+        }
+        // TODO(Cian): @UI Maybe do fancy alignment stuff?
+        
+        f32 size = 0;
+        
+        f32 pref_size = UI_GetSize(curr, axis);
+        f32 delta_size = pref_size * (1 - curr->parameters[axis].strictness);
+        
+        f32 factor = (pref_size - available) / delta_size;
+        if(pref_size > available && factor <= 1) {
+            size = pref_size - (factor * delta_size);
+        } else {
+            size = pref_size;
+        }
+        // NOTE(Cian): Center the widget 
+        // TODO(Cian): @UI Might wanna use ABS here, also might wanna round but whatever
+        f32 pos_offset = (available - size) / 2;
+        
+        // TODO(Cian): @UI need to sort out alignment later
+        //The offset...
+        curr->curr_layout.elements[axis] = initial_offset;
+        //The size...
+        curr->curr_layout.elements[axis + 2] = size;
+        
+        curr = curr->tree_next_sibling;
+    }
+}
+
+// NOTE(Cian): 
+internal void UI_DoLayout(UI_Widget *root) {
+    // TODO(Cian): @UI Take padding into account here;
+    f32 parent_width = root->curr_layout.width - (root->padding.x1 + root->padding.x0);
+    f32 parent_height = root->curr_layout.height - (root->padding.x1 + root->padding.x0);
+    
+    f32 initial_offset_x = root->curr_layout.x + root->padding.x0;
+    f32 initial_offset_y = root->curr_layout.y + root->padding.y0;
+    
+    if(UI_WidgetHasProperty(root, UI_WidgetProperty_RenderBorder)) {
+        parent_width -= 2 * UI_BORDER_SIZE;
+        parent_height -= 2 * UI_BORDER_SIZE;
+        
+        initial_offset_x += UI_BORDER_SIZE;
+        initial_offset_y += UI_BORDER_SIZE;
+    }
+    
+    if(UI_WidgetHasProperty(root, UI_WidgetProperty_LayoutHorizontal)) {
+        UI_LayoutInFlow(root->tree_first_child, parent_width, initial_offset_x, 0);
+        UI_LayoutNonFlow(root->tree_first_child, parent_height, initial_offset_y,1);
+    } else if (UI_WidgetHasProperty(root, UI_WidgetProperty_LayoutVertical)) {
+        UI_LayoutInFlow(root->tree_first_child, parent_height, initial_offset_y,1);
+        UI_LayoutNonFlow(root->tree_first_child, parent_width, initial_offset_x,0);
+    } else {
+        UI_LayoutNonFlow(root->tree_first_child, parent_width, initial_offset_x,0);
+        UI_LayoutNonFlow(root->tree_first_child, parent_height, initial_offset_y,1);
+    }
+    
+    // TODO(Cian): @UI Lil annoying that I have a third loop here, need to try and clean this up once I get things working
+    UI_Widget *curr = root->tree_first_child;
+    while(curr) {
+        if(UI_WidgetHasProperty(curr, UI_WidgetProperty_Container)) {
+            UI_DoLayout(curr);
+        }
+        curr = curr->tree_next_sibling;
+    }
+    
+}
+
+internal void UI_Render(UI_Widget *root) {
+    UI_Widget *curr = root->tree_first_child;
+    
+    while(curr) {
+        f32 x = curr->curr_layout.x;
+        f32 y = curr->curr_layout.y;
+        
+        if(UI_WidgetHasProperty(curr, UI_WidgetProperty_RenderBackground)){
+            
+            nvgBeginPath(global_vg);
+            nvgRect(global_vg, x, y, curr->curr_layout.width,  curr->curr_layout.height);
+            nvgFillColor(global_vg, curr->color);
+            nvgFill(global_vg);
+        } else if(UI_WidgetHasProperty(curr, UI_WidgetProperty_RenderBackgroundRounded)) {
+            
+            nvgBeginPath(global_vg);
+            nvgRoundedRect(global_vg, x, y, curr->curr_layout.width,  curr->curr_layout.height, DEFAULT_ROUNDNESS);
+            nvgFillColor(global_vg, curr->color);
+            nvgFill(global_vg);
+        }
+        
+        if(UI_WidgetHasProperty(curr, UI_WidgetProperty_RenderText)) {
+            // TODO(Cian): do font size in a better way
+            nvgTextAlign(global_vg, NVG_ALIGN_CENTER|NVG_ALIGN_MIDDLE);
+            nvgFontFace(global_vg, "roboto-medium");
+            nvgFontSize(global_vg, curr->font_size);
+            nvgFillColor(global_vg, DARK_TEXT_COLOR);
+            nvgText(global_vg, x + (curr->curr_layout.width / 2), y + (curr->curr_layout.height / 2), curr->string.data, null);
+        }
+        
+        if(UI_WidgetHasProperty(curr, UI_WidgetProperty_Container)) {
+            
+            UI_Render(curr);
+        }
+        curr = curr->tree_next_sibling;
+    }
+}
+
+internal void UI_End() {
+    // TODO(Cian): @UI Need to either clear autolayout state here or, make the UI_State as part of the frame_arena and UI_Widgets be maintained seperately in permanent arena
+    ui_state->parent_stack.size = 0;
+    ui_state->width_stack.size = 0;
+    ui_state->height_stack.size = 0;
+    
+    ui_state->prev_widget = null;
+    ui_state->parent_stack.current = null;
+    ui_state->curr_frame++;
+    //Autolayout for rendering and next frame goes here
+    /* NOTE(Cian): Auto-layout works as follows:
+    *  Traverse downwards through the tree, for every parent, measure it's children, this may
+*  need to be recursive, we add childrens 
+*/
+    UI_Widget *root = ui_state->root_widget;
+    // NOTE(Cian): Roots incoming constraints will always be tight so just set it's layout to be that
+    root->curr_layout = {0, 0, root->parameters[0].size, root->parameters[1].size};
+    UI_DoLayout(root);
+    UI_Render(ui_state->root_widget);
+}
