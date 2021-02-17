@@ -563,7 +563,7 @@ internal void UI_LayoutInFlow(UI_Widget *first_child, f32 available, f32 initial
         curr = curr->tree_next_sibling;
     }
     
-    offset = 0;
+    offset = initial_offset;
     if(sum > available && sum_delta != 0) {
         
         curr = first_child;
@@ -626,8 +626,8 @@ internal void UI_DoLayout(UI_Widget *root) {
     f32 parent_width = root->curr_layout.width - (root->padding.x1 + root->padding.x0);
     f32 parent_height = root->curr_layout.height - (root->padding.x1 + root->padding.x0);
     
-    f32 initial_offset_x = root->padding.x0;
-    f32 initial_offset_y = root->padding.y0;
+    f32 initial_offset_x = root->curr_layout.x + root->padding.x0;
+    f32 initial_offset_y = root->curr_layout.y + root->padding.y0;
     
     if(UI_WidgetHasProperty(root, UI_WidgetProperty_RenderBorder)) {
         parent_width -= 2 * UI_BORDER_SIZE;
@@ -659,12 +659,12 @@ internal void UI_DoLayout(UI_Widget *root) {
     
 }
 
-internal void UI_Render(UI_Widget *root, f32 start_x, f32 start_y) {
+internal void UI_Render(UI_Widget *root) {
     UI_Widget *curr = root->tree_first_child;
     
     while(curr) {
-        f32 x = start_x + curr->curr_layout.x;
-        f32 y = start_y + curr->curr_layout.y;
+        f32 x = curr->curr_layout.x;
+        f32 y = curr->curr_layout.y;
         
         if(UI_WidgetHasProperty(curr, UI_WidgetProperty_RenderBackground)){
             
@@ -691,7 +691,7 @@ internal void UI_Render(UI_Widget *root, f32 start_x, f32 start_y) {
         
         if(UI_WidgetHasProperty(curr, UI_WidgetProperty_Container)) {
             
-            UI_Render(curr, x, y);
+            UI_Render(curr);
         }
         curr = curr->tree_next_sibling;
     }
@@ -715,5 +715,5 @@ internal void UI_End() {
     // NOTE(Cian): Roots incoming constraints will always be tight so just set it's layout to be that
     root->curr_layout = {0, 0, root->parameters[0].size, root->parameters[1].size};
     UI_DoLayout(root);
-    UI_Render(ui_state->root_widget, 0, 0);
+    UI_Render(ui_state->root_widget);
 }
