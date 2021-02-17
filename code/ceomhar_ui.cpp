@@ -541,7 +541,13 @@ internal void UI_LayoutInFlow(UI_Widget *first_child, f32 available, f32 initial
     while(curr) {
         // TODO(Cian): @UI This is pretty piggy, if both sizes are auto we will measure children 2 times for each axis
         if(UI_IsAutoSize(curr, axis)) {
-            UI_MeasureWidget(curr, true, axis);
+            // TODO(Cian): @UI Temporary fix for layouting, simpler rewrite needed later
+            if((axis == UI_ParameterIndex_Width && UI_WidgetHasProperty(curr, UI_WidgetProperty_LayoutHorizontal))
+               || (axis == UI_ParameterIndex_Height && UI_WidgetHasProperty(curr, UI_WidgetProperty_LayoutVertical))) {
+                UI_MeasureWidget(curr, true, axis);
+            } else {
+                UI_MeasureWidget(curr, false, axis);
+            }
         }
         
         f32 pref_size = UI_GetSize(curr, axis);
@@ -579,7 +585,13 @@ internal void UI_LayoutNonFlow(UI_Widget *first_child, f32 available, f32 initia
     UI_Widget *curr = first_child;
     while(curr) {
         if(UI_IsAutoSize(curr, axis)) {
-            UI_MeasureWidget(curr, false, axis);
+            // TODO(Cian): @UI Temporary fix for layouting, simpler rewrite needed later
+            if((axis == UI_ParameterIndex_Width && UI_WidgetHasProperty(curr, UI_WidgetProperty_LayoutHorizontal))
+               || (axis == UI_ParameterIndex_Height && UI_WidgetHasProperty(curr, UI_WidgetProperty_LayoutVertical))) {
+                UI_MeasureWidget(curr, true, axis);
+            } else {
+                UI_MeasureWidget(curr, false, axis);
+            }
         }
         // TODO(Cian): @UI Maybe do fancy alignment stuff?
         
