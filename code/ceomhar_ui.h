@@ -1,5 +1,8 @@
 #define UI_DEFAULT_DENSITY 96.00f
+
 #define UI_HASH_SIZE 256
+#define UI_NON_INTERACTABLE_ID -2
+
 #define UI_MAX_WIDGETS 1024
 #define UI_MAX_PANELS 24
 #define UI_MAX_STACK  16
@@ -66,9 +69,8 @@ struct UI_SizeParameters {
 };
 
 struct UI_ID {
-    b32 non_interactive;
-    u32 hash;
-    u32 parent_hash;
+    s32 hash;
+    u32 table_pos;
 };
 
 struct UI_Widget{
@@ -90,6 +92,7 @@ struct UI_Widget{
     NVGcolor color;
     NVGcolor text_color;
     f32 font_size;
+    
 };
 
 struct UI_State {
@@ -113,7 +116,6 @@ type current;\
     UI_STACK(width, UI_SizeParameters);
     UI_STACK(height, UI_SizeParameters);
     UI_STACK(padding, V4);
-    // TODO(Cian): @UI not sure if this is the best approach for non-interactive stuff but what the heck
     u32 non_interactive_count;
 };
 

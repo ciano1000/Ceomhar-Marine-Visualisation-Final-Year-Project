@@ -58,11 +58,11 @@ internal void GenerateCRC32Table() {
 #endif
 
 
-internal u32 StringToCRC32(char *string, u32 n) {
+internal u32 StringToCRC32(char *string, u32 n, u32 seed) {
 #ifndef CRC32_LUT
     GenerateCRC32Table();
 #endif
-    u32 crc = 0;
+    u32 crc = seed;
     for(u32 i = 0; i < n; ++i) {
         u32 pos = (crc ^ string[i]) & 255;
         crc =(CRC32_Table[pos] ^ (crc >> 8));
@@ -70,8 +70,8 @@ internal u32 StringToCRC32(char *string, u32 n) {
     return crc;
 }
 
-internal u32 StringToCRC32(char *string) {
-    u32 crc = StringToCRC32(string, (u32)strlen(string));
+internal u32 StringToCRC32(char *string, u32 seed) {
+    u32 crc = StringToCRC32(string, (u32)strlen(string), seed);
     return crc;
 }
 

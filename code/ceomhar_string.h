@@ -13,8 +13,8 @@ struct String {
 internal void GenerateCRC32Table();
 #endif
 
-internal u32 StringToCRC32(char *string, u32 n);
-internal u32 StringToCRC32(char *string);
+internal u32 StringToCRC32(char *string, u32 n, u32 seed);
+internal u32 StringToCRC32(char *string, u32 seed);
 internal String String_MakeString(MemoryArena *arena, char *string,...);
 //internal String String_AppendString(MemoryArena *arena, String *string_1, char *string_2,...);
 //internal String String_AppendString(MemoryArena *arena, String *string_1, String *string_2);

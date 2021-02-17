@@ -27,6 +27,8 @@ void AppUpdateAndRender() {
                 UI_HeightAuto UI_Row{
                     UI_Filler(1);
                     UI_Button("Open");
+                    UI_Spacer(10.0f, 0.8f);
+                    UI_Button("Open##2");
                     UI_Filler(1);
                 }
                 // NOTE(Cian): Purple

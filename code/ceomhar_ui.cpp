@@ -139,135 +139,138 @@ internal b32 UI_WidgetsShareOneProperty(UI_Widget *widget_1, UI_Widget *widget_2
 }
 
 internal UI_Widget* UI_InitWidget(String string) {
-    // TODO(Cian): @UI Temporary, might use Ryans approach of just taking a free slot later
-    if(string.data == null) {
-        String non_interactable = String_MakeFromCString("non_interactable");
-        string = String_AppendString(&global_os->frame_arena, non_interactable, "%d", ui_state->non_interactive_count);
-        ui_state->non_interactive_count++;
-    }
+    UI_Widget *widget = null;
     
-    // NOTE(Cian): All temporary and very liable to change lol
-    
-    UI_ID id = {};
-    // NOTE(Cian): Process our string to obtain the correct string for hashing
-    String hash_string = {};
-    
-    u32 pound_count = 0;
-    u32 first_pound_loc = 0;
-    for(u32 i = 0; i < string.size; i++) {
-        char curr = string.data[i];
+    if(string.data) {
+        // NOTE(Cian): Process our string to append or replace the hash_string
+        String hash_string = {};
         
-        if(curr == '#') {
-            if(pound_count == 0) {
-                first_pound_loc = i;
+        u32 pound_count = 0;
+        u32 first_pound_loc = 0;
+        for(u32 i = 0; i < string.size; i++) {
+            char curr = string.data[i];
+            
+            if(curr == '#') {
+                if(pound_count == 0) {
+                    first_pound_loc = i;
+                }
+                pound_count++;
+            } else {
+                if(pound_count < 2)
+                    pound_count = 0;
             }
-            pound_count++;
-        } else {
-            if(pound_count < 2)
-                pound_count = 0;
         }
-    }
-    
-    if(pound_count == 2) {
-        // NOTE(Cian): We want to append the string after the two pound signs to the string for hashing(not for display)
-        // TODO(Cian): Might pull this out, doubt I'll need it
         
-        hash_string.size = string.size - 2;
-        hash_string.data = (char*)Memory_ArenaPush(&global_os->frame_arena, hash_string.size);
-        // TODO(Cian): @UI should probably check if this memory is ok
+        if(pound_count == 2) {
+            hash_string.size = string.size - 2;
+            hash_string.data = (char*)Memory_ArenaPush(&global_os->frame_arena, hash_string.size);
+            // TODO(Cian): @UI should probably check if this memory is ok
+            
+            u32 size_1 = first_pound_loc + 1;
+            u32 src_offset_2 = first_pound_loc + 2;
+            u32 size_2 = string.size - src_offset_2;
+            
+            //Copy string preceding ##
+            stbsp_snprintf(hash_string.data, size_1, string.data);
+            //Copy string following ##
+            stbsp_snprintf(hash_string.data + (size_1 - 1), size_2, string.data + src_offset_2);
+            
+            //Remove appended piece from main string;
+            string.data[first_pound_loc] = null;
+            string.size = first_pound_loc + 1;
+        } else if(pound_count == 3) {
+            // NOTE(Cian): We want to use just the string after the two pound signs for hashing
+            u32 src_offset = first_pound_loc + 3;
+            
+            hash_string.size = string.size - src_offset;
+            hash_string.data = (char*)Memory_ArenaPush(&global_os->frame_arena, hash_string.size);
+            
+            stbsp_snprintf(hash_string.data, hash_string.size, string.data + src_offset);
+            
+            //Remove appended piece from main string;
+            string.data[first_pound_loc] = null;
+            string.size = first_pound_loc + 1;
+        } else {
+            hash_string = string;
+        }
+        u32 seed = 0;
         
-        u32 size_1 = first_pound_loc + 1;
-        u32 src_offset_2 = first_pound_loc + 2;
-        u32 size_2 = string.size - src_offset_2;
+        if(ui_state->parent_stack.current) 
+            seed = ui_state->parent_stack.current->id.table_pos;
         
-        //Copy string preceding ##
-        stbsp_snprintf(hash_string.data, size_1, string.data);
-        //Copy string following ##
-        stbsp_snprintf(hash_string.data + (size_1 - 1), size_2, string.data + src_offset_2);
+        u32 hash = StringToCRC32(hash_string.data, seed);
+        u32 idx = hash % UI_MAX_WIDGETS;
         
-        //Remove appended piece from main string;
-        string.data[first_pound_loc] = null;
-        string.size = first_pound_loc + 1;
-    } else if(pound_count == 3) {
-        // NOTE(Cian): We want to use just the string after the two pound signs for hashing
-        u32 src_offset = first_pound_loc + 3;
+        widget = ui_state->widgets[idx];
+        UI_Widget *previous = null;
         
-        hash_string.size = string.size - src_offset;
-        hash_string.data = (char*)Memory_ArenaPush(&global_os->frame_arena, hash_string.size);
+        while(widget) {
+            if(widget->id.hash == (s32)hash)
+                break;
+            previous = widget;
+            widget = widget->hash_next;
+        }
         
-        stbsp_snprintf(hash_string.data, hash_string.size, string.data + src_offset);
+        if(widget == null) 
+            widget = (UI_Widget*)Memory_ArenaPush(&global_os->permanent_arena, sizeof(UI_Widget));
+        if(previous) 
+            previous->hash_next = widget;
         
-        //Remove appended piece from main string;
-        string.data[first_pound_loc] = null;
-        string.size = first_pound_loc + 1;
+        widget->id.hash = hash;
+        widget->id.table_pos = idx;
     } else {
-        hash_string = string;
-    }
-    
-    u32 hash =  StringToCRC32(hash_string.data);
-    u32 parent_hash = 0;
-    id.hash = hash;
-    
-    // TODO(Cian): replicating an if check here
-    if(ui_state->parent_stack.current) {
-        id.parent_hash = ui_state->parent_stack.current->id.hash;
-    } else {
-        id.parent_hash = hash;
-    }
-    
-    u32 idx = hash % UI_MAX_WIDGETS;
-    
-    UI_Widget *at_location = ui_state->widgets[idx];
-    
-    UI_Widget *under_construction = null;
-    
-    // NOTE(Cian): HashTable stuff
-    if(at_location == null) {
-        under_construction = (UI_Widget*)Memory_ArenaPush(&global_os->permanent_arena, sizeof(UI_Widget));
-        ui_state->widgets[idx] = under_construction;
-    } else {
-        UI_Widget *prev = null;
-        while(at_location) {
-            // TODO(Cian): @UI @string_function_replace when we have our own string functions replace this with our comparision equivalent
-            // NOTE(Cian): This means we have found our widget that was previously created, how do we know if instead this was us accidentally creating a 2nd widget with the same name??
-            if(at_location->id.hash == id.hash && at_location->id.parent_hash == id.parent_hash) {
-                under_construction = at_location;
-                // NOTE(Cian): Widget has already been created in previous frame, save layout from last fram and reset current layout
-                under_construction->old_layout = under_construction->curr_layout;
-                under_construction->curr_layout = {0};
+        u32 idx = 0;
+        
+        u64 valid_frame = (ui_state->curr_frame == 0) ? 0 : ui_state->curr_frame - 1;
+        
+        for(idx; idx < UI_MAX_WIDGETS; idx++) {
+            widget = ui_state->widgets[idx];
+            
+            if(widget == null || widget->last_frame < valid_frame || (widget->id.hash == UI_NON_INTERACTABLE_ID && widget->last_frame < valid_frame)) {
                 break;
             }
-            prev = at_location;
-            at_location = at_location->hash_next;
-        }
-        // NOTE(Cian): Widget hasn't been created yet
-        if(under_construction == null) {
-            under_construction = (UI_Widget*)Memory_ArenaPush(&global_os->permanent_arena, sizeof(UI_Widget));
-            prev->hash_next = under_construction;
-        }
-    }
-    // NOTE(Cian): Widget data stuff
-    under_construction->string = string;
-    under_construction->parameters[0] = ui_state->width_stack.current;
-    under_construction->parameters[1] = ui_state->height_stack.current;
-    under_construction->padding = ui_state->padding_stack.current;
-    // TODO(Cian): @UI add more thingys here when we start actually doing them
-    
-    // NOTE(Cian): Widget Tree stuff
-    if(ui_state->parent_stack.current) {
-        under_construction->tree_parent = ui_state->parent_stack.current;
-        if(ui_state->prev_widget == under_construction->tree_parent) {
-            ui_state->prev_widget->tree_first_child = under_construction;
-        } else {
-            ui_state->prev_widget->tree_next_sibling = under_construction;
-            under_construction->tree_prev_sibling = ui_state->prev_widget;
         }
         
-        under_construction->tree_parent->tree_last_child = under_construction;
+        if(widget == null) {
+            widget = (UI_Widget*)Memory_ArenaPush(&global_os->permanent_arena, sizeof(UI_Widget));
+            ui_state->widgets[idx] = widget;
+            ui_state->non_interactive_count++;
+        }
+        UI_Widget *hash_next = widget->hash_next;
+        *widget = {};
+        widget->hash_next = hash_next;
+        
+        widget->id.hash = UI_NON_INTERACTABLE_ID;
+        widget->id.table_pos = idx;
+        
+        string = String_MakeFromCString("non_interactable");
     }
     
-    ui_state->prev_widget = under_construction;
-    return under_construction;
+    widget->old_layout = widget->curr_layout;
+    widget->curr_layout = {0};
+    widget->last_frame = ui_state->curr_frame;
+    
+    widget->string = string;
+    widget->parameters[0] = ui_state->width_stack.current;
+    widget->parameters[1] = ui_state->height_stack.current;
+    widget->padding = ui_state->padding_stack.current;
+    
+    if(ui_state->parent_stack.current) {
+        widget->tree_parent = ui_state->parent_stack.current;
+        if(ui_state->prev_widget == widget->tree_parent) {
+            ui_state->prev_widget->tree_first_child = widget;
+        } else if(ui_state->prev_widget->tree_parent == widget->tree_parent){
+            ui_state->prev_widget->tree_next_sibling = widget;
+            widget->tree_prev_sibling = ui_state->prev_widget;
+        }
+        
+        widget->tree_parent->tree_last_child = widget;
+    }
+    
+    ui_state->prev_widget = widget;
+    ui_state->widget_size++;
+    
+    return widget;
 }
 
 internal void UI_Begin() {
