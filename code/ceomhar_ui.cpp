@@ -48,6 +48,8 @@ internal void UI_PushParent(UI_Widget *parent) {
 
 internal void UI_PopParent() {
     u32 *size = &ui_state->parent_stack.size;
+    //when a parent ends, it needs to be the previous widget, not its last child, so its siblings can correctly reference it
+    ui_state->prev_widget = ui_state->parent_stack.current;
     *size--;
     ui_state->parent_stack.current = ui_state->parent_stack.stack[*size];
 }
@@ -66,7 +68,6 @@ internal void UI_PushWidth(f32 size, f32 strictness) {
     u32 *s_size = &ui_state->width_stack.size;
     ui_state->width_stack.stack[*s_size] = ui_state->width_stack.current;
     (*s_size)++;
-    
     ui_state->width_stack.current.is_ratio = false;
     ui_state->width_stack.current.size = size;
     ui_state->width_stack.current.strictness = strictness;
@@ -329,7 +330,7 @@ internal void UI_BeginPanel(NVGcolor color, char *format,...) {
     UI_WidgetAddProperty(panel_container, UI_WidgetProperty_RenderBackground);
     panel_container->color = color;
     UI_PushParent(panel_container);
-    // TODO(Cian): @UI Need to come up with a proper string ID generator for cases where user can't specify
+    // NOTE(Cian): The row inside of the panel shouldn't receive any of the panels padding or sizes, maybe should change this
     UI_WidthAuto UI_HeightAuto UI_Padding2(v2(0,0))
         //UI_BeginRow("panel_row");
         UI_BeginColumn("panel_col");
@@ -631,7 +632,7 @@ internal void UI_DoLayout(UI_Widget *root) {
         UI_LayoutInFlow(root->tree_first_child, parent_height, initial_offset_y,1);
         UI_LayoutNonFlow(root->tree_first_child, parent_width, initial_offset_x,0);
     } else {
-        UI_LayoutInFlow(root->tree_first_child, parent_width, initial_offset_x,0);
+        UI_LayoutNonFlow(root->tree_first_child, parent_width, initial_offset_x,0);
         UI_LayoutNonFlow(root->tree_first_child, parent_height, initial_offset_y,1);
     }
     

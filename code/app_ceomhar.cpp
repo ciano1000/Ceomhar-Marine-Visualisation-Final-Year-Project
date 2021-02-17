@@ -28,7 +28,12 @@ void AppUpdateAndRender() {
                     UI_Filler(1);
                     UI_Button("Open");
                     UI_Spacer(10.0f, 0.8f);
-                    UI_Button("Open##2");
+                    UI_Button("Another Button");
+                    //UI_Spacer(300.0f, 0.8f);
+                    UI_Filler(1);
+                    UI_Button("Close");
+                    UI_Spacer(10.0f, 0.8f);
+                    UI_Button("Another##another");
                     UI_Filler(1);
                 }
                 // NOTE(Cian): Purple
