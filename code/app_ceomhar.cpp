@@ -10,7 +10,7 @@ void AppUpdateAndRender() {
     
     // NOTE(Cian): Begin creates a blank panel and sets up UI, at every UI_End or UI_Pop we do some very simple auto layout, e.g fit everything to the the row height, draw everything, and perform input
     
-    glViewport( 0, 0, global_os->display.width, global_os->display.height);
+    glViewport( 0, 0, (u32)global_os->display.width, (u32)global_os->display.height);
     glClearColor(0.0f,0.0f,0.0f,1.0f);
     glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);                                         
     nvgBeginFrame(global_vg, (f32)global_os->display.width,  (f32)global_os->display.height, 1);
@@ -22,11 +22,18 @@ void AppUpdateAndRender() {
         // NOTE(Cian): Panels auto-create a Row container(for padding etc), it's row fills its width
         UI_Width(800, 0.8f) UI_HeightFill UI_Padding2(v2(20, 20)) UI_Panel(PRIMARY_COLOR, "Test_Panel##test_append")
         {
+            static b32 toggle = false;
+            static u32 test_num = 0;
             // NOTE(Cian): Blue
             UI_Padding2(v2(0,0))UI_WidthAuto UI_Height(100,1.0f){
                 UI_HeightAuto UI_Row{
                     UI_Filler(1);
-                    UI_Button("Open");
+                    if(UI_Button("Open: %d###replaced_hash", test_num))
+                        test_num++;
+                    if(toggle) {
+                        UI_Spacer(10.0f, 0.8f);
+                        UI_Button("Toggled");
+                    }
                     UI_Spacer(10.0f, 0.8f);
                     UI_Button("Another Button");
                     //UI_Spacer(300.0f, 0.8f);

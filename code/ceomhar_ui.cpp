@@ -196,27 +196,33 @@ internal UI_Widget* UI_InitWidget(String string) {
         }
         u32 seed = 0;
         
+        // TODO(Cian): Was being stupid here and forgot that the positions of parents in table isn't guaranteed, need a better way of seeding the hash 
         if(ui_state->parent_stack.current) 
-            seed = ui_state->parent_stack.current->id.table_pos;
+            seed = ui_state->parent_stack.current->id.hash;
         
         u32 hash = StringToCRC32(hash_string.data, seed);
         u32 idx = hash % UI_MAX_WIDGETS;
         
         widget = ui_state->widgets[idx];
-        UI_Widget *previous = null;
-        
-        while(widget) {
-            if(widget->id.hash == (s32)hash)
-                break;
-            previous = widget;
-            widget = widget->hash_next;
-        }
-        
-        if(widget == null) 
+        if(widget == null) {
             widget = (UI_Widget*)Memory_ArenaPush(&global_os->permanent_arena, sizeof(UI_Widget));
-        if(previous) 
-            previous->hash_next = widget;
-        
+            ui_state->widgets[idx] = widget;
+        } else {
+            
+            UI_Widget *previous = null;
+            while(widget) {
+                if(widget->id.hash == (s32)hash)
+                    break;
+                previous = widget;
+                widget = widget->hash_next;
+            }
+            
+            if(widget == null) {
+                widget = (UI_Widget*)Memory_ArenaPush(&global_os->permanent_arena, sizeof(UI_Widget));
+            }
+            if(previous) 
+                previous->hash_next = widget;
+        }
         widget->id.hash = hash;
         widget->id.table_pos = idx;
     } else {
@@ -246,12 +252,12 @@ internal UI_Widget* UI_InitWidget(String string) {
         
         string = String_MakeFromCString("non_interactable");
     }
+    widget->string = string;
     
     widget->old_layout = widget->curr_layout;
     widget->curr_layout = {0};
     widget->last_frame = ui_state->curr_frame;
     
-    widget->string = string;
     widget->parameters[0] = ui_state->width_stack.current;
     widget->parameters[1] = ui_state->height_stack.current;
     widget->padding = ui_state->padding_stack.current;
@@ -381,7 +387,53 @@ internal b32 UI_Button(char *format, ...) {
     UI_MakeFormatString(string, format);
     UI_Widget *button = UI_InitWidget(string);
     UI_ButtonHelper(button, SECONDARY_COLOR, DEFAULT_TEXT_COLOR, UI_DEFAULT_FONT_SIZE);
-    return true;
+    
+    // NOTE(Cian): Input Experiments, will be pulled out later
+    b32 result = false;
+    if(ui_state->curr_frame == 0) {
+        return result;
+    } else {
+        OS_Event *mouse_down_event = null;
+        OS_Event *mouse_up_event = null;
+        b32 mouse_down = OS_PeekMouseButtonEvent(&mouse_down_event, OS_EventType_MouseDown, OS_MouseButton_Left);
+        b32 mouse_up = OS_PeekMouseButtonEvent(&mouse_up_event, OS_EventType_MouseUp, OS_MouseButton_Left);
+        // TODO(Cian): Maybe uuid comparison functions
+        // this is the active widget
+        
+        V2 mouse_pos = global_os->mouse_pos;
+        V4 button_rect = button->old_layout;
+        
+        b32 mouse_is_over = mouse_pos.x > button_rect.x &&
+            mouse_pos.x < button_rect.x + button_rect.width &&
+            mouse_pos.y > button_rect.y &&
+            mouse_pos.y < button_rect.y + button_rect.height;
+        
+        if(ui_state->active.hash == button->id.hash) {
+            if(mouse_up) {
+                
+                result = mouse_is_over;
+                ui_state->active = UI_NullID;
+                
+                if(!mouse_is_over){
+                    ui_state->hot = UI_NullID;
+                }
+                OS_TakeEvent(mouse_up_event);
+            }
+        } else if(ui_state->hot.hash == button->id.hash) {
+            if(mouse_down) {
+                ui_state->active = button->id;
+                OS_TakeEvent(mouse_down_event);
+            } else if(!mouse_is_over) {
+                ui_state->hot = UI_NullID;
+            }
+        } else {
+            if(mouse_is_over && !mouse_down && (ui_state->hot.hash == 0))
+                ui_state->hot = button->id;
+        }
+        
+    }
+    
+    return result;
 }
 
 internal b32 UI_Button(NVGcolor background_color, char *format, ...) {
@@ -665,6 +717,17 @@ internal void UI_Render(UI_Widget *root) {
     while(curr) {
         f32 x = curr->curr_layout.x;
         f32 y = curr->curr_layout.y;
+        
+        // TODO(Cian): @UI Very temporary very hacky, just to get things working, should use the transition effects to overlay a growing transparent rectangle that darkens/lightens the active/hot element(this wiill allow it to work with any color) 
+        if(UI_WidgetHasProperty(curr, UI_WidgetProperty_RenderHot)) {
+            if(curr->id.hash == ui_state->hot.hash)
+                curr->color = SECONDARY_COLOR_LIGHT;
+        }
+        
+        if(UI_WidgetHasProperty(curr, UI_WidgetProperty_RenderActive)) {
+            if(curr->id.hash == ui_state->active.hash)
+                curr->color = SECONDARY_COLOR_DARK;
+        }
         
         if(UI_WidgetHasProperty(curr, UI_WidgetProperty_RenderBackground)){
             

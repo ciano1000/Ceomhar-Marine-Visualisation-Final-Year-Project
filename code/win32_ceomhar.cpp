@@ -15,7 +15,7 @@
 
 #include "ceomhar_math.h"
 #include "ceomhar_memory.h"
-#include "ceomhar_platform.h"
+#include "ceomhar_os.h"
 
 #include "nano\nanovg.h"
 #include "nano\nanovg.c"
@@ -28,6 +28,7 @@ global OS_State *global_os = {};
 
 #include "ceomhar_string.h"
 #include "ceomhar_string.cpp"
+#include "ceomhar_os.cpp"
 #include "ceomhar_ui.h"
 #include "ceomhar_ui.cpp"
 #include "app_ceomhar.h"
@@ -56,8 +57,8 @@ void Win32GetScreenInfo(HWND window_handle, AppDisplay  *screen_dimension) {
     RECT window_rect = {};
     
     GetClientRect(window_handle, &window_rect);
-    screen_dimension->width = window_rect.right - window_rect.left;
-    screen_dimension->height = window_rect.bottom - window_rect.top;
+    screen_dimension->width = (f32)(window_rect.right - window_rect.left);
+    screen_dimension->height = (f32)(window_rect.bottom - window_rect.top);
     
     screen_dimension->pixel_ratio = ((f32)screen_dimension->width) / ((f32)screen_dimension->height);
     
@@ -69,6 +70,8 @@ void Win32GetScreenInfo(HWND window_handle, AppDisplay  *screen_dimension) {
 global b32 Running;
 LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LPARAM l_param)
 {
+    static b32 weird_windows_mouse_tracking = false;
+    
     LRESULT result = 0;
     switch (message)
     {
@@ -100,8 +103,24 @@ LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LP
         case WM_CLOSE:
         {
             Running = false;
-        }
-        break;
+        } break;
+        
+        case WM_LBUTTONDOWN:
+        {
+            OS_PushEvent(OS_MouseButtonDownEvent(OS_MouseButton_Left, global_os->mouse_pos));
+        } break;
+        case WM_LBUTTONUP:
+        {
+            OS_PushEvent(OS_MouseButtonUpEvent(OS_MouseButton_Left, global_os->mouse_pos));
+        } break;
+        case WM_RBUTTONDOWN:
+        {
+            OS_PushEvent(OS_MouseButtonDownEvent(OS_MouseButton_Right, global_os->mouse_pos));
+        } break;
+        case WM_RBUTTONUP:
+        {
+            OS_PushEvent(OS_MouseButtonUpEvent(OS_MouseButton_Right, global_os->mouse_pos));
+        } break;
         case WM_MOUSEMOVE:
         {
             u16 x = LOWORD(l_param);
@@ -110,7 +129,27 @@ LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LP
             GetCursorPos(&mouse_pos);
             ScreenToClient(window_handle, &mouse_pos);
             V2 pos = {(f32)mouse_pos.x, (f32)mouse_pos.y};
+            
+            V2 last_pos = global_os->mouse_pos;
             global_os->mouse_pos = pos;
+            V2 delta_pos = v2(global_os->mouse_pos.x - last_pos.x, global_os->mouse_pos.y - last_pos.y);
+            
+            OS_PushEvent(OS_MouseMoveEvent(pos, delta_pos));
+            
+            if(weird_windows_mouse_tracking == false) {
+                weird_windows_mouse_tracking = true;
+                
+                TRACKMOUSEEVENT track_event = {};
+                track_event.cbSize = sizeof(track_event);
+                track_event.dwFlags = TME_LEAVE;
+                track_event.hwndTrack = window_handle;
+                track_event.dwHoverTime = HOVER_DEFAULT;
+                TrackMouseEvent(&track_event);
+            }
+        } break;
+        case WM_MOUSELEAVE:
+        {
+            weird_windows_mouse_tracking = false;
         } break;
         case WM_GETMINMAXINFO:
         {
@@ -184,7 +223,7 @@ int main(u32 argc, char **argv) {
         nvgCreateFont(global_vg,"roboto-medium", fontLocation_2);
         
         
-        OS_State os_state;
+        OS_State os_state = {};
         global_os  = &os_state;
         // TODO(Cian):  push this onto a memory arena
         global_os->ReserveMemory = &Win32ReserveMemory;
@@ -220,21 +259,13 @@ int main(u32 argc, char **argv) {
             global_os->display = screen_dimension;
             AppUpdateAndRender();
             
+            // TODO(Cian): @Platform When seperating app and platform layer, different app entry/exit points and functions need to be specified, e.g. here a function to clean up necessary platform stuff would occur
+            OS_FlushEvents();
+            
             HDC dc = GetDC(window_handle);
             SwapBuffers(dc);
             ReleaseDC(window_handle, device_context);
             
-            // NOTE(Cian): Testing string
-            // TODO(Cian): @Testing need to create some kinda automated seperate testing thingy where I can test functions once off
-            /*Memory_ScopeBlock(){
-                String str_1 = String_MakeString(&global_os->scope_arena, "My name is: %s", "Cian");
-                String str_2 = String_MakeString(&global_os->scope_arena, " I am %d years old", 22);
-                String appended = String_AppendString(&global_os->scope_arena, &str_1, &str_2);
-                
-                printf("\n %s \n", str_1.data);
-                printf("%s \n", str_2.data);
-                printf("%s \n", appended.data);
-            }*/
             while(PeekMessage(&message,0,0,0,PM_REMOVE|PM_NOYIELD))
             {
                 TranslateMessage(&message);

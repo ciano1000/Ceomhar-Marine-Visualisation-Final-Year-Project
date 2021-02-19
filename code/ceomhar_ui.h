@@ -2,6 +2,7 @@
 
 #define UI_HASH_SIZE 256
 #define UI_NON_INTERACTABLE_ID -2
+#define UI_NullID {0,0}
 
 #define UI_MAX_WIDGETS 1024
 #define UI_MAX_PANELS 24
@@ -93,6 +94,8 @@ struct UI_Widget{
     NVGcolor text_color;
     f32 font_size;
     
+    f32 hot_transition;
+    f32 active_transition;
 };
 
 struct UI_State {
