@@ -40,18 +40,19 @@ internal b32 UI_WidgetsCompareProperty(UI_Widget *widget_1, UI_Widget *widget_2,
 }
 
 internal void UI_PushParent(UI_Widget *parent) {
-    u32 *size = &ui_state->parent_stack.size;
-    ui_state->parent_stack.stack[*size] = ui_state->parent_stack.current;
-    *size++;
+    u32 size = ui_state->parent_stack.size;
+    if(size > 0)
+        ui_state->parent_stack.stack[size - 1] = ui_state->parent_stack.current;
     ui_state->parent_stack.current = parent;
+    ui_state->parent_stack.size++;
 }
 
 internal void UI_PopParent() {
-    u32 *size = &ui_state->parent_stack.size;
     //when a parent ends, it needs to be the previous widget, not its last child, so its siblings can correctly reference it
     ui_state->prev_widget = ui_state->parent_stack.current;
-    *size--;
-    ui_state->parent_stack.current = ui_state->parent_stack.stack[*size];
+    ui_state->parent_stack.size--;
+    u32 size = ui_state->parent_stack.size;
+    ui_state->parent_stack.current = ui_state->parent_stack.stack[size - 1];
 }
 
 internal void UI_PushWidthRatio(f32 ratio, f32 strictness) {
@@ -338,12 +339,10 @@ internal void UI_BeginPanel(NVGcolor color, char *format,...) {
     UI_PushParent(panel_container);
     // NOTE(Cian): The row inside of the panel shouldn't receive any of the panels padding or sizes, maybe should change this
     UI_WidthAuto UI_HeightAuto UI_Padding2(v2(0,0))
-        //UI_BeginRow("panel_row");
-        UI_BeginColumn("panel_col");
+        UI_BeginRow(0);
 }
 
 internal void UI_EndPanel() {
-    //UI_EndColumn();
     UI_EndRow();
     UI_PopParent();
 }
@@ -453,6 +452,15 @@ internal b32 UI_Button(NVGcolor background_color, NVGcolor text_color, char *for
     return true;
 }
 
+internal void UI_Label(char *format, ...) {
+    String string = {};
+    UI_MakeFormatString(string, format);
+    UI_Widget *label = UI_InitWidget(string);
+    UI_WidgetAddProperty(label, UI_WidgetProperty_RenderText);
+    label->text_color = DEFAULT_TEXT_COLOR;
+    label->font_size = UI_DEFAULT_FONT_SIZE;
+}
+
 internal inline f32 UI_GetSize(UI_Widget *widget, u32 axis) {
     f32 result = 0;
     
@@ -491,7 +499,11 @@ internal void UI_MeasureWidget(UI_Widget *widget, b32 is_tiled, u32 axis) {
                     if(UI_WidgetsShareOneProperty(widget, curr, UI_WidgetProperty_LayoutHorizontal, UI_WidgetProperty_LayoutVertical)){
                         UI_MeasureWidget(curr, is_tiled, axis);
                     } else {
-                        UI_MeasureWidget(curr, !is_tiled, axis);
+                        if(UI_WidgetHasProperty(widget, UI_WidgetProperty_Container)) {
+                            UI_MeasureWidget(curr, is_tiled, axis);
+                        } else {
+                            UI_MeasureWidget(curr, !is_tiled, axis);
+                        }
                     }
                 }
                 
@@ -501,7 +513,8 @@ internal void UI_MeasureWidget(UI_Widget *widget, b32 is_tiled, u32 axis) {
                 curr = curr->tree_next_sibling;
             }
             size = sum +  (widget->padding.elements[axis] + widget->padding.elements[axis + 2]);
-            strictness =  min_sum / size;
+            // TODO(Cian): @UI was having some issues with auto-sized strictness, keep in mind for rewrite
+            strictness =  (min_sum +  (widget->padding.elements[axis] + widget->padding.elements[axis + 2])) / size;
         } else {
             f32 max_pref_size = 0;
             f32 max_min_size = 0;
@@ -513,7 +526,11 @@ internal void UI_MeasureWidget(UI_Widget *widget, b32 is_tiled, u32 axis) {
                     if(UI_WidgetsShareOneProperty(widget, curr, UI_WidgetProperty_LayoutHorizontal, UI_WidgetProperty_LayoutVertical)){
                         UI_MeasureWidget(curr, is_tiled, axis);
                     } else {
-                        UI_MeasureWidget(curr, !is_tiled, axis);
+                        if(UI_WidgetHasProperty(widget, UI_WidgetProperty_Container)) {
+                            UI_MeasureWidget(curr, is_tiled, axis);
+                        } else {
+                            UI_MeasureWidget(curr, !is_tiled, axis);
+                        }
                     }
                 }
                 
@@ -528,7 +545,9 @@ internal void UI_MeasureWidget(UI_Widget *widget, b32 is_tiled, u32 axis) {
                 curr = curr->tree_next_sibling;
             }
             size = max_pref_size +  (widget->padding.elements[axis] + widget->padding.elements[axis + 2]);
-            strictness = max_min_size / size;
+            strictness = (max_min_size + (widget->padding.elements[axis] + widget->padding.elements[axis + 2])) / size;
+            // TODO(Cian): @UI was having some issues with auto-sized strictness, keep in mind for rewrite
+            
         }
         // TODO(Cian): @UI padding stuff is a bit crude here
         widget->parameters[axis].size = size;
@@ -555,7 +574,9 @@ internal void UI_MeasureWidget(UI_Widget *widget, b32 is_tiled, u32 axis) {
                 
                 // TODO(Cian): add padding and appropriate strictness so that there is always enough room for text
                 widget->parameters[axis].size = width + (padding_x0 + padding_x1);
-                widget->parameters[axis].strictness = (width + (2 * UI_MIN_TEXT_PADDING_X)) / widget->parameters[axis].size;
+                // TODO(Cian): @UI setting text strictness to 1 to solve some headaches right now, will fix in rewrite
+                //widget->parameters[axis].strictness = (width + (2 * UI_MIN_TEXT_PADDING_X)) / widget->parameters[axis].size;
+                widget->parameters[axis].strictness = 1.0f;
             } else {
                 f32 padding_y0 = UI_DEFAULT_TEXT_PADDING_Y;
                 f32 padding_y1 = UI_DEFAULT_TEXT_PADDING_Y;
@@ -566,15 +587,17 @@ internal void UI_MeasureWidget(UI_Widget *widget, b32 is_tiled, u32 axis) {
                 }
                 
                 widget->parameters[axis].size = height + (padding_y0 + padding_y1);
-                widget->parameters[axis].strictness = (height + (2 * UI_MIN_TEXT_PADDING_Y)) / widget->parameters[axis].size;
+                //widget->parameters[axis].strictness = (height + (2 * UI_MIN_TEXT_PADDING_Y)) / widget->parameters[axis].size;
+                widget->parameters[axis].strictness = 1.0f;
             }
             
         } else {
+            // TODO(Cian): @UI can probably remove this or only enable it in certain debug situations?
             if(axis == UI_ParameterIndex_Width){
-                widget->parameters[axis].size = 120;
+                widget->parameters[axis].size = 10;
                 widget->parameters[axis].strictness = 1.0f;
             } else {
-                widget->parameters[axis].size = 60;
+                widget->parameters[axis].size = 10;
                 widget->parameters[axis].strictness = 1.0f;
             }
         }
@@ -744,11 +767,10 @@ internal void UI_Render(UI_Widget *root) {
         }
         
         if(UI_WidgetHasProperty(curr, UI_WidgetProperty_RenderText)) {
-            // TODO(Cian): do font size in a better way
             nvgTextAlign(global_vg, NVG_ALIGN_CENTER|NVG_ALIGN_MIDDLE);
             nvgFontFace(global_vg, "roboto-medium");
             nvgFontSize(global_vg, curr->font_size);
-            nvgFillColor(global_vg, DARK_TEXT_COLOR);
+            nvgFillColor(global_vg, curr->text_color);
             nvgText(global_vg, x + (curr->curr_layout.width / 2), y + (curr->curr_layout.height / 2), curr->string.data, null);
         }
         

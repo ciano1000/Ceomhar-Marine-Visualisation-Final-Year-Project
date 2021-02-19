@@ -19,46 +19,23 @@ void AppUpdateAndRender() {
     UI_BeginUI
     {
         
-        // NOTE(Cian): Panels auto-create a Row container(for padding etc), it's row fills its width
-        UI_Width(800, 0.8f) UI_HeightFill UI_Padding2(v2(20, 20)) UI_Panel(PRIMARY_COLOR, "Test_Panel##test_append")
-        {
-            static b32 toggle = false;
-            static u32 test_num = 0;
-            // NOTE(Cian): Blue
-            UI_Padding2(v2(0,0))UI_WidthAuto UI_Height(100,1.0f){
-                UI_HeightAuto UI_Row{
+        UI_WidthFill UI_HeightFill UI_Col {
+            UI_Padding2(v2(10,10)) UI_HeightAuto UI_WidthFill UI_Panel(PRIMARY_COLOR_DARK, "Navigation") {
+                UI_HeightAuto UI_WidthAuto {
+                    UI_Button("Open###replacement_hash");
                     UI_Filler(1);
-                    if(UI_Button("Open: %d###replaced_hash", test_num))
-                        test_num++;
-                    if(toggle) {
-                        UI_Spacer(10.0f, 0.8f);
-                        UI_Button("Toggled");
-                    }
-                    UI_Spacer(10.0f, 0.8f);
-                    UI_Button("Another Button");
-                    //UI_Spacer(300.0f, 0.8f);
-                    UI_Filler(1);
-                    UI_Button("Close");
-                    UI_Spacer(10.0f, 0.8f);
-                    UI_Button("Another##another");
+                    UI_Label("Dashboard Demo Monday 22 Feb");
                     UI_Filler(1);
                 }
-                // NOTE(Cian): Purple
-                UI_Filler(1);
-                UI_TestBox(PRIMARY_COLOR_LIGHT, "Temp2");
-                // NOTE(Cian): Yellow
-                UI_TestBox(SECONDARY_COLOR, "Temp3");
-                UI_TestBox(HIGHLIGHT_COLOR, "Temp4");
-                UI_Filler(1);
             }
-            
-            /*UI_Height(400, 0.5f) UI_Row {
-                UI_Width(100, 0.8f) UI_HeightAuto UI_Col {
-                    UI_TestBox(nvgRGBA(152, 252, 3, 255), "Temp3");
-                    UI_TestBox(nvgRGBA(52, 78, 3, 255), "Temp4");
-                    UI_TestBox(nvgRGBA(152, 252, 67, 255), "Temp5");
+            UI_Row {
+                UI_Padding2(v2(10,10)) UI_HeightFill UI_WidthFill UI_Panel(PRIMARY_COLOR_LIGHT, "MainPanel##hash") {
+                    
                 }
-            }*/
+                UI_Padding2(v2(10,10)) UI_HeightFill UI_Width(500,0.9f) UI_Panel(PRIMARY_COLOR, "SidePanel") {
+                    
+                }
+            }
         }
     }
     
