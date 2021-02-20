@@ -18,11 +18,22 @@ void AppUpdateAndRender() {
     // NOTE(Cian): UI_Begin just creates a root Row container thats the same size as our display, containers can only have one child(for now maybe idk)
     UI_BeginUI
     {
-        
+        static b32 is_started = false;
         UI_WidthFill UI_HeightFill UI_Col {
-            UI_Padding2(v2(10,10)) UI_HeightAuto UI_WidthFill UI_Panel(PRIMARY_COLOR_DARK, "Navigation") {
+            UI_Padding2(v2(10,10)) UI_HeightAuto UI_WidthFill UI_Panel(PRIMARY_COLOR_DARK, 
+                                                                       "Navigation") {
+                //Both of these buttons below are actually reference the same button since they use the same hash string
                 UI_HeightAuto UI_WidthAuto {
-                    UI_Button("Open###replacement_hash");
+                    if(!is_started){
+                        if(UI_Button("Start###replacement_hash")) {
+                            is_started = true;
+                        }
+                    }
+                    else {
+                        if(UI_Button("Stop###replacement_hash")) {
+                            is_started = false;
+                        }
+                    }
                     UI_Filler(1);
                     UI_Label("Dashboard Demo Monday 22 Feb");
                     UI_Filler(1);
@@ -30,10 +41,29 @@ void AppUpdateAndRender() {
             }
             UI_Row {
                 UI_Padding2(v2(10,10)) UI_HeightFill UI_WidthFill UI_Panel(PRIMARY_COLOR_LIGHT, "MainPanel##hash") {
-                    
+                    UI_HeightFill UI_WidthFill UI_Col {
+                        UI_Filler(1);
+                        UI_HeightAuto UI_Row {
+                            UI_Height(500, 1.0f) UI_WidthRatio(0.32f, 1.0f) {
+                                UI_TestBox(HIGHLIGHT_COLOR, "TestBox");
+                                UI_Filler(1);
+                                UI_TestBox(HIGHLIGHT_COLOR, "TestBox1");
+                                UI_Filler(1);
+                                UI_TestBox(HIGHLIGHT_COLOR, "TestBox2");
+                                
+                            }
+                        }
+                        UI_Filler(1);
+                    }
                 }
-                UI_Padding2(v2(10,10)) UI_HeightFill UI_Width(500,0.9f) UI_Panel(PRIMARY_COLOR, "SidePanel") {
-                    
+                UI_Padding2(v2(10,10)) UI_HeightFill UI_Width(450,0.9f) UI_Panel(PRIMARY_COLOR, "SidePanel") {
+                    UI_HeightAuto UI_WidthFill UI_Col {
+                        UI_Row {
+                            UI_Filler(1);
+                            UI_Label(20.0f, "Options");
+                            UI_Filler(1);
+                        }
+                    }
                 }
             }
         }

@@ -362,9 +362,11 @@ internal void UI_Spacer(f32 size, f32 strictness) {
     if(UI_WidgetHasProperty(spacer->tree_parent, UI_WidgetProperty_LayoutHorizontal)) {
         spacer->parameters[UI_ParameterIndex_Width].size = size;
         spacer->parameters[UI_ParameterIndex_Width].strictness = strictness;
+        spacer->parameters[UI_ParameterIndex_Width].is_ratio = false;
     } else {
         spacer->parameters[UI_ParameterIndex_Height].size = size;
         spacer->parameters[UI_ParameterIndex_Height].strictness = strictness;
+        spacer->parameters[UI_ParameterIndex_Height].is_ratio = false;
     }
 }
 
@@ -461,11 +463,20 @@ internal void UI_Label(char *format, ...) {
     label->font_size = UI_DEFAULT_FONT_SIZE;
 }
 
+internal void UI_Label(f32 font_size, char *format, ...) {
+    String string = {};
+    UI_MakeFormatString(string, format);
+    UI_Widget *label = UI_InitWidget(string);
+    UI_WidgetAddProperty(label, UI_WidgetProperty_RenderText);
+    label->text_color = DEFAULT_TEXT_COLOR;
+    label->font_size = font_size;
+}
+
 internal inline f32 UI_GetSize(UI_Widget *widget, u32 axis) {
     f32 result = 0;
     
     if(widget->parameters[axis].is_ratio) {
-        f32 parent_size = widget->tree_parent->curr_layout.elements[axis + 2];
+        f32 parent_size = widget->tree_parent->curr_layout.elements[axis + 2] - (widget->tree_parent->padding.elements[axis] + widget->tree_parent->padding.elements[axis + 2]);
         result = widget->parameters[axis].ratio * parent_size;
     }else {
         result = widget->parameters[axis].size; 
@@ -628,7 +639,7 @@ internal void UI_LayoutInFlow(UI_Widget *first_child, f32 available, f32 initial
         f32 pref_size = UI_GetSize(curr, axis);
         
         sum_delta +=  (pref_size * (1 - curr->parameters[axis].strictness));
-        sum += curr->parameters[axis].size;
+        sum += pref_size;
         
         // NOTE(Cian): Attempt to layout with the preferred size
         curr->curr_layout.elements[axis] = offset;
@@ -644,7 +655,8 @@ internal void UI_LayoutInFlow(UI_Widget *first_child, f32 available, f32 initial
         curr = first_child;
         while(curr) {
             
-            f32 factor = (curr->parameters[axis].size * (1 - curr->parameters[axis].strictness)) / sum_delta; 
+            f32 pref_size = UI_GetSize(curr, axis);
+            f32 factor = (pref_size * (1 - curr->parameters[axis].strictness)) / sum_delta; 
             
             curr->curr_layout.elements[axis] = offset;
             curr->curr_layout.elements[axis + 2] -= (factor * (sum - available)); 
