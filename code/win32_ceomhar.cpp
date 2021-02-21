@@ -31,6 +31,7 @@ global OS_State *global_os = {};
 #include "ceomhar_os.cpp"
 #include "ceomhar_ui.h"
 #include "ceomhar_ui.cpp"
+#include "ceomhar_parsing.cpp"
 #include "app_ceomhar.h"
 #include "ceomhar_memory.cpp"
 #include "app_ceomhar.cpp"
@@ -53,6 +54,34 @@ PLATFORM_RELEASE_MEMORY(Win32ReleaseMemory) {
     VirtualFree(memory, size, MEM_RELEASE);
 }
 
+DEBUG_PLATFORM_READ_ENTIRE_FILE(Win32_DebugReadEntireFile) {
+	b32 result = false;
+    
+	HANDLE file_handle = CreateFileA((LPCSTR)file_path, GENERIC_READ, NULL, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	if(file_handle != INVALID_HANDLE_VALUE) {
+		LARGE_INTEGER file_size_struct = {};
+		
+		if(GetFileSizeEx(file_handle, &file_size_struct)) {
+			u64 file_size = (u64)file_size_struct.QuadPart + 1;
+			file_read->size = file_size;
+			
+            // TODO(Cian): @Win32 have some kind of debug arena
+			void *file_buffer = Memory_ArenaPush(&global_os->permanent_arena, file_size);
+			file_read->data = (char *)file_buffer;
+			
+			u32 bytes_read = 0;
+			if(ReadFile(file_handle, file_buffer, (DWORD)file_size, (LPDWORD)&bytes_read, NULL)) {
+				result = true;
+				file_read->data[file_read->size] = '\0';
+			}
+		}
+		CloseHandle(file_handle);
+	}
+	
+	return result;
+} 
+
+
 void Win32GetScreenInfo(HWND window_handle, AppDisplay  *screen_dimension) {
     RECT window_rect = {};
     
@@ -62,9 +91,13 @@ void Win32GetScreenInfo(HWND window_handle, AppDisplay  *screen_dimension) {
     
     screen_dimension->pixel_ratio = ((f32)screen_dimension->width) / ((f32)screen_dimension->height);
     
-    // TODO(Cian): Look at doing this when WM_DPICHANGED received
     HDC hdc = GetDC(window_handle);
-    screen_dimension->dpi = GetDpiForWindow(window_handle);
+    //screen_dimension->dpi = GetDpiForWindow(window_handle);
+    // TODO(Cian): Should only redo this if monitor changes
+    u32 monitor_x = GetDeviceCaps(hdc, HORZRES);
+    u32 monitor_y = GetDeviceCaps(hdc, VERTRES);
+    u32 monitor_product = monitor_x * monitor_y;
+    screen_dimension->dpi = (u32)((f32)(monitor_product / OS_DEFAULT_DISPLAY_DENSITY) * OS_DEFAULT_DPI);
 }
 
 global b32 Running;
@@ -234,6 +267,8 @@ int main(u32 argc, char **argv) {
         global_os->permanent_arena = Memory_ArenaInitialise();
         global_os->frame_arena = Memory_ArenaInitialise();
         global_os->scope_arena = Memory_ArenaInitialise();
+        
+        global_os->DebugReadEntireFile = &Win32_DebugReadEntireFile;
         
         // TODO(Cian): ReCalculate window RECT on size change and notify game layer
         AppDisplay screen_dimension = {};

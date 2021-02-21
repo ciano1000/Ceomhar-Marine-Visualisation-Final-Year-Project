@@ -1,5 +1,6 @@
 #define UI_DEFAULT_DENSITY 96.00f
 
+
 #define UI_HASH_SIZE 256
 #define UI_NON_INTERACTABLE_ID -2
 #define UI_NullID {0,0}
@@ -46,6 +47,12 @@ enum UI_WidgetProperty{
     UI_WidgetProperty_Container,
     UI_WidgetProperty_LayoutHorizontal,
     UI_WidgetProperty_LayoutVertical,
+    // TODO(Cian): @UI These are temporary properties until custom update & render is working
+    UI_WidgetProperty_Togglable,
+    UI_WidgetProperty_Scrollable,
+    
+    UI_WidgetProperty_CustomUpdate,
+    UI_WidgetProperty_CustomRender,
     UI_WidgetProperty_MAX
 };
 
@@ -97,6 +104,10 @@ struct UI_Widget{
     
     f32 hot_transition;
     f32 active_transition;
+    
+    // TODO(Cian): All of the following things will eventually be done via custom-user data and custom Update/Render functions that intercept and override the default functionality
+    b32 toggle;
+    f32 scroll_offset;
 };
 
 struct UI_State {

@@ -1,8 +1,19 @@
-
+// TODO(Cian): @App Temporary for demo
+struct APP_Debug{
+    OS_FileRead demo_read;
+    // TODO(Cian): Temporary thing for demo
+    Measurement measurements[13735];
+};
+global APP_Debug *debug;
 void AppStart(OS_State *state, NVGcontext *vg) {
     // TODO(Cian): when app and platform are split into seperate TU's, put OS_State stuff here
     ui_state = (UI_State*)Memory_ArenaPush(&global_os->permanent_arena, sizeof(UI_State));
     *ui_state = {};
+    // TODO(Cian): @APP push this to debug arena
+    debug = (APP_Debug*)Memory_ArenaPush(&global_os->permanent_arena, sizeof(APP_Debug));
+    
+    global_os->DebugReadEntireFile("D:\\dev\\fyp_ceomhar\\FSS_NMEA_SampleData.txt", &debug->demo_read);
+    Parser_DebugParseMeasurements(debug->demo_read, debug->measurements);
 }
 
 // TODO(Cian): How should we pass the vgContext???

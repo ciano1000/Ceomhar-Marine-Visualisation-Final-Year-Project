@@ -95,6 +95,17 @@ internal String String_MakeFromCString(char *string) {
     return result;
 }
 
+internal String String_PushString(MemoryArena *arena, u32 size) {
+    String result = {};
+    result.size = size;
+    
+    result.data = (char*)Memory_ArenaPush(arena, size);
+    
+    result.data[size - 1] = null;
+    
+    return result;
+}
+
 // TODO(Cian): @String might get around to either replacing C string funcs like snprintf etc myself or by using stb headers
 internal String String_MakeString(MemoryArena *arena, char *string,...) {
     String result = {};
@@ -176,7 +187,45 @@ internal String String_AppendString(MemoryArena *arena, String string_1, char *s
     return result;
 }
 
-void StringGenRandom(char *s, int len) {
+internal void String_StringCopy(String dest, String src, u32 src_offset, u32 count) {
+    assert(count <= dest.size); 
+    assert((src_offset + (count - 1)) < src.size);
+    
+    for(u32 i = 0; i < count - 1; i++) {
+        dest.data[i] = src.data[src_offset + i];
+    }
+    dest.data[count - 1] = null;
+}
+
+internal b32 String_CharIsDigit(char c) {
+    return c >= '0' && c <= '9';
+}
+
+internal b32 String_CharIsLetter(char c) {
+    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+}
+
+internal char String_CharToUpper(char c) {
+    return (c >= 'a' && c <= 'z') ? c - 32 : c;
+}
+
+internal char String_CharToLower(char c) {
+    return (c >= 'A' && c <= 'Z') ? c + 32 : c;
+}
+
+internal void String_StringToUpper(String string) {
+    for(u32 i = 0; i < string.size; i++) {
+        string.data[i] = String_CharToUpper(string.data[i]);
+    }
+}
+
+internal void String_StringToLower(String string) {
+    for(u32 i = 0; i < string.size; i++) {
+        string.data[i] = String_CharToLower(string.data[i]);
+    }
+}
+
+internal void StringGenRandom(char *s, int len) {
     static const char alphanum[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
     
     for (int i = 0; i < len -1; ++i) {
@@ -184,5 +233,48 @@ void StringGenRandom(char *s, int len) {
     }
     
     s[len-1] = 0;
+}
+
+internal b32 String_CompareStrings(String str_1, String str_2) {
+    b32 result = false;
+    
+    if(str_1.size == str_2.size) {
+        result = true;
+        
+        for(u32 i = 0; i < str_1.size; i++) {
+            if(str_1.data[i] != str_2.data[i]) 
+                result = false;
+        }
+    }
+    
+    return result;
+}
+
+internal String String_StringTokenizer(MemoryArena *arena, String main_string, char delimiter, u32 *bytes_read) {
+    u32 size = 0;
+    u32 skip_count = 0;
+    
+    while(main_string.data[(*bytes_read) + size] != delimiter) {
+        char curr = main_string.data[(*bytes_read) + size];
+        
+        if(curr == '\0' || curr == '\n') {
+            break;
+        } else if(curr == '\r') {
+            char next_curr = main_string.data[(*bytes_read) + size + 1];
+            if(next_curr == '\n') {
+                skip_count++;
+                break;
+            }
+        }
+        size++;
+    }
+    size++;
+    
+    String result = {};
+    result = String_PushString(arena, size);
+    String_StringCopy(result, main_string, *bytes_read, size);
+    (*bytes_read) += size + skip_count;
+    
+    return result;
 }
 #pragma warning(pop)

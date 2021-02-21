@@ -1,0 +1,6 @@
+MeasurementTypeDef(Sensor_1, "$PSCMSM")
+MeasurementTypeDef(Sensor_2, "$PSCMSM2")
+MeasurementTypeDef(GeographicPos, "$PSCMGLL")
+MeasurementTypeDef(CourseSpeed, "$PSCMVTG")
+MeasurementTypeDef(TimeDate, "$PSCMZDA")
+MeasurementTypeDef(Depth, "$PSCMDBS")
