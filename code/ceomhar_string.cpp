@@ -277,4 +277,67 @@ internal String String_StringTokenizer(MemoryArena *arena, String main_string, c
     
     return result;
 }
+
+internal b32 String_IsFloat(String string) {
+    b32 result = false;
+    for(u32 i = 0; i < string.size - 1; i++) {
+        if(string.data[i] == '.') {
+            result = true;
+        } else {
+            if(string.data[i] < '0' || string.data[i] > '9') {
+                result = false;
+                break;
+            }
+        }
+    }
+    
+    return result;
+}
+
+internal u32 String_DecimalStringToU32(String decimal_string) {
+    u32 result = 0;
+    
+    char *curr_char = decimal_string.data;
+    while(*curr_char) {
+        result = 10 * result + (*curr_char++ - '0');
+    }
+    
+    return result;
+}
+
+internal f32 String_FloatStringToF32(String float_string) {
+    
+    return strtof(float_string.data, null);
+}
+
+enum HexStringEndianness{
+    HexString_LittleEndian,
+    HexString_BigEndian,
+};
+
+internal u32 String_HexStringToU32(String hex_string, HexStringEndianness endianness) {
+    // NOTE(Cian): This function assumes we are running on a little endian machine, endianness arg refers to the endianness of the incoming hex string
+    
+    char *curr_char = hex_string.data;
+    
+    u32 result = 0;
+    if(endianness == HexString_BigEndian) {
+        while(*curr_char) {
+            //Each hex digit is 4 bits, so shift left 4 bits each time, this naturally handles BigEndian on our LittleEndian machine as the leftmost byte is the MSB, and is left shifted to the same position in memory
+            result = (result << 4) | hextable[*curr_char++];
+        }
+    } else {
+        curr_char = hex_string.data + (hex_string.size - 2);
+        
+        for(u32 i = 1; i < hex_string.size; i++) {
+            //some "fancy" flipping between -1: when i is odd & 1: when i is even, this is to ensure bytes are read in correct ordering
+            s32 offset = ((((i % 2) - 1) * -1) * 2) - 1;
+            
+            result = (result << 4) | hextable[*(curr_char + offset)];
+            curr_char--;
+        }
+        
+    }
+    return result;
+}
 #pragma warning(pop)

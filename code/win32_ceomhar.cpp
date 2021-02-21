@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <math.h>
 #include <stdarg.h>
+#include <stdlib.h>
 
 #define STB_SPRINTF_IMPLEMENTATION
 #include "stb\stb_sprintf.h"
