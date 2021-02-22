@@ -32,8 +32,9 @@ global OS_State *global_os = {};
 #include "ceomhar_os.cpp"
 #include "ceomhar_ui.h"
 #include "ceomhar_ui.cpp"
-#include "ceomhar_parsing.cpp"
+#include "ceomhar_parsing.h"
 #include "app_ceomhar.h"
+#include "ceomhar_parsing.cpp"
 #include "ceomhar_memory.cpp"
 #include "app_ceomhar.cpp"
 

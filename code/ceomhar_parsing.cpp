@@ -1,61 +1,24 @@
-enum MeasurementType {
-#define MeasurementTypeDef(type, token) MeasurementType_##type,
-#include "MeasurementTypes.inc"
-#undef MeasurementTypeDef
-    MeasurementType_Max
-};
-
-static String measurement_tokens[MeasurementType_Max] = {
-#define MeasurementTypeDef(type, token) {token, sizeof(token)},
-#include "MeasurementTypes.inc"
-#undef MeasurementTypeDef
-};
-
-// NOTE(Cian): @NMEA NMEA Spec Conventions
-/*
-  *    x.x    Variable length integer or float
-*    xx_    Mandatory length deicmal digit, each x is a digit, e.g. xx -> 02, 10, 09 etc
-*    hh_    Fixed length hex, leftmost is the MSB
-*    c-c   Variable length text field, delimited by ,
-*    cc_    Fixed text field, e.g. each c is a mandatory character
-*/
-
-// NOTE(Cian): @NMEA SensorMeasurement Spec
-/*
-   *       RelativeTime: 1/10s e.g. deciseconds, gonna store in seconds for now
-$PSCMSM,hhhhhhhh,c-c,xx,c,x.x,xx*hh
-Example: $PSCMSM, 00314A29,SYM,02,,0.2,12*hh<CR><LF>
-
-$PSCMSM2,hhmmss.ss,A,c-c,xx,c,x.x,xx*hh<CR><LF>
- *           |      |
-*           |      V
-*           |      Status: A = new measurement, V = computed measure
-*           V
-*           Time of message transmission
-*/
-// TODO(Cian): @Parsing Gonna start with the "megastruct" approach at first and then pull things out into more efficient structures as needed
-struct Measurement {
-    MeasurementType type;
-    String message_header;
+internal u32 Parser_ParseExplicitTime(MemoryArena *arena, String time_string) {
+    // NOTE(Cian): Time string is in the for HHMMSS.SS
+    String hours_string = String_PushString(arena, 3);
+    String_StringCopy(hours_string, time_string, 0, 3);
+    u32 hours = String_DecimalStringToU32(hours_string);
     
-    // NOTE(Cian): Sensor Measurement
-    String sensor_type;
-    u8 sensor_id;
-    char measure_id;
-    b32 measurement_is_float;
-    f32 measurement_f;
-    u32 measurement_i;
-    u8 measurement_quality; // 00 is worst 15 is best
-    u8 checksum;
+    String minutes_string = String_PushString(arena, 3);
+    String_StringCopy(minutes_string, time_string, 2, 3);
+    u32 minutes = String_DecimalStringToU32(minutes_string);
     
-    // TODO(Cian): Could probably store these two timestamps as one but for clarity seperating them rn
-    // NOTE(Cian): Unique to Sensor Measurement 1
-    u32 relative_time_deciseconds;
+    String seconds_string = String_PushString(arena, 3);
+    String_StringCopy(seconds_string, time_string, 4, 3);
+    u32 seconds = String_DecimalStringToU32(seconds_string);
     
-    // NOTE(Cian): Unique to Sensor Measurement 2
-    u32 timestamp_ms;
-    b32 status_new_measurement;
-};
+    String centiseconds_string = String_PushString(arena, 3);
+    String_StringCopy(centiseconds_string, time_string, 7, 3);
+    u32 centiseconds = String_DecimalStringToU32(centiseconds_string);
+    
+    //convert to milliseconds
+    return (hours * 60 * 60 * 1000) + (minutes * 60 * 1000) + (seconds * 1000) + (centiseconds * 10);
+}
 
 internal void Parser_DebugParseMeasurements(OS_FileRead file, Measurement *measurements) {
     u32 bytes_read = 0;
@@ -64,82 +27,156 @@ internal void Parser_DebugParseMeasurements(OS_FileRead file, Measurement *measu
     file_string.data = file.data;
     file_string.size = (u32)file.size;
     
-    while(bytes_read < file.size) {
+    while(bytes_read < (file.size - 1)) {
         char curr_char = file.data[bytes_read];
-        Measurement curr_measurement = {};
+        Measurement *curr_measurement = &debug->measurements[curr_measure];
         
         
         Memory_ScopeBlock {
-            curr_measurement.message_header = String_StringTokenizer(&global_os->permanent_arena, file_string, ',', &bytes_read);
-            String time_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+            curr_measurement->message_header = String_StringTokenizer(&global_os->permanent_arena, file_string, ',', &bytes_read);
+            
             
             //find out what measurement we are currently parsing!
-            if(String_CompareStrings(measurement_tokens[MeasurementType_Sensor_1], curr_measurement.message_header)) {
-                curr_measurement.type = MeasurementType_Sensor_1;
-                
-                // NOTE(Cian): @MarineInstitute how much time accuracy is needed? E.g. seconds, ms etc, is Sensor_1 even used?
-                curr_measurement.relative_time_deciseconds = String_HexStringToU32(time_string, HexString_BigEndian);
-                
-                curr_measurement.sensor_type = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+            if(String_CompareStrings(measurement_tokens[MeasurementType_Sensor_1], curr_measurement->message_header)) {
+                String time_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                curr_measurement->sensor_type = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
                 String sensor_id_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                curr_measurement.sensor_id = (u8)String_DecimalStringToU32(sensor_id_string);
-                curr_measurement.measure_id = (char)(*String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read).data);
-                
+                curr_measurement->measure_id = (char)(*String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read).data);
                 String measure_val_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                String measurement_quality_string = String_StringTokenizer(&global_os->scope_arena, file_string, '*', &bytes_read);
+                String checksum_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                
+                curr_measurement->type = MeasurementType_Sensor_1;
+                // NOTE(Cian): @MarineInstitute how much time accuracy is needed? E.g. seconds, ms etc, is Sensor_1 even used?
+                curr_measurement->relative_time_ms = String_HexStringToU32(time_string, HexString_BigEndian);
+                curr_measurement->sensor_id = (u8)String_DecimalStringToU32(sensor_id_string);
+                
                 if(String_IsFloat(measure_val_string)) {
-                    curr_measurement.measurement_is_float = true;
-                    curr_measurement.measurement_f = String_FloatStringToF32(measure_val_string);
+                    curr_measurement->measurement_is_float = true;
+                    curr_measurement->measurement_f = String_FloatStringToF32(measure_val_string);
                 } else {
-                    curr_measurement.measurement_is_float = false;
-                    curr_measurement.measurement_i = String_DecimalStringToU32(measure_val_string);
+                    curr_measurement->measurement_is_float = false;
+                    curr_measurement->measurement_i = String_DecimalStringToU32(measure_val_string);
                 }
                 
+                curr_measurement->measurement_quality = (u8)String_DecimalStringToU32(measurement_quality_string);
+                curr_measurement->checksum = (u8)String_DecimalStringToU32(checksum_string);
+            } else if(String_CompareStrings(measurement_tokens[MeasurementType_Sensor_2], curr_measurement->message_header)) {
+                String time_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                String status_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                String sensor_type_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                String sensor_id_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                String measure_id_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                String measure_val_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
                 String measurement_quality_string = String_StringTokenizer(&global_os->scope_arena, file_string, '*', &bytes_read);
-                curr_measurement.measurement_quality = (u8)String_DecimalStringToU32(measurement_quality_string);
-                
-                
                 String checksum_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                curr_measurement.checksum = (u8)String_DecimalStringToU32(checksum_string);
                 
-            } else if(String_CompareStrings(measurement_tokens[MeasurementType_Sensor_2], curr_measurement.message_header)) {
-                curr_measurement.type = MeasurementType_Sensor_1;
                 
+                curr_measurement->type = MeasurementType_Sensor_2;
                 // TODO(Cian): Parser for hhmmss.ss
                 // NOTE(Cian): @MarineInstitute how much time accuracy is needed? E.g. seconds, ms etc, is Sensor_1 even used?
-                //curr_measurement.relative_time_deciseconds = String_HexStringToU32(time_string, HexString_BigEndian);
-                
-                String status_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                curr_measurement->timestamp_ms = Parser_ParseExplicitTime(&global_os->scope_arena, time_string);
                 if(status_string.data[0] == 'A')
-                    curr_measurement.status_new_measurement = true;
+                    curr_measurement->status = StatusIndicator_NewMeasurement;
                 else
-                    curr_measurement.status_new_measurement = false;
+                    curr_measurement->status = StatusIndicator_ComputedMeasure;
+                curr_measurement->sensor_type = sensor_type_string;
+                curr_measurement->sensor_id = (u8)String_DecimalStringToU32(sensor_id_string);
+                curr_measurement->measure_id = (char)(*measure_id_string.data);
                 
-                
-                curr_measurement.sensor_type = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                String sensor_id_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                curr_measurement.sensor_id = (u8)String_DecimalStringToU32(sensor_id_string);
-                curr_measurement.measure_id = (char)(*String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read).data);
-                
-                String measure_val_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
                 if(String_IsFloat(measure_val_string)) {
-                    curr_measurement.measurement_is_float = true;
-                    curr_measurement.measurement_f = String_FloatStringToF32(measure_val_string);
+                    curr_measurement->measurement_is_float = true;
+                    curr_measurement->measurement_f = String_FloatStringToF32(measure_val_string);
                 } else {
-                    curr_measurement.measurement_is_float = false;
-                    curr_measurement.measurement_i = String_DecimalStringToU32(measure_val_string);
+                    curr_measurement->measurement_is_float = false;
+                    curr_measurement->measurement_i = String_DecimalStringToU32(measure_val_string);
                 }
-                
-                String measurement_quality_string = String_StringTokenizer(&global_os->scope_arena, file_string, '*', &bytes_read);
-                curr_measurement.measurement_quality = (u8)String_DecimalStringToU32(measurement_quality_string);
-                
-                
+                curr_measurement->measurement_quality = (u8)String_DecimalStringToU32(measurement_quality_string);
+                curr_measurement->checksum = (u8)String_DecimalStringToU32(checksum_string);
+            } else if(String_CompareStrings(measurement_tokens[MeasurementType_GeographicPos], curr_measurement->message_header)){
+                String latitude_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                String longitude_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                String time_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                String status_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                String mode_string = String_StringTokenizer(&global_os->scope_arena, file_string, '*', &bytes_read);
                 String checksum_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                curr_measurement.checksum = (u8)String_DecimalStringToU32(checksum_string);
-            } else {
-                // NOTE(Cian): Ignore for now, just skipping to the end of the line till we handle these cases
-                String_StringTokenizer(&global_os->scope_arena, file_string, '\n', &bytes_read);
+                
+                curr_measurement->type = MeasurementType_GeographicPos;
+                curr_measurement->latitude = String_FloatStringToF32(latitude_string);
+                curr_measurement->longitude = String_FloatStringToF32(longitude_string);
+                curr_measurement->timestamp_ms = Parser_ParseExplicitTime(&global_os->scope_arena, time_string);
+                if(status_string.data[0] == 'A')
+                    curr_measurement->status = StatusIndicator_Valid;
+                else
+                    curr_measurement->status = StatusIndicator_Invalid;
+                if(mode_string.data[0] == 'A')
+                    curr_measurement->mode = ModeIndicator_Auto;
+                else
+                    curr_measurement->mode = ModeIndicator_Manual;
+                curr_measurement->checksum = (u8)String_DecimalStringToU32(checksum_string);
+            }  else if(String_CompareStrings(measurement_tokens[MeasurementType_CourseSpeed], curr_measurement->message_header)){
+                String true_course_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                String magnetic_course_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                String knts_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                String km_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                String mode_string = String_StringTokenizer(&global_os->scope_arena, file_string, '*', &bytes_read);
+                String checksum_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                
+                curr_measurement->type = MeasurementType_CourseSpeed;
+                curr_measurement->true_course = String_FloatStringToF32(true_course_string);
+                curr_measurement->magnetic_course = String_FloatStringToF32(magnetic_course_string);
+                curr_measurement->ground_speed_knts = String_FloatStringToF32(knts_string);
+                curr_measurement->ground_speed_km = String_FloatStringToF32(km_string);
+                if(mode_string.data[0] == 'A')
+                    curr_measurement->mode = ModeIndicator_Auto;
+                else
+                    curr_measurement->mode = ModeIndicator_Invalid;
+                
+                curr_measurement->checksum = (u8)String_DecimalStringToU32(checksum_string);
+            }  else if(String_CompareStrings(measurement_tokens[MeasurementType_TimeDate], curr_measurement->message_header)){
+                String time_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                String day_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                String month_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                String year_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                String timezone_hours_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                String timezone_minutes_string = String_StringTokenizer(&global_os->scope_arena, file_string, '*', &bytes_read);
+                String checksum_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                
+                curr_measurement->type = MeasurementType_TimeDate;
+                curr_measurement->timestamp_ms = Parser_ParseExplicitTime(&global_os->scope_arena, time_string);
+                curr_measurement->day = (u8)String_DecimalStringToU32(day_string);
+                curr_measurement->month = (u8)String_DecimalStringToU32(month_string);
+                curr_measurement->year = (u16)String_DecimalStringToU32(year_string);
+                
+                curr_measurement->timezone_hours = (s8)String_DecimalStringToU32(timezone_hours_string);
+                curr_measurement->timezone_minutes = (s8)String_DecimalStringToU32(timezone_hours_string);
+                curr_measurement->checksum = (u8)String_DecimalStringToU32(checksum_string);
+            } else if(String_CompareStrings(measurement_tokens[MeasurementType_Depth], curr_measurement->message_header)){
+                String depth_feet_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                String depth_meters_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                String depth_fathoms_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                String_StringTokenizer(&global_os->scope_arena, file_string, '*', &bytes_read);
+                String checksum_string = String_StringTokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                
+                curr_measurement->type = MeasurementType_Depth;
+                curr_measurement->depth_feet = String_FloatStringToF32(depth_feet_string);
+                curr_measurement->depth_meters = String_FloatStringToF32(depth_meters_string);
+                curr_measurement->depth_fathoms = String_FloatStringToF32(depth_fathoms_string);
+                curr_measurement->checksum = (u8)String_DecimalStringToU32(checksum_string);
+            }
+            else {
+                assert(false);
                 continue;
             }
         }
+        curr_measure++;
     }
 }

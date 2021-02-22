@@ -1,10 +1,4 @@
 // TODO(Cian): @App Temporary for demo
-struct APP_Debug{
-    OS_FileRead demo_read;
-    // TODO(Cian): Temporary thing for demo
-    Measurement measurements[13735];
-};
-global APP_Debug *debug;
 void AppStart(OS_State *state, NVGcontext *vg) {
     // TODO(Cian): when app and platform are split into seperate TU's, put OS_State stuff here
     ui_state = (UI_State*)Memory_ArenaPush(&global_os->permanent_arena, sizeof(UI_State));
