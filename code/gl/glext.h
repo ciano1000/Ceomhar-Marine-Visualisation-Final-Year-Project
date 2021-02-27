@@ -1259,7 +1259,7 @@ extern "C" {
     GLAPI void APIENTRY glClearBufferuiv (GLenum buffer, GLint drawbuffer, const GLuint *value);
     GLAPI void APIENTRY glClearBufferfv (GLenum buffer, GLint drawbuffer, const GLfloat *value);
     GLAPI void APIENTRY glClearBufferfi (GLenum buffer, GLint drawbuffer, GLfloat depth, GLint stencil);
-    GLAPI const GLubyte *APIENTRY glGetStringi (GLenum name, GLuint index);
+    GLAPI const GLubyte *APIENTRY glGetString8i (GLenum name, GLuint index);
     GLAPI GLboolean APIENTRY glIsRenderbuffer (GLuint renderbuffer);
     GLAPI void APIENTRY glBindRenderbuffer (GLenum target, GLuint renderbuffer);
     GLAPI void APIENTRY glDeleteRenderbuffers (GLsizei n, const GLuint *renderbuffers);
@@ -3302,7 +3302,7 @@ extern "C" {
     typedef void (APIENTRYP PFNGLGETPROGRAMSTRINGARBPROC) (GLenum target, GLenum pname, void *string);
     typedef GLboolean (APIENTRYP PFNGLISPROGRAMARBPROC) (GLuint program);
 #ifdef GL_GLEXT_PROTOTYPES
-    GLAPI void APIENTRY glProgramStringARB (GLenum target, GLenum format, GLsizei len, const void *string);
+    GLAPI void APIENTRY glProgramString8ARB (GLenum target, GLenum format, GLsizei len, const void *string);
     GLAPI void APIENTRY glBindProgramARB (GLenum target, GLuint program);
     GLAPI void APIENTRY glDeleteProgramsARB (GLsizei n, const GLuint *programs);
     GLAPI void APIENTRY glGenProgramsARB (GLsizei n, GLuint *programs);
@@ -3319,7 +3319,7 @@ extern "C" {
     GLAPI void APIENTRY glGetProgramLocalParameterdvARB (GLenum target, GLuint index, GLdouble *params);
     GLAPI void APIENTRY glGetProgramLocalParameterfvARB (GLenum target, GLuint index, GLfloat *params);
     GLAPI void APIENTRY glGetProgramivARB (GLenum target, GLenum pname, GLint *params);
-    GLAPI void APIENTRY glGetProgramStringARB (GLenum target, GLenum pname, void *string);
+    GLAPI void APIENTRY glGetProgramString8ARB (GLenum target, GLenum pname, void *string);
     GLAPI GLboolean APIENTRY glIsProgramARB (GLuint program);
 #endif
 #endif /* GL_ARB_fragment_program */
@@ -4259,12 +4259,12 @@ extern "C" {
     typedef void (APIENTRYP PFNGLGETNAMEDSTRINGARBPROC) (GLint namelen, const GLchar *name, GLsizei bufSize, GLint *stringlen, GLchar *string);
     typedef void (APIENTRYP PFNGLGETNAMEDSTRINGIVARBPROC) (GLint namelen, const GLchar *name, GLenum pname, GLint *params);
 #ifdef GL_GLEXT_PROTOTYPES
-    GLAPI void APIENTRY glNamedStringARB (GLenum type, GLint namelen, const GLchar *name, GLint stringlen, const GLchar *string);
-    GLAPI void APIENTRY glDeleteNamedStringARB (GLint namelen, const GLchar *name);
+    GLAPI void APIENTRY glNamedString8ARB (GLenum type, GLint namelen, const GLchar *name, GLint stringlen, const GLchar *string);
+    GLAPI void APIENTRY glDeleteNamedString8ARB (GLint namelen, const GLchar *name);
     GLAPI void APIENTRY glCompileShaderIncludeARB (GLuint shader, GLsizei count, const GLchar *const*path, const GLint *length);
-    GLAPI GLboolean APIENTRY glIsNamedStringARB (GLint namelen, const GLchar *name);
-    GLAPI void APIENTRY glGetNamedStringARB (GLint namelen, const GLchar *name, GLsizei bufSize, GLint *stringlen, GLchar *string);
-    GLAPI void APIENTRY glGetNamedStringivARB (GLint namelen, const GLchar *name, GLenum pname, GLint *params);
+    GLAPI GLboolean APIENTRY glIsNamedString8ARB (GLint namelen, const GLchar *name);
+    GLAPI void APIENTRY glGetNamedString8ARB (GLint namelen, const GLchar *name, GLsizei bufSize, GLint *stringlen, GLchar *string);
+    GLAPI void APIENTRY glGetNamedString8ivARB (GLint namelen, const GLchar *name, GLenum pname, GLint *params);
 #endif
 #endif /* GL_ARB_shading_language_include */
     
@@ -5644,8 +5644,8 @@ extern "C" {
 #define GL_PERFMON_RESULT_AMD             0x8BC6
     typedef void (APIENTRYP PFNGLGETPERFMONITORGROUPSAMDPROC) (GLint *numGroups, GLsizei groupsSize, GLuint *groups);
     typedef void (APIENTRYP PFNGLGETPERFMONITORCOUNTERSAMDPROC) (GLuint group, GLint *numCounters, GLint *maxActiveCounters, GLsizei counterSize, GLuint *counters);
-    typedef void (APIENTRYP PFNGLGETPERFMONITORGROUPSTRINGAMDPROC) (GLuint group, GLsizei bufSize, GLsizei *length, GLchar *groupString);
-    typedef void (APIENTRYP PFNGLGETPERFMONITORCOUNTERSTRINGAMDPROC) (GLuint group, GLuint counter, GLsizei bufSize, GLsizei *length, GLchar *counterString);
+    typedef void (APIENTRYP PFNGLGETPERFMONITORGROUPSTRINGAMDPROC) (GLuint group, GLsizei bufSize, GLsizei *length, GLchar *groupString8);
+    typedef void (APIENTRYP PFNGLGETPERFMONITORCOUNTERSTRINGAMDPROC) (GLuint group, GLuint counter, GLsizei bufSize, GLsizei *length, GLchar *counterString8);
     typedef void (APIENTRYP PFNGLGETPERFMONITORCOUNTERINFOAMDPROC) (GLuint group, GLuint counter, GLenum pname, void *data);
     typedef void (APIENTRYP PFNGLGENPERFMONITORSAMDPROC) (GLsizei n, GLuint *monitors);
     typedef void (APIENTRYP PFNGLDELETEPERFMONITORSAMDPROC) (GLsizei n, GLuint *monitors);
@@ -5656,8 +5656,8 @@ extern "C" {
 #ifdef GL_GLEXT_PROTOTYPES
     GLAPI void APIENTRY glGetPerfMonitorGroupsAMD (GLint *numGroups, GLsizei groupsSize, GLuint *groups);
     GLAPI void APIENTRY glGetPerfMonitorCountersAMD (GLuint group, GLint *numCounters, GLint *maxActiveCounters, GLsizei counterSize, GLuint *counters);
-    GLAPI void APIENTRY glGetPerfMonitorGroupStringAMD (GLuint group, GLsizei bufSize, GLsizei *length, GLchar *groupString);
-    GLAPI void APIENTRY glGetPerfMonitorCounterStringAMD (GLuint group, GLuint counter, GLsizei bufSize, GLsizei *length, GLchar *counterString);
+    GLAPI void APIENTRY glGetPerfMonitorGroupString8AMD (GLuint group, GLsizei bufSize, GLsizei *length, GLchar *groupString8);
+    GLAPI void APIENTRY glGetPerfMonitorCounterString8AMD (GLuint group, GLuint counter, GLsizei bufSize, GLsizei *length, GLchar *counterString8);
     GLAPI void APIENTRY glGetPerfMonitorCounterInfoAMD (GLuint group, GLuint counter, GLenum pname, void *data);
     GLAPI void APIENTRY glGenPerfMonitorsAMD (GLsizei n, GLuint *monitors);
     GLAPI void APIENTRY glDeletePerfMonitorsAMD (GLsizei n, GLuint *monitors);
@@ -7197,7 +7197,7 @@ extern "C" {
     GLAPI void APIENTRY glGetFloati_vEXT (GLenum pname, GLuint index, GLfloat *params);
     GLAPI void APIENTRY glGetDoublei_vEXT (GLenum pname, GLuint index, GLdouble *params);
     GLAPI void APIENTRY glGetPointeri_vEXT (GLenum pname, GLuint index, void **params);
-    GLAPI void APIENTRY glNamedProgramStringEXT (GLuint program, GLenum target, GLenum format, GLsizei len, const void *string);
+    GLAPI void APIENTRY glNamedProgramString8EXT (GLuint program, GLenum target, GLenum format, GLsizei len, const void *string);
     GLAPI void APIENTRY glNamedProgramLocalParameter4dEXT (GLuint program, GLenum target, GLuint index, GLdouble x, GLdouble y, GLdouble z, GLdouble w);
     GLAPI void APIENTRY glNamedProgramLocalParameter4dvEXT (GLuint program, GLenum target, GLuint index, const GLdouble *params);
     GLAPI void APIENTRY glNamedProgramLocalParameter4fEXT (GLuint program, GLenum target, GLuint index, GLfloat x, GLfloat y, GLfloat z, GLfloat w);
@@ -7205,7 +7205,7 @@ extern "C" {
     GLAPI void APIENTRY glGetNamedProgramLocalParameterdvEXT (GLuint program, GLenum target, GLuint index, GLdouble *params);
     GLAPI void APIENTRY glGetNamedProgramLocalParameterfvEXT (GLuint program, GLenum target, GLuint index, GLfloat *params);
     GLAPI void APIENTRY glGetNamedProgramivEXT (GLuint program, GLenum target, GLenum pname, GLint *params);
-    GLAPI void APIENTRY glGetNamedProgramStringEXT (GLuint program, GLenum target, GLenum pname, void *string);
+    GLAPI void APIENTRY glGetNamedProgramString8EXT (GLuint program, GLenum target, GLenum pname, void *string);
     GLAPI void APIENTRY glNamedRenderbufferStorageEXT (GLuint renderbuffer, GLenum internalformat, GLsizei width, GLsizei height);
     GLAPI void APIENTRY glGetNamedRenderbufferParameterivEXT (GLuint renderbuffer, GLenum pname, GLint *params);
     GLAPI void APIENTRY glNamedRenderbufferStorageMultisampleEXT (GLuint renderbuffer, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height);
@@ -8970,7 +8970,7 @@ extern "C" {
 #define GL_GREMEDY_string_marker 1
     typedef void (APIENTRYP PFNGLSTRINGMARKERGREMEDYPROC) (GLsizei len, const void *string);
 #ifdef GL_GLEXT_PROTOTYPES
-    GLAPI void APIENTRY glStringMarkerGREMEDY (GLsizei len, const void *string);
+    GLAPI void APIENTRY glString8MarkerGREMEDY (GLsizei len, const void *string);
 #endif
 #endif /* GL_GREMEDY_string_marker */
     
@@ -10392,7 +10392,7 @@ extern "C" {
     typedef void (APIENTRYP PFNGLPATHCOORDSNVPROC) (GLuint path, GLsizei numCoords, GLenum coordType, const void *coords);
     typedef void (APIENTRYP PFNGLPATHSUBCOMMANDSNVPROC) (GLuint path, GLsizei commandStart, GLsizei commandsToDelete, GLsizei numCommands, const GLubyte *commands, GLsizei numCoords, GLenum coordType, const void *coords);
     typedef void (APIENTRYP PFNGLPATHSUBCOORDSNVPROC) (GLuint path, GLsizei coordStart, GLsizei numCoords, GLenum coordType, const void *coords);
-    typedef void (APIENTRYP PFNGLPATHSTRINGNVPROC) (GLuint path, GLenum format, GLsizei length, const void *pathString);
+    typedef void (APIENTRYP PFNGLPATHSTRINGNVPROC) (GLuint path, GLenum format, GLsizei length, const void *pathString8);
     typedef void (APIENTRYP PFNGLPATHGLYPHSNVPROC) (GLuint firstPathName, GLenum fontTarget, const void *fontName, GLbitfield fontStyle, GLsizei numGlyphs, GLenum type, const void *charcodes, GLenum handleMissingGlyphs, GLuint pathParameterTemplate, GLfloat emScale);
     typedef void (APIENTRYP PFNGLPATHGLYPHRANGENVPROC) (GLuint firstPathName, GLenum fontTarget, const void *fontName, GLbitfield fontStyle, GLuint firstGlyph, GLsizei numGlyphs, GLenum handleMissingGlyphs, GLuint pathParameterTemplate, GLfloat emScale);
     typedef void (APIENTRYP PFNGLWEIGHTPATHSNVPROC) (GLuint resultPath, GLsizei numPaths, const GLuint *paths, const GLfloat *weights);
@@ -10457,7 +10457,7 @@ extern "C" {
     GLAPI void APIENTRY glPathCoordsNV (GLuint path, GLsizei numCoords, GLenum coordType, const void *coords);
     GLAPI void APIENTRY glPathSubCommandsNV (GLuint path, GLsizei commandStart, GLsizei commandsToDelete, GLsizei numCommands, const GLubyte *commands, GLsizei numCoords, GLenum coordType, const void *coords);
     GLAPI void APIENTRY glPathSubCoordsNV (GLuint path, GLsizei coordStart, GLsizei numCoords, GLenum coordType, const void *coords);
-    GLAPI void APIENTRY glPathStringNV (GLuint path, GLenum format, GLsizei length, const void *pathString);
+    GLAPI void APIENTRY glPathString8NV (GLuint path, GLenum format, GLsizei length, const void *pathString8);
     GLAPI void APIENTRY glPathGlyphsNV (GLuint firstPathName, GLenum fontTarget, const void *fontName, GLbitfield fontStyle, GLsizei numGlyphs, GLenum type, const void *charcodes, GLenum handleMissingGlyphs, GLuint pathParameterTemplate, GLfloat emScale);
     GLAPI void APIENTRY glPathGlyphRangeNV (GLuint firstPathName, GLenum fontTarget, const void *fontName, GLbitfield fontStyle, GLuint firstGlyph, GLsizei numGlyphs, GLenum handleMissingGlyphs, GLuint pathParameterTemplate, GLfloat emScale);
     GLAPI void APIENTRY glWeightPathsNV (GLuint resultPath, GLsizei numPaths, const GLuint *paths, const GLfloat *weights);
@@ -10605,11 +10605,11 @@ extern "C" {
 #define GL_NV_query_resource_tag 1
     typedef void (APIENTRYP PFNGLGENQUERYRESOURCETAGNVPROC) (GLsizei n, GLint *tagIds);
     typedef void (APIENTRYP PFNGLDELETEQUERYRESOURCETAGNVPROC) (GLsizei n, const GLint *tagIds);
-    typedef void (APIENTRYP PFNGLQUERYRESOURCETAGNVPROC) (GLint tagId, const GLchar *tagString);
+    typedef void (APIENTRYP PFNGLQUERYRESOURCETAGNVPROC) (GLint tagId, const GLchar *tagString8);
 #ifdef GL_GLEXT_PROTOTYPES
     GLAPI void APIENTRY glGenQueryResourceTagNV (GLsizei n, GLint *tagIds);
     GLAPI void APIENTRY glDeleteQueryResourceTagNV (GLsizei n, const GLint *tagIds);
-    GLAPI void APIENTRY glQueryResourceTagNV (GLint tagId, const GLchar *tagString);
+    GLAPI void APIENTRY glQueryResourceTagNV (GLint tagId, const GLchar *tagString8);
 #endif
 #endif /* GL_NV_query_resource_tag */
     
@@ -11396,7 +11396,7 @@ extern "C" {
     GLAPI void APIENTRY glGetProgramParameterdvNV (GLenum target, GLuint index, GLenum pname, GLdouble *params);
     GLAPI void APIENTRY glGetProgramParameterfvNV (GLenum target, GLuint index, GLenum pname, GLfloat *params);
     GLAPI void APIENTRY glGetProgramivNV (GLuint id, GLenum pname, GLint *params);
-    GLAPI void APIENTRY glGetProgramStringNV (GLuint id, GLenum pname, GLubyte *program);
+    GLAPI void APIENTRY glGetProgramString8NV (GLuint id, GLenum pname, GLubyte *program);
     GLAPI void APIENTRY glGetTrackMatrixivNV (GLenum target, GLuint address, GLenum pname, GLint *params);
     GLAPI void APIENTRY glGetVertexAttribdvNV (GLuint index, GLenum pname, GLdouble *params);
     GLAPI void APIENTRY glGetVertexAttribfvNV (GLuint index, GLenum pname, GLfloat *params);

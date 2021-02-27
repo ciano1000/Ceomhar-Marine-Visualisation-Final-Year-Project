@@ -27,6 +27,7 @@
 global NVGcontext *global_vg = {};
 global OS_State *global_os = {};
 
+#include "ceomhar_memory.cpp"
 #include "ceomhar_string.h"
 #include "ceomhar_string.cpp"
 #include "ceomhar_os.cpp"
@@ -35,72 +36,74 @@ global OS_State *global_os = {};
 #include "ceomhar_parsing.h"
 #include "app_ceomhar.h"
 #include "ceomhar_parsing.cpp"
-#include "ceomhar_memory.cpp"
 #include "app_ceomhar.cpp"
 
-
-PLATFORM_RESERVE_MEMORY(Win32ReserveMemory) {
-    void * memory = VirtualAlloc(0, size, MEM_RESERVE, PAGE_NOACCESS);
-    return memory;
-}
-
-PLATFORM_COMMIT_MEMORY(Win32CommitMemory) {
-    VirtualAlloc(memory, size, MEM_COMMIT, PAGE_READWRITE);
-}
-
-PLATFORM_DECOMMIT_MEMORY(Win32DecommitMemory) {
-    VirtualFree(memory, size, MEM_DECOMMIT);
-}
-
-PLATFORM_RELEASE_MEMORY(Win32ReleaseMemory) {
-    VirtualFree(memory, size, MEM_RELEASE);
-}
-
-DEBUG_PLATFORM_READ_ENTIRE_FILE(Win32_DebugReadEntireFile) {
-	b32 result = false;
+namespace Win32 {
+    PLATFORM_RESERVE_MEMORY(reserve_memory) {
+        void * memory = VirtualAlloc(0, size, MEM_RESERVE, PAGE_NOACCESS);
+        return memory;
+    }
     
-	HANDLE file_handle = CreateFileA((LPCSTR)file_path, GENERIC_READ, NULL, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-	if(file_handle != INVALID_HANDLE_VALUE) {
-		LARGE_INTEGER file_size_struct = {};
-		
-		if(GetFileSizeEx(file_handle, &file_size_struct)) {
-			u64 file_size = (u64)file_size_struct.QuadPart + 1;
-			file_read->size = file_size;
-			
-            // TODO(Cian): @Win32 have some kind of debug arena
-			void *file_buffer = Memory_ArenaPush(&global_os->permanent_arena, file_size);
-			file_read->data = (char *)file_buffer;
-			
-			u32 bytes_read = 0;
-			if(ReadFile(file_handle, file_buffer, (DWORD)file_size, (LPDWORD)&bytes_read, NULL)) {
-				result = true;
-				file_read->data[file_read->size] = '\0';
-			}
-		}
-		CloseHandle(file_handle);
-	}
-	
-	return result;
-} 
-
-
-void Win32GetScreenInfo(HWND window_handle, AppDisplay  *screen_dimension) {
-    RECT window_rect = {};
+    PLATFORM_COMMIT_MEMORY(commit_memory) {
+        VirtualAlloc(memory, size, MEM_COMMIT, PAGE_READWRITE);
+    }
     
-    GetClientRect(window_handle, &window_rect);
-    screen_dimension->width = (f32)(window_rect.right - window_rect.left);
-    screen_dimension->height = (f32)(window_rect.bottom - window_rect.top);
+    PLATFORM_DECOMMIT_MEMORY(decommit_memory) {
+        VirtualFree(memory, size, MEM_DECOMMIT);
+    }
     
-    screen_dimension->pixel_ratio = ((f32)screen_dimension->width) / ((f32)screen_dimension->height);
+    PLATFORM_RELEASE_MEMORY(release_memory) {
+        VirtualFree(memory, size, MEM_RELEASE);
+    }
     
-    HDC hdc = GetDC(window_handle);
-    //screen_dimension->dpi = GetDpiForWindow(window_handle);
-    // TODO(Cian): Should only redo this if monitor changes
-    u32 monitor_x = GetDeviceCaps(hdc, HORZRES);
-    u32 monitor_y = GetDeviceCaps(hdc, VERTRES);
-    u32 monitor_product = monitor_x * monitor_y;
-    screen_dimension->dpi = (u32)((f32)(monitor_product / OS_DEFAULT_DISPLAY_DENSITY) * OS_DEFAULT_DPI);
+    DEBUG_PLATFORM_READ_ENTIRE_FILE(debug_read_entire_file) {
+        b32 result = false;
+        
+        HANDLE file_handle = CreateFileA((LPCSTR)file_path, GENERIC_READ, NULL, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+        if(file_handle != INVALID_HANDLE_VALUE) {
+            LARGE_INTEGER file_size_struct = {};
+            
+            if(GetFileSizeEx(file_handle, &file_size_struct)) {
+                u64 file_size = (u64)file_size_struct.QuadPart + 1;
+                file_read->size = file_size;
+                
+                // TODO(Cian): @Win32 have some kind of debug arena
+                void *file_buffer = Memory::arena_push(&global_os->permanent_arena, file_size);
+                file_read->data = (char *)file_buffer;
+                
+                u32 bytes_read = 0;
+                if(ReadFile(file_handle, file_buffer, (DWORD)file_size, (LPDWORD)&bytes_read, NULL)) {
+                    result = true;
+                    file_read->data[file_read->size] = '\0';
+                }
+            }
+            CloseHandle(file_handle);
+        }
+        
+        return result;
+    } 
+    
+    
+    void get_screen_info(HWND window_handle, AppDisplay  *screen_dimension) {
+        RECT window_rect = {};
+        
+        GetClientRect(window_handle, &window_rect);
+        screen_dimension->width = (f32)(window_rect.right - window_rect.left);
+        screen_dimension->height = (f32)(window_rect.bottom - window_rect.top);
+        
+        screen_dimension->pixel_ratio = ((f32)screen_dimension->width) / ((f32)screen_dimension->height);
+        
+        HDC hdc = GetDC(window_handle);
+        //screen_dimension->dpi = GetDpiForWindow(window_handle);
+        // TODO(Cian): Should only redo this if monitor changes
+        u32 monitor_x = GetDeviceCaps(hdc, HORZRES);
+        u32 monitor_y = GetDeviceCaps(hdc, VERTRES);
+        u32 monitor_product = monitor_x * monitor_y;
+        screen_dimension->dpi = (u32)((f32)(monitor_product / OS_DEFAULT_DISPLAY_DENSITY) * OS_DEFAULT_DPI);
+    }
 }
+
+using namespace Win32;
 
 global b32 Running;
 LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LPARAM l_param)
@@ -117,7 +120,7 @@ LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LP
             // TODO(Cian): Again, some cleanup needs to be done with how we store and call certain things
             if(Running)
             {
-                Win32GetScreenInfo(window_handle, &global_os->display);
+                get_screen_info(window_handle, &global_os->display);
                 AppUpdateAndRender();
                 HDC dc = GetDC(window_handle);
                 SwapBuffers(dc);
@@ -142,19 +145,19 @@ LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LP
         
         case WM_LBUTTONDOWN:
         {
-            OS_PushEvent(OS_MouseButtonDownEvent(OS_MouseButton_Left, global_os->mouse_pos));
+            OS::push_event(OS::mouse_button_down_event(OS_MouseButton_Left, global_os->mouse_pos));
         } break;
         case WM_LBUTTONUP:
         {
-            OS_PushEvent(OS_MouseButtonUpEvent(OS_MouseButton_Left, global_os->mouse_pos));
+            OS::push_event(OS::mouse_button_up_event(OS_MouseButton_Left, global_os->mouse_pos));
         } break;
         case WM_RBUTTONDOWN:
         {
-            OS_PushEvent(OS_MouseButtonDownEvent(OS_MouseButton_Right, global_os->mouse_pos));
+            OS::push_event(OS::mouse_button_down_event(OS_MouseButton_Right, global_os->mouse_pos));
         } break;
         case WM_RBUTTONUP:
         {
-            OS_PushEvent(OS_MouseButtonUpEvent(OS_MouseButton_Right, global_os->mouse_pos));
+            OS::push_event(OS::mouse_button_up_event(OS_MouseButton_Right, global_os->mouse_pos));
         } break;
         case WM_MOUSEMOVE:
         {
@@ -169,7 +172,7 @@ LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LP
             global_os->mouse_pos = pos;
             V2 delta_pos = v2(global_os->mouse_pos.x - last_pos.x, global_os->mouse_pos.y - last_pos.y);
             
-            OS_PushEvent(OS_MouseMoveEvent(pos, delta_pos));
+            OS::push_event(OS::mouse_move_event(pos, delta_pos));
             
             if(weird_windows_mouse_tracking == false) {
                 weird_windows_mouse_tracking = true;
@@ -238,11 +241,11 @@ int main(u32 argc, char **argv) {
     
     if(window_handle)
     {
-        Win32InitGL(window_handle,device_context);
-        LoadAllGLProcs();
+        init_gl(window_handle,device_context);
+        load_all_gl_procs();
         ReleaseDC(window_handle,device_context);
         ShowWindow(window_handle, SW_SHOWDEFAULT);
-        //MessageBoxA(0,(char*)glGetString(GL_VERSION), "OPENGL VERSION",0);
+        //MessageBoxA(0,(char*)glGetString8(GL_VERSION), "OPENGL VERSION",0);
         
         
         //nanovg init
@@ -261,20 +264,20 @@ int main(u32 argc, char **argv) {
         OS_State os_state = {};
         global_os  = &os_state;
         // TODO(Cian):  push this onto a memory arena
-        global_os->ReserveMemory = &Win32ReserveMemory;
-        global_os->CommitMemory = &Win32CommitMemory;
-        global_os->DecommitMemory = &Win32DecommitMemory;
-        global_os->ReleaseMemory = &Win32ReleaseMemory;
+        global_os->reserve_memory = &reserve_memory;
+        global_os->commit_memory = &commit_memory;
+        global_os->decommit_memory = &decommit_memory;
+        global_os->release_memory = &release_memory;
         
-        global_os->permanent_arena = Memory_ArenaInitialise();
-        global_os->frame_arena = Memory_ArenaInitialise();
-        global_os->scope_arena = Memory_ArenaInitialise();
+        global_os->permanent_arena = Memory::arena_initialise();
+        global_os->frame_arena = Memory::arena_initialise();
+        global_os->scope_arena = Memory::arena_initialise();
         
-        global_os->DebugReadEntireFile = &Win32_DebugReadEntireFile;
+        global_os->debug_read_entire_file = &debug_read_entire_file;
         
         // TODO(Cian): ReCalculate window RECT on size change and notify game layer
         AppDisplay screen_dimension = {};
-        Win32GetScreenInfo(window_handle, &screen_dimension);
+        get_screen_info(window_handle, &screen_dimension);
         global_os->display = screen_dimension;
         
         AppStart(global_os, global_vg);
@@ -292,12 +295,12 @@ int main(u32 argc, char **argv) {
             global_os->current_time = initial_perf_counter / perf_frequency;
             //Main game loop
             MSG message; 
-            Win32GetScreenInfo(window_handle, &screen_dimension);
+            get_screen_info(window_handle, &screen_dimension);
             global_os->display = screen_dimension;
             AppUpdateAndRender();
             
             // TODO(Cian): @Platform When seperating app and platform layer, different app entry/exit points and functions need to be specified, e.g. here a function to clean up necessary platform stuff would occur
-            OS_FlushEvents();
+            OS::flush_events();
             
             HDC dc = GetDC(window_handle);
             SwapBuffers(dc);
@@ -310,11 +313,11 @@ int main(u32 argc, char **argv) {
                 
             }
             
-            Memory_ArenaClear(&global_os->frame_arena);
+            Memory::arena_clear(&global_os->frame_arena);
         }
-        Memory_ArenaRelease(&global_os->permanent_arena);
-        Memory_ArenaRelease(&global_os->frame_arena);
-        Memory_ArenaRelease(&global_os->scope_arena);
+        Memory::arena_release(&global_os->permanent_arena);
+        Memory::arena_release(&global_os->frame_arena);
+        Memory::arena_release(&global_os->scope_arena);
         
         // TODO(Cian): Clean up contexts and memory arenas
     }

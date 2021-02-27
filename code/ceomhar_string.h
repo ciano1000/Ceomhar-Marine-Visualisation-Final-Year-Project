@@ -3,7 +3,7 @@
 #define HASH_POLY 0xedb88320L
 #define CRC32_LUT
 
-struct String {
+struct String8 {
     char *data;
     u32 size;
 };
@@ -26,9 +26,10 @@ static const long hextable[] = {
 #ifndef CRC32_LUT
 internal void GenerateCRC32Table();
 #endif
-
-internal u32 StringToCRC32(char *string, u32 n, u32 seed);
-internal u32 StringToCRC32(char *string, u32 seed);
-internal String String_MakeString(MemoryArena *arena, char *string,...);
-//internal String String_AppendString(MemoryArena *arena, String *string_1, char *string_2,...);
-//internal String String_AppendString(MemoryArena *arena, String *string_1, String *string_2);
+namespace String {
+    internal u32 string_to_crc32(char *string, u32 n, u32 seed);
+    internal u32 string_to_crc32(char *string, u32 seed);
+    internal String8 make(Memory_Arena *arena, char *string,...);
+}
+//internal String String_AppendString(Memory_Arena *arena, String *string_1, char *string_2,...);
+//internal String String_AppendString(Memory_Arena *arena, String *string_1, String *string_2);
