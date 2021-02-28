@@ -1,0 +1,51 @@
+So... learnt a lot over the past few months, rewrites & banging my head off my desk, overall, I like the idea of retaining two forms of layout, curr & old,
+I like the idea of having a strictness for axes sizes and I really really like the idea of Fillers, Spacers, Rows & Columns. What I have turned a little sour 
+on is the "composability" aspect of widgets using widget properties, while great in theory, and great for uniformly styled UI's, anything with more customisability 
+leads to a lot of headaches with regards ordering, flow of code etc.. One of my biggest gripes however was how while yes my definitions of a Button widget for example
+were very clear and simple, I just define what properties the button has and the relevant values in the Widget struct, the implementation of it was not, 
+I am a big fan of "code locality", where all code relating to some functionality/function is one place & all my reusability is gained through small and useful helper functions. So, in that vein this is my initial "spec" if you will for what I want to try next for my UI system:
+
+State information & layouting, rendering & sizing calculation functions
+
+struct Widget {
+	Widget *hash_next;//might take this out if we move to linear probing
+	//Tree info, siblings, parent, children etc
+	Widget *tree_next_sibling;
+	...
+	UI_Id id;
+	UI_Parameters size_parameters[2];
+	v4 curr_layout; // offsets from parents offsets
+	v4 old_layout; // absolute positions, calculated from last frames curr_layout by summing up offsets, need this for input handling
+	//Pointer to widgets state, this will just be a struct per widget state, not 100% on this, maybe just the function pointers is enough?
+	//if we do do widget_data, we should allocate it in a smart way, some kind of free_list maybe?
+	void *widget_data;
+	do_layout_function *function_pointer;
+	do_layout_function *function_pointer;
+};
+Then creating a widget, lets say a Button, would go something like this (pseudocode ofc):
+struct UI_ButtonState {
+	Color bg_color;
+	Color text_color;
+	f32 text_size;
+};
+
+//Layout function, for non-container widgets, constraints come in from parent, sizes come out from children
+v4 UI_LayoutButton(void *data, v4 incoming_constraints) {
+	UI_ButtonState *button_state = (UI_Button*)data;
+	//Buttons for example are auto-sized, so they calculate their auto-size, check that size against the incoming constraints and send that back to its parent
+	//All of this will have helper functions ofc
+	return result;
+}
+
+//Layout function, for non-container widgets, constraints come in from parent, sizes come out from children
+void UI_RenderButton(void *data, v2 offset) {
+	UI_ButtonState *button_state = (UI_Button*)data;
+	//Do whatever rendering here including clipping/scissoring, again helper functions galore
+	return result;
+}
+
+b32 UI_Button(text, format etc) {	
+	//Here we do the actual init/update and creation of the widget
+	//set function pointers and widget_data etc
+	return result;
+}
