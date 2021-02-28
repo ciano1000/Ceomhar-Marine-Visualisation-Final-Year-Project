@@ -1,5 +1,5 @@
-f32 parent_width = (f32)global_os->display.width;
-    f32 parent_height = (f32)global_os->display.height;
+f32 parent_width = (f32)os->display.width;
+    f32 parent_height = (f32)os->display.height;
     f32 parent_x = 0;
     f32 parent_y = 0;
     
@@ -141,17 +141,17 @@ f32 parent_width = (f32)global_os->display.width;
         child_1_x = 0;
         child_2_x = child_1_width;
         child_3_x = child_2_x + child_2_width;
-        nvgBeginPath(global_vg);
-        nvgRect(global_vg, (f32)child_1_x, 0, (f32)child_1_width, (f32)child_1_preferred_height);
-        nvgFillColor(global_vg, nvgRGBA(255,192,0,255));
-        nvgFill(global_vg);
+        nvgBeginPath(vg_context);
+        nvgRect(vg_context, (f32)child_1_x, 0, (f32)child_1_width, (f32)child_1_preferred_height);
+        nvgFillColor(vg_context, nvgRGBA(255,192,0,255));
+        nvgFill(vg_context);
         
-        nvgBeginPath(global_vg);
-        nvgRect(global_vg, (f32)child_2_x, 0, (f32)child_2_width, (f32)child_2_preferred_height);
-        nvgFillColor(global_vg, nvgRGBA(66, 135, 245,255));
-        nvgFill(global_vg);
+        nvgBeginPath(vg_context);
+        nvgRect(vg_context, (f32)child_2_x, 0, (f32)child_2_width, (f32)child_2_preferred_height);
+        nvgFillColor(vg_context, nvgRGBA(66, 135, 245,255));
+        nvgFill(vg_context);
         
-        nvgBeginPath(global_vg);
-        nvgRect(global_vg, (f32)child_3_x, 0, (f32)child_3_width, (f32)child_3_preferred_height);
-        nvgFillColor(global_vg, nvgRGBA(66, 245, 75,255));
-        nvgFill(global_vg);
+        nvgBeginPath(vg_context);
+        nvgRect(vg_context, (f32)child_3_x, 0, (f32)child_3_width, (f32)child_3_preferred_height);
+        nvgFillColor(vg_context, nvgRGBA(66, 245, 75,255));
+        nvgFill(vg_context);

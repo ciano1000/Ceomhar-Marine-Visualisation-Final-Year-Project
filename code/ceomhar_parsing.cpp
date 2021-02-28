@@ -22,7 +22,7 @@ namespace Parsing {
         return (hours * 60 * 60 * 1000) + (minutes * 60 * 1000) + (seconds * 1000) + (centiseconds * 10);
     }
     
-    internal void debug_parse_measurements(OS_FileRead file, Measurement *measurements) {
+    internal void debug_parse_measurements(OS::File_Read file, Measurement *measurements) {
         u32 bytes_read = 0;
         u32 curr_measure = 0;
         String8 file_string = {};
@@ -35,18 +35,18 @@ namespace Parsing {
             
             
             Memory_ScopeBlock {
-                curr_measurement->message_header = String::tokenizer(&global_os->permanent_arena, file_string, ',', &bytes_read);
+                curr_measurement->message_header = String::tokenizer(&os->permanent_arena, file_string, ',', &bytes_read);
                 
                 
                 //find out what measurement we are currently parsing!
                 if(String::compare(measurement_tokens[MeasurementType_Sensor_1], curr_measurement->message_header)) {
-                    String8 time_string = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    curr_measurement->sensor_type = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String8 sensor_id_string = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    curr_measurement->measure_id = (char)(*String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read).data);
-                    String8 measure_val_string = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String8 measurement_quality_string = String::tokenizer(&global_os->scope_arena, file_string, '*', &bytes_read);
-                    String8 checksum_string = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                    String8 time_string = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    curr_measurement->sensor_type = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String8 sensor_id_string = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    curr_measurement->measure_id = (char)(*String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read).data);
+                    String8 measure_val_string = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String8 measurement_quality_string = String::tokenizer(&os->scope_arena, file_string, '*', &bytes_read);
+                    String8 checksum_string = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
                     
                     curr_measurement->type = MeasurementType_Sensor_1;
                     // NOTE(Cian): @MarineInstitute how much time accuracy is needed? E.g. seconds, ms etc, is Sensor_1 even used?
@@ -64,20 +64,20 @@ namespace Parsing {
                     curr_measurement->measurement_quality = (u8)String::to_u32(measurement_quality_string);
                     curr_measurement->checksum = (u8)String::to_u32(checksum_string);
                 } else if(String::compare(measurement_tokens[MeasurementType_Sensor_2], curr_measurement->message_header)) {
-                    String8 time_string = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String8 status_string = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String8 sensor_type_string = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String8 sensor_id_string = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String8 measure_id_string = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String8 measure_val_string = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String8 measurement_quality_string = String::tokenizer(&global_os->scope_arena, file_string, '*', &bytes_read);
-                    String8 checksum_string = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                    String8 time_string = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String8 status_string = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String8 sensor_type_string = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String8 sensor_id_string = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String8 measure_id_string = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String8 measure_val_string = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String8 measurement_quality_string = String::tokenizer(&os->scope_arena, file_string, '*', &bytes_read);
+                    String8 checksum_string = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
                     
                     
                     curr_measurement->type = MeasurementType_Sensor_2;
                     // TODO(Cian): Parser for hhmmss.ss
                     // NOTE(Cian): @MarineInstitute how much time accuracy is needed? E.g. seconds, ms etc, is Sensor_1 even used?
-                    curr_measurement->timestamp_ms = parse_explicit_time(&global_os->scope_arena, time_string);
+                    curr_measurement->timestamp_ms = parse_explicit_time(&os->scope_arena, time_string);
                     if(status_string.data[0] == 'A')
                         curr_measurement->status = StatusIndicator_NewMeasurement;
                     else
@@ -96,19 +96,19 @@ namespace Parsing {
                     curr_measurement->measurement_quality = (u8)String::to_u32(measurement_quality_string);
                     curr_measurement->checksum = (u8)String::to_u32(checksum_string);
                 } else if(String::compare(measurement_tokens[MeasurementType_GeographicPos], curr_measurement->message_header)){
-                    String8 latitude_string = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String8 longitude_string = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String8 time_string = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String8 status_string = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String8 mode_string = String::tokenizer(&global_os->scope_arena, file_string, '*', &bytes_read);
-                    String8 checksum_string = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                    String8 latitude_string = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String8 longitude_string = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String8 time_string = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String8 status_string = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String8 mode_string = String::tokenizer(&os->scope_arena, file_string, '*', &bytes_read);
+                    String8 checksum_string = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
                     
                     curr_measurement->type = MeasurementType_GeographicPos;
                     curr_measurement->latitude = String::to_f32(latitude_string);
                     curr_measurement->longitude = String::to_f32(longitude_string);
-                    curr_measurement->timestamp_ms = parse_explicit_time(&global_os->scope_arena, time_string);
+                    curr_measurement->timestamp_ms = parse_explicit_time(&os->scope_arena, time_string);
                     if(status_string.data[0] == 'A')
                         curr_measurement->status = StatusIndicator_Valid;
                     else
@@ -119,16 +119,16 @@ namespace Parsing {
                         curr_measurement->mode = ModeIndicator_Manual;
                     curr_measurement->checksum = (u8)String::to_u32(checksum_string);
                 }  else if(String::compare(measurement_tokens[MeasurementType_CourseSpeed], curr_measurement->message_header)){
-                    String8 true_course_string = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String8 magnetic_course_string = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String8 knts_string = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String8 km_string = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String8 mode_string = String::tokenizer(&global_os->scope_arena, file_string, '*', &bytes_read);
-                    String8 checksum_string = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                    String8 true_course_string = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String8 magnetic_course_string = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String8 knts_string = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String8 km_string = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String8 mode_string = String::tokenizer(&os->scope_arena, file_string, '*', &bytes_read);
+                    String8 checksum_string = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
                     
                     curr_measurement->type = MeasurementType_CourseSpeed;
                     curr_measurement->true_course = String::to_f32(true_course_string);
@@ -142,16 +142,16 @@ namespace Parsing {
                     
                     curr_measurement->checksum = (u8)String::to_u32(checksum_string);
                 }  else if(String::compare(measurement_tokens[MeasurementType_TimeDate], curr_measurement->message_header)){
-                    String8 time_string = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String8 day_string = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String8 month_string = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String8 year_string = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String8 timezone_hours_string = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String8 timezone_minutes_string = String::tokenizer(&global_os->scope_arena, file_string, '*', &bytes_read);
-                    String8 checksum_string = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                    String8 time_string = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String8 day_string = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String8 month_string = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String8 year_string = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String8 timezone_hours_string = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String8 timezone_minutes_string = String::tokenizer(&os->scope_arena, file_string, '*', &bytes_read);
+                    String8 checksum_string = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
                     
                     curr_measurement->type = MeasurementType_TimeDate;
-                    curr_measurement->timestamp_ms = parse_explicit_time(&global_os->scope_arena, time_string);
+                    curr_measurement->timestamp_ms = parse_explicit_time(&os->scope_arena, time_string);
                     curr_measurement->day = (u8)String::to_u32(day_string);
                     curr_measurement->month = (u8)String::to_u32(month_string);
                     curr_measurement->year = (u16)String::to_u32(year_string);
@@ -160,13 +160,13 @@ namespace Parsing {
                     curr_measurement->timezone_minutes = (s8)String::to_u32(timezone_hours_string);
                     curr_measurement->checksum = (u8)String::to_u32(checksum_string);
                 } else if(String::compare(measurement_tokens[MeasurementType_Depth], curr_measurement->message_header)){
-                    String8 depth_feet_string = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String8 depth_meters_string = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String8 depth_fathoms_string = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
-                    String::tokenizer(&global_os->scope_arena, file_string, '*', &bytes_read);
-                    String8 checksum_string = String::tokenizer(&global_os->scope_arena, file_string, ',', &bytes_read);
+                    String8 depth_feet_string = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String8 depth_meters_string = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String8 depth_fathoms_string = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
+                    String::tokenizer(&os->scope_arena, file_string, '*', &bytes_read);
+                    String8 checksum_string = String::tokenizer(&os->scope_arena, file_string, ',', &bytes_read);
                     
                     curr_measurement->type = MeasurementType_Depth;
                     curr_measurement->depth_feet = String::to_f32(depth_feet_string);

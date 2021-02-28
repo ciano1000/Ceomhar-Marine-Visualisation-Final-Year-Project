@@ -18,25 +18,19 @@
 #include "ceomhar_memory.h"
 #include "ceomhar_os.h"
 
+// TODO(Cian): @Win32 win32 layer should have nothing to do with Opengl/nanovg context, should be in a seperate thread eventually
 #include "nano\nanovg.h"
 #include "nano\nanovg.c"
 #define NANOVG_GL3_IMPLEMENTATION
 #include "nano\nanovg_gl.h"
+global NVGcontext *vg_context = {};
 
-// TODO(Cian): Standardise where globals are defined because I found it hard to find where this is, maybe also, we should just have one single global struct pointer that contains everything we need?
-global NVGcontext *global_vg = {};
-global OS_State *global_os = {};
 
 #include "ceomhar_memory.cpp"
-#include "ceomhar_string.h"
-#include "ceomhar_string.cpp"
 #include "ceomhar_os.cpp"
-#include "ceomhar_ui.h"
-#include "ceomhar_ui.cpp"
-#include "ceomhar_parsing.h"
-#include "app_ceomhar.h"
-#include "ceomhar_parsing.cpp"
-#include "app_ceomhar.cpp"
+#include "win32_app_loading.cpp"
+
+global OS::State global_os;
 
 namespace Win32 {
     PLATFORM_RESERVE_MEMORY(reserve_memory) {
@@ -68,7 +62,7 @@ namespace Win32 {
                 file_read->size = file_size;
                 
                 // TODO(Cian): @Win32 have some kind of debug arena
-                void *file_buffer = Memory::arena_push(&global_os->permanent_arena, file_size);
+                void *file_buffer = Memory::arena_push(&os->permanent_arena, file_size);
                 file_read->data = (char *)file_buffer;
                 
                 u32 bytes_read = 0;
@@ -84,7 +78,7 @@ namespace Win32 {
     } 
     
     
-    void get_screen_info(HWND window_handle, AppDisplay  *screen_dimension) {
+    void get_screen_info(HWND window_handle, OS::App_Display  *screen_dimension) {
         RECT window_rect = {};
         
         GetClientRect(window_handle, &window_rect);
@@ -120,7 +114,7 @@ LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LP
             // TODO(Cian): Again, some cleanup needs to be done with how we store and call certain things
             if(Running)
             {
-                get_screen_info(window_handle, &global_os->display);
+                get_screen_info(window_handle, &global_os.display);
                 AppUpdateAndRender();
                 HDC dc = GetDC(window_handle);
                 SwapBuffers(dc);
@@ -145,19 +139,19 @@ LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LP
         
         case WM_LBUTTONDOWN:
         {
-            OS::push_event(OS::mouse_button_down_event(OS_MouseButton_Left, global_os->mouse_pos));
+            OS::push_event(OS::mouse_button_down_event(OS::Mouse_Button_Left, global_os.mouse_pos));
         } break;
         case WM_LBUTTONUP:
         {
-            OS::push_event(OS::mouse_button_up_event(OS_MouseButton_Left, global_os->mouse_pos));
+            OS::push_event(OS::mouse_button_up_event(OS::Mouse_Button_Left, global_os.mouse_pos));
         } break;
         case WM_RBUTTONDOWN:
         {
-            OS::push_event(OS::mouse_button_down_event(OS_MouseButton_Right, global_os->mouse_pos));
+            OS::push_event(OS::mouse_button_down_event(OS::Mouse_Button_Right, global_os.mouse_pos));
         } break;
         case WM_RBUTTONUP:
         {
-            OS::push_event(OS::mouse_button_up_event(OS_MouseButton_Right, global_os->mouse_pos));
+            OS::push_event(OS::mouse_button_up_event(OS::Mouse_Button_Right, global_os.mouse_pos));
         } break;
         case WM_MOUSEMOVE:
         {
@@ -168,9 +162,9 @@ LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LP
             ScreenToClient(window_handle, &mouse_pos);
             V2 pos = {(f32)mouse_pos.x, (f32)mouse_pos.y};
             
-            V2 last_pos = global_os->mouse_pos;
-            global_os->mouse_pos = pos;
-            V2 delta_pos = v2(global_os->mouse_pos.x - last_pos.x, global_os->mouse_pos.y - last_pos.y);
+            V2 last_pos = global_os.mouse_pos;
+            global_os.mouse_pos = pos;
+            V2 delta_pos = v2(global_os.mouse_pos.x - last_pos.x, global_os.mouse_pos.y - last_pos.y);
             
             OS::push_event(OS::mouse_move_event(pos, delta_pos));
             
@@ -207,6 +201,10 @@ LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LP
 }
 
 int main(u32 argc, char **argv) {
+    //NVGcontext *vg_context = {};
+    //OS::State *os = {};
+    
+    
     for(u32 i = 0; i<argc; i++) {
         printf("Command %i: %s",i,argv[i]);
     }
@@ -245,59 +243,62 @@ int main(u32 argc, char **argv) {
         load_all_gl_procs();
         ReleaseDC(window_handle,device_context);
         ShowWindow(window_handle, SW_SHOWDEFAULT);
-        //MessageBoxA(0,(char*)glGetString8(GL_VERSION), "OPENGL VERSION",0);
         
-        
-        //nanovg init
-        // TODO(Cian): Rework so that vgcontext is stored in an arena
-        global_vg = nvgCreateGL3( NVG_STENCIL_STROKES|NVG_ANTIALIAS| NVG_DEBUG );
-        Running = true;
+        vg_context= nvgCreateGL3( NVG_STENCIL_STROKES|NVG_ANTIALIAS| NVG_DEBUG );
         
         // NOTE(Cian): Load font(s)
         // TODO(Cian): Get the CWD instead of hardcoding location
         char *fontLocation_1 = "D:\\dev\\fyp_ceomhar\\code\\fonts\\Roboto-Bold.ttf";
-        nvgCreateFont(global_vg,"roboto-bold", fontLocation_1);
+        nvgCreateFont(vg_context,"roboto-bold", fontLocation_1);
         char *fontLocation_2 = "D:\\dev\\fyp_ceomhar\\code\\fonts\\Roboto-Medium.ttf";
-        nvgCreateFont(global_vg,"roboto-medium", fontLocation_2);
+        nvgCreateFont(vg_context,"roboto-medium", fontLocation_2);
         
+        os = &global_os;
+        global_os.running = true;
+        global_os.reserve_memory = &reserve_memory;
+        global_os.commit_memory = &commit_memory;
+        global_os.decommit_memory = &decommit_memory;
+        global_os.release_memory = &release_memory;
         
-        OS_State os_state = {};
-        global_os  = &os_state;
-        // TODO(Cian):  push this onto a memory arena
-        global_os->reserve_memory = &reserve_memory;
-        global_os->commit_memory = &commit_memory;
-        global_os->decommit_memory = &decommit_memory;
-        global_os->release_memory = &release_memory;
+        global_os.permanent_arena = Memory::arena_initialise();
+        global_os.frame_arena = Memory::arena_initialise();
+        global_os.scope_arena = Memory::arena_initialise();
         
-        global_os->permanent_arena = Memory::arena_initialise();
-        global_os->frame_arena = Memory::arena_initialise();
-        global_os->scope_arena = Memory::arena_initialise();
-        
-        global_os->debug_read_entire_file = &debug_read_entire_file;
+        global_os.debug_read_entire_file = &debug_read_entire_file;
         
         // TODO(Cian): ReCalculate window RECT on size change and notify game layer
-        AppDisplay screen_dimension = {};
+        OS::App_Display screen_dimension = {};
         get_screen_info(window_handle, &screen_dimension);
-        global_os->display = screen_dimension;
+        global_os.display = screen_dimension;
         
-        AppStart(global_os, global_vg);
+        Win32::App_Code code = {};
+        // NOTE(Cian): Load app code
+        HMODULE app_dll = LoadLibraryA("Ceomhar_app.dll");
+        code.app_start = (App_Start*)GetProcAddress(app_dll,"update_and_render"); 
+        code.app_update_and_render = (App_Update_And_Render*)GetProcAddress(app_dll,"update_and_render"); 
+        
+        code.app_start(os);
         
         wglSwapIntervalEXT(1);
         
         SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
-        while(Running)
+        while(global_os.running)
         {
             LARGE_INTEGER win_perf_counter_large;
             QueryPerformanceCounter(&win_perf_counter_large);
             
             u64 initial_perf_counter = (u64)win_perf_counter_large.QuadPart;
             
-            global_os->current_time = initial_perf_counter / perf_frequency;
+            os->current_time = initial_perf_counter / perf_frequency;
             //Main game loop
             MSG message; 
             get_screen_info(window_handle, &screen_dimension);
-            global_os->display = screen_dimension;
-            AppUpdateAndRender();
+            os->display = screen_dimension;
+            
+            glViewport( 0, 0, (u32)os->display.width, (u32)os->display.height);
+            glClearColor(0.0f,0.0f,0.0f,1.0f);
+            glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT); 
+            code.app_update_and_render();
             
             // TODO(Cian): @Platform When seperating app and platform layer, different app entry/exit points and functions need to be specified, e.g. here a function to clean up necessary platform stuff would occur
             OS::flush_events();
@@ -313,11 +314,11 @@ int main(u32 argc, char **argv) {
                 
             }
             
-            Memory::arena_clear(&global_os->frame_arena);
+            Memory::arena_clear(&os->frame_arena);
         }
-        Memory::arena_release(&global_os->permanent_arena);
-        Memory::arena_release(&global_os->frame_arena);
-        Memory::arena_release(&global_os->scope_arena);
+        Memory::arena_release(&os->permanent_arena);
+        Memory::arena_release(&os->frame_arena);
+        Memory::arena_release(&os->scope_arena);
         
         // TODO(Cian): Clean up contexts and memory arenas
     }

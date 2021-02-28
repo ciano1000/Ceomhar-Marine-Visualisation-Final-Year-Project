@@ -1,12 +1,36 @@
+#include "utils.h"
+
+#include "nano\nanovg.h"
+#include "nano\nanovg.c"
+#define STB_SPRINTF_IMPLEMENTATION
+#include "stb\stb_sprintf.h"
+#include "ceomhar_math.h"
+#include "ceomhar_memory.h"
+#include "ceomhar_os.h"
+
+#include "ceomhar_string.h"
+#include "ceomhar_ui.h"
+#include "ceomhar_parsing.h"
+#include "app_ceomhar.h"
+
+
+#include "ceomhar_os.cpp"
+#include "ceomhar_memory.cpp"
+#include "ceomhar_string.cpp"
+#include "ceomhar_ui.cpp"
+#include "ceomhar_parsing.cpp"
+
+
 // TODO(Cian): @App Temporary for demo
-void AppStart(OS_State *state, NVGcontext *vg) {
-    // TODO(Cian): when app and platform are split into seperate TU's, put OS_State stuff here
-    ui_state = (UI::State*)Memory::arena_push(&global_os->permanent_arena, sizeof(UI::State));
+void AppStart(OS::State *state, NVGcontext *vg) {
+    vg_context = vg;
+    // TODO(Cian): when app and platform are split into seperate TU's, put OS::State stuff here
+    ui_state = (UI::State*)Memory::arena_push(&os->permanent_arena, sizeof(UI::State));
     *ui_state = {};
     // TODO(Cian): @APP push this to debug arena
-    debug = (APP_Debug*)Memory::arena_push(&global_os->permanent_arena, sizeof(APP_Debug));
+    debug = (APP_Debug*)Memory::arena_push(&os->permanent_arena, sizeof(APP_Debug));
     
-    global_os->debug_read_entire_file("D:\\dev\\fyp_ceomhar\\FSS_NMEA_SampleData.txt", &debug->demo_read);
+    os->debug_read_entire_file("D:\\dev\\fyp_ceomhar\\FSS_NMEA_SampleData.txt", &debug->demo_read);
     Parsing::debug_parse_measurements(debug->demo_read, debug->measurements);
 }
 
@@ -15,10 +39,7 @@ void AppUpdateAndRender() {
     
     // NOTE(Cian): Begin creates a blank panel and sets up UI, at every UI_End or UI_Pop we do some very simple auto layout, e.g fit everything to the the ROW height, draw everything, and perform input
     
-    glViewport( 0, 0, (u32)global_os->display.width, (u32)global_os->display.height);
-    glClearColor(0.0f,0.0f,0.0f,1.0f);
-    glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT);                                         
-    nvgBeginFrame(global_vg, (f32)global_os->display.width,  (f32)global_os->display.height, 1);
+    nvgBeginFrame(vg_context, (f32)os->display.width,  (f32)os->display.height, 1);
     
     // NOTE(Cian): UI_Begin just creates a root Row container thats the same size as our display, containers can only have one child(for now maybe idk)
     using namespace UI;
@@ -82,7 +103,7 @@ void AppUpdateAndRender() {
             }
             */
     
-    nvgRestore(global_vg);
+    nvgRestore(vg_context);
     
-    nvgEndFrame(global_vg);
+    nvgEndFrame(vg_context);
 }

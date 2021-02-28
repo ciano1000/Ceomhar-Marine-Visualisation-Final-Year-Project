@@ -1,6 +1,6 @@
 namespace UI {
     
-#define UI_DEFAULT_DENSITY 96.00f
+#define UI_OS_DEFAULT_DENSITY 96.00f
     
     
 #define UI_HASH_SIZE 256
@@ -14,18 +14,18 @@ namespace UI {
 #define UI_MAX_SIZE 1000000
 #define UI_MIN_SIZE 0
     
-#define UI_DEFAULT_TEXT_PADDING_X 16.0f
-#define UI_DEFAULT_TEXT_PADDING_Y 10.0f
+#define UI_OS_DEFAULT_TEXT_PADDING_X 16.0f
+#define UI_OS_DEFAULT_TEXT_PADDING_Y 10.0f
     
 #define UI_MIN_TEXT_PADDING_X 4.0f
 #define UI_MIN_TEXT_PADDING_Y 4.0f
     
 #define UI_BORDER_SIZE 2.0f
     
-#define UI_DEFAULT_FONT_SIZE 16.0f
+#define UI_OS_DEFAULT_FONT_SIZE 16.0f
 #define UI_LARGE_FONT_SIZE 24.0f
     
-#define DEFAULT_TEXT_COLOR nvgRGBA(225,225,225,255)
+#define OS_DEFAULT_TEXT_COLOR nvgRGBA(225,225,225,255)
 #define DARK_TEXT_COLOR nvgRGBA(0,0,0,255)
 #define PRIMARY_COLOR nvgRGBA(18,18,18,255)
 #define PRIMARY_COLOR_DARK nvgRGBA(0,0,0,255)
@@ -36,7 +36,7 @@ namespace UI {
 #define HIGHLIGHT_COLOR nvgRGBA(3,218,198,255)
 #define HIGHLIGHT_COLOR_2 nvgRGBA(207,102,121,255)
     
-#define DEFAULT_ROUNDNESS 4
+#define OS_DEFAULT_ROUNDNESS 4
     
     enum Widget_Property{
         Widget_Property_RenderBackground,
@@ -131,7 +131,7 @@ type current;\
 #define MAKE_FORMAT_STRING(string, format) \
 va_list args;\
 va_start(args, format);\
-string = String::make(&global_os->frame_arena, format, args);\
+string = String::make(&os->frame_arena, format, args);\
 va_end(args);
 #define _UI_DEFER_LOOP(begin, end, var) for(int var  = (begin, 0); !var; ++var,end)
 #define BEGIN_UI _UI_DEFER_LOOP(begin(), end(), UNIQUE_INT)

@@ -76,5 +76,5 @@ namespace Parsing {
         f32 depth_meters;
         f32 depth_fathoms;
     };
-    internal void debug_parse_measurements(OS_FileRead file, Measurement *measurements);
+    internal void debug_parse_measurements(OS::File_Read file, Measurement *measurements);
 }

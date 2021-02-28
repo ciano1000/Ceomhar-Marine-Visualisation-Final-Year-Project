@@ -5,11 +5,11 @@
 
 namespace UI{
     internal f32 pixels_to_dp(float pixels) {
-        return F32_ROUND(pixels / (global_os->display.dpi / UI_DEFAULT_DENSITY));
+        return F32_ROUND(pixels / (os->display.dpi / UI_OS_DEFAULT_DENSITY));
     }
     
     internal f32 dp_to_pixels(float dp) {
-        return F32_ROUND (dp  * (global_os->display.dpi / UI_DEFAULT_DENSITY));
+        return F32_ROUND (dp  * (os->display.dpi / UI_OS_DEFAULT_DENSITY));
     }
     
     internal void widget_add_property(Widget *widget, Widget_Property property) {
@@ -148,7 +148,7 @@ namespace UI{
             
             if(pound_count == 2) {
                 hash_string.size = string.size - 2;
-                hash_string.data = (char*)Memory::arena_push(&global_os->frame_arena, hash_string.size);
+                hash_string.data = (char*)Memory::arena_push(&os->frame_arena, hash_string.size);
                 // TODO(Cian): @UI should probably check if this memory is ok
                 
                 u32 size_1 = first_pound_loc + 1;
@@ -168,7 +168,7 @@ namespace UI{
                 u32 src_offset = first_pound_loc + 3;
                 
                 hash_string.size = string.size - src_offset;
-                hash_string.data = (char*)Memory::arena_push(&global_os->frame_arena, hash_string.size);
+                hash_string.data = (char*)Memory::arena_push(&os->frame_arena, hash_string.size);
                 
                 stbsp_snprintf(hash_string.data, hash_string.size, string.data + src_offset);
                 
@@ -189,7 +189,7 @@ namespace UI{
             
             widget = ui_state->widgets[idx];
             if(widget == null) {
-                widget = (Widget*)Memory::arena_push(&global_os->permanent_arena, sizeof(Widget));
+                widget = (Widget*)Memory::arena_push(&os->permanent_arena, sizeof(Widget));
                 ui_state->widgets[idx] = widget;
             } else {
                 
@@ -202,7 +202,7 @@ namespace UI{
                 }
                 
                 if(widget == null) {
-                    widget = (Widget*)Memory::arena_push(&global_os->permanent_arena, sizeof(Widget));
+                    widget = (Widget*)Memory::arena_push(&os->permanent_arena, sizeof(Widget));
                 }
                 if(previous) 
                     previous->hash_next = widget;
@@ -223,7 +223,7 @@ namespace UI{
             }
             
             if(widget == null) {
-                widget = (Widget*)Memory::arena_push(&global_os->permanent_arena, sizeof(Widget));
+                widget = (Widget*)Memory::arena_push(&os->permanent_arena, sizeof(Widget));
                 ui_state->widgets[idx] = widget;
                 ui_state->non_interactive_count++;
             }
@@ -267,8 +267,8 @@ namespace UI{
     internal void begin() {
         // NOTE(Cian): Create the main window and add as parent
         // TODO(Cian):  @UI Make a Widget init function once we have more knowledge about different use cases
-        f32 display_width = (f32)global_os->display.width;
-        f32 display_height = (f32)global_os->display.height;
+        f32 display_width = (f32)os->display.width;
+        f32 display_height = (f32)os->display.height;
         
         push_width(display_width, 1.0f);
         push_height(display_height, 1.0f);
@@ -370,21 +370,21 @@ namespace UI{
         String8 string = {};
         MAKE_FORMAT_STRING(string, format);
         Widget *button = init_widget(string);
-        button_helper(button, SECONDARY_COLOR, DEFAULT_TEXT_COLOR, UI_DEFAULT_FONT_SIZE);
+        button_helper(button, SECONDARY_COLOR, OS_DEFAULT_TEXT_COLOR, UI_OS_DEFAULT_FONT_SIZE);
         
         // NOTE(Cian): Input Experiments, will be pulled out later
         b32 result = false;
         if(ui_state->curr_frame == 0) {
             return result;
         } else {
-            OS_Event *mouse_down_event = null;
-            OS_Event *mouse_up_event = null;
-            b32 mouse_down = OS::peek_mouse_button_event(&mouse_down_event, OS_EventType_MouseDown, OS_MouseButton_Left);
-            b32 mouse_up = OS::peek_mouse_button_event(&mouse_up_event, OS_EventType_MouseUp, OS_MouseButton_Left);
+            OS::Event *mouse_down_event = null;
+            OS::Event *mouse_up_event = null;
+            b32 mouse_down = OS::peek_mouse_button_event(&mouse_down_event, OS::Event_Type_MouseDown, OS::Mouse_Button_Left);
+            b32 mouse_up = OS::peek_mouse_button_event(&mouse_up_event, OS::Event_Type_MouseUp, OS::Mouse_Button_Left);
             // TODO(Cian): Maybe uuid comparison functions
             // this is the active widget
             
-            V2 mouse_pos = global_os->mouse_pos;
+            V2 mouse_pos = os->mouse_pos;
             V4 button_rect = button->old_layout;
             
             b32 mouse_is_over = mouse_pos.x > button_rect.x &&
@@ -424,7 +424,7 @@ namespace UI{
         String8 string = {};
         MAKE_FORMAT_STRING(string, format);
         Widget *button = init_widget(string);
-        button_helper(button, background_color, DEFAULT_TEXT_COLOR, UI_DEFAULT_FONT_SIZE);
+        button_helper(button, background_color, OS_DEFAULT_TEXT_COLOR, UI_OS_DEFAULT_FONT_SIZE);
         
         return true;
     }
@@ -433,7 +433,7 @@ namespace UI{
         String8 string = {};
         MAKE_FORMAT_STRING(string, format);
         Widget *button = init_widget(string);
-        button_helper(button, background_color, text_color, UI_DEFAULT_FONT_SIZE);
+        button_helper(button, background_color, text_color, UI_OS_DEFAULT_FONT_SIZE);
         return true;
     }
     
@@ -442,8 +442,8 @@ namespace UI{
         MAKE_FORMAT_STRING(string, format);
         Widget *label = init_widget(string);
         widget_add_property(label, Widget_Property_RenderText);
-        label->text_color = DEFAULT_TEXT_COLOR;
-        label->font_size = UI_DEFAULT_FONT_SIZE;
+        label->text_color = OS_DEFAULT_TEXT_COLOR;
+        label->font_size = UI_OS_DEFAULT_FONT_SIZE;
     }
     
     internal void label(f32 font_size, char *format, ...) {
@@ -451,7 +451,7 @@ namespace UI{
         MAKE_FORMAT_STRING(string, format);
         Widget *label = init_widget(string);
         widget_add_property(label, Widget_Property_RenderText);
-        label->text_color = DEFAULT_TEXT_COLOR;
+        label->text_color = OS_DEFAULT_TEXT_COLOR;
         label->font_size = font_size;
     }
     
@@ -548,18 +548,18 @@ namespace UI{
             widget->parameters[axis].strictness = strictness;
         } else {
             // TODO(Cian): @UI Handle things like widgets that have text etc, if a widget doesn't fall into any category here just set some default size
-            nvgSave(global_vg);
+            nvgSave(vg_context);
             if(widget_has_property(widget, Widget_Property_RenderText)) {
-                nvgTextAlign(global_vg, NVG_ALIGN_LEFT|NVG_ALIGN_MIDDLE);
-                nvgFontFace(global_vg, "roboto-medium");
-                nvgFontSize(global_vg, widget->font_size);
+                nvgTextAlign(vg_context, NVG_ALIGN_LEFT|NVG_ALIGN_MIDDLE);
+                nvgFontFace(vg_context, "roboto-medium");
+                nvgFontSize(vg_context, widget->font_size);
                 f32 bounds[4];
-                f32 width = nvgTextBounds(global_vg, 0, 0, widget->string.data, null, bounds);
+                f32 width = nvgTextBounds(vg_context, 0, 0, widget->string.data, null, bounds);
                 f32 height = bounds[3] - bounds[1];
                 
                 if(axis == UI_ParameterIndex_Width) {
-                    f32 padding_x0 = UI_DEFAULT_TEXT_PADDING_X;
-                    f32 padding_x1 = UI_DEFAULT_TEXT_PADDING_X;
+                    f32 padding_x0 = UI_OS_DEFAULT_TEXT_PADDING_X;
+                    f32 padding_x1 = UI_OS_DEFAULT_TEXT_PADDING_X;
                     
                     if(widget->padding.x0 != 0 || widget->padding.x1 != 0) {
                         padding_x0 = widget->padding.x0;
@@ -572,8 +572,8 @@ namespace UI{
                     //widget->parameters[axis].strictness = (width + (2 * UI_MIN_TEXT_PADDING_X)) / widget->parameters[axis].size;
                     widget->parameters[axis].strictness = 1.0f;
                 } else {
-                    f32 padding_y0 = UI_DEFAULT_TEXT_PADDING_Y;
-                    f32 padding_y1 = UI_DEFAULT_TEXT_PADDING_Y;
+                    f32 padding_y0 = UI_OS_DEFAULT_TEXT_PADDING_Y;
+                    f32 padding_y1 = UI_OS_DEFAULT_TEXT_PADDING_Y;
                     
                     if(widget->padding.y0 != 0 || widget->padding.y1 != 0) {
                         padding_y0 = widget->padding.y0;
@@ -595,7 +595,7 @@ namespace UI{
                     widget->parameters[axis].strictness = 1.0f;
                 }
             }
-            nvgRestore(global_vg);
+            nvgRestore(vg_context);
             
         }
     }
@@ -749,24 +749,24 @@ namespace UI{
             
             if(widget_has_property(curr, Widget_Property_RenderBackground)){
                 
-                nvgBeginPath(global_vg);
-                nvgRect(global_vg, x, y, curr->curr_layout.width,  curr->curr_layout.height);
-                nvgFillColor(global_vg, curr->color);
-                nvgFill(global_vg);
+                nvgBeginPath(vg_context);
+                nvgRect(vg_context, x, y, curr->curr_layout.width,  curr->curr_layout.height);
+                nvgFillColor(vg_context, curr->color);
+                nvgFill(vg_context);
             } else if(widget_has_property(curr, Widget_Property_RenderBackgroundRounded)) {
                 
-                nvgBeginPath(global_vg);
-                nvgRoundedRect(global_vg, x, y, curr->curr_layout.width,  curr->curr_layout.height, DEFAULT_ROUNDNESS);
-                nvgFillColor(global_vg, curr->color);
-                nvgFill(global_vg);
+                nvgBeginPath(vg_context);
+                nvgRoundedRect(vg_context, x, y, curr->curr_layout.width,  curr->curr_layout.height, OS_DEFAULT_ROUNDNESS);
+                nvgFillColor(vg_context, curr->color);
+                nvgFill(vg_context);
             }
             
             if(widget_has_property(curr, Widget_Property_RenderText)) {
-                nvgTextAlign(global_vg, NVG_ALIGN_CENTER|NVG_ALIGN_MIDDLE);
-                nvgFontFace(global_vg, "roboto-medium");
-                nvgFontSize(global_vg, curr->font_size);
-                nvgFillColor(global_vg, curr->text_color);
-                nvgText(global_vg, x + (curr->curr_layout.width / 2), y + (curr->curr_layout.height / 2), curr->string.data, null);
+                nvgTextAlign(vg_context, NVG_ALIGN_CENTER|NVG_ALIGN_MIDDLE);
+                nvgFontFace(vg_context, "roboto-medium");
+                nvgFontSize(vg_context, curr->font_size);
+                nvgFillColor(vg_context, curr->text_color);
+                nvgText(vg_context, x + (curr->curr_layout.width / 2), y + (curr->curr_layout.height / 2), curr->string.data, null);
             }
             
             if(widget_has_property(curr, Widget_Property_Container)) {

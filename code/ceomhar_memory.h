@@ -9,5 +9,5 @@ struct Memory_Arena
     u64 allocation_pos;
 };
 
-#define Memory_ScopeBlock _DEFER_LOOP(null, Memory::arena_clear(&global_os->scope_arena), UNIQUE_INT)
-#define Memory_ScopePush(size) Memory::arena_push(&global_os->scope_arena, size)
+#define Memory_ScopeBlock _DEFER_LOOP(null, Memory::arena_clear(&os->scope_arena), UNIQUE_INT)
+#define Memory_ScopePush(size) Memory::arena_push(&os->scope_arena, size)

@@ -73,68 +73,68 @@
  *
  * Tokens defined in khrplatform.h:
  *
- *    KHRONOS_FALSE, KHRONOS_TRUE Enumerated boolean false/true values.
+ *    KHRONOS::FALSE, KHRONOS::TRUE Enumerated boolean false/true values.
  *
- *    KHRONOS_SUPPORT_INT64 is 1 if 64 bit integers are supported; otherwise 0.
- *    KHRONOS_SUPPORT_FLOAT is 1 if floats are supported; otherwise 0.
+ *    KHRONOS::SUPPORT_INT64 is 1 if 64 bit integers are supported; otherwise 0.
+ *    KHRONOS::SUPPORT_FLOAT is 1 if floats are supported; otherwise 0.
  *
  * Calling convention macros defined in this file:
- *    KHRONOS_APICALL
- *    KHRONOS_APIENTRY
- *    KHRONOS_APIATTRIBUTES
+ *    KHRONOS::APICALL
+ *    KHRONOS::APIENTRY
+ *    KHRONOS::APIATTRIBUTES
  *
  * These may be used in function prototypes as:
  *
- *      KHRONOS_APICALL void KHRONOS_APIENTRY funcname(
+ *      KHRONOS::APICALL void KHRONOS::APIENTRY funcname(
  *                                  int arg1,
- *                                  int arg2) KHRONOS_APIATTRIBUTES;
+ *                                  int arg2) KHRONOS::APIATTRIBUTES;
  */
 
-#if defined(__SCITECH_SNAP__) && !defined(KHRONOS_STATIC)
-#   define KHRONOS_STATIC 1
+#if defined(__SCITECH_SNAP__) && !defined(KHRONOS::STATIC)
+#   define KHRONOS::STATIC 1
 #endif
 
 /*-------------------------------------------------------------------------
- * Definition of KHRONOS_APICALL
+ * Definition of KHRONOS::APICALL
  *-------------------------------------------------------------------------
  * This precedes the return type of the function in the function prototype.
  */
-#if defined(KHRONOS_STATIC)
-    /* If the preprocessor constant KHRONOS_STATIC is defined, make the
-     * header compatible with static linking. */
-#   define KHRONOS_APICALL
+#if defined(KHRONOS::STATIC)
+/* If the preprocessor constant KHRONOS::STATIC is defined, make the
+ * header compatible with static linking. */
+#   define KHRONOS::APICALL
 #elif defined(_WIN32)
-#   define KHRONOS_APICALL __declspec(dllimport)
+#   define KHRONOS::APICALL __declspec(dllimport)
 #elif defined (__SYMBIAN32__)
-#   define KHRONOS_APICALL IMPORT_C
+#   define KHRONOS::APICALL IMPORT_C
 #elif defined(__ANDROID__)
-#   define KHRONOS_APICALL __attribute__((visibility("default")))
+#   define KHRONOS::APICALL __attribute__((visibility("default")))
 #else
-#   define KHRONOS_APICALL
+#   define KHRONOS::APICALL
 #endif
 
 /*-------------------------------------------------------------------------
- * Definition of KHRONOS_APIENTRY
+ * Definition of KHRONOS::APIENTRY
  *-------------------------------------------------------------------------
  * This follows the return type of the function  and precedes the function
  * name in the function prototype.
  */
-#if defined(_WIN32) && !defined(_WIN32_WCE) && !defined(KHRONOS_STATIC)
-    /* Win32 but not WinCE */
-#   define KHRONOS_APIENTRY __stdcall
+#if defined(_WIN32) && !defined(_WIN32_WCE) && !defined(KHRONOS::STATIC)
+/* Win32 but not WinCE */
+#   define KHRONOS::APIENTRY __stdcall
 #else
-#   define KHRONOS_APIENTRY
+#   define KHRONOS::APIENTRY
 #endif
 
 /*-------------------------------------------------------------------------
- * Definition of KHRONOS_APIATTRIBUTES
+ * Definition of KHRONOS::APIATTRIBUTES
  *-------------------------------------------------------------------------
  * This follows the closing parenthesis of the function prototype arguments.
  */
 #if defined (__ARMCC_2__)
-#define KHRONOS_APIATTRIBUTES __softfp
+#define KHRONOS::APIATTRIBUTES __softfp
 #else
-#define KHRONOS_APIATTRIBUTES
+#define KHRONOS::APIATTRIBUTES
 #endif
 
 /*-------------------------------------------------------------------------
@@ -151,8 +151,8 @@ typedef int32_t                 khronos_int32_t;
 typedef uint32_t                khronos_uint32_t;
 typedef int64_t                 khronos_int64_t;
 typedef uint64_t                khronos_uint64_t;
-#define KHRONOS_SUPPORT_INT64   1
-#define KHRONOS_SUPPORT_FLOAT   1
+#define KHRONOS::SUPPORT_INT64   1
+#define KHRONOS::SUPPORT_FLOAT   1
 
 #elif defined(__VMS ) || defined(__sgi)
 
@@ -164,8 +164,8 @@ typedef int32_t                 khronos_int32_t;
 typedef uint32_t                khronos_uint32_t;
 typedef int64_t                 khronos_int64_t;
 typedef uint64_t                khronos_uint64_t;
-#define KHRONOS_SUPPORT_INT64   1
-#define KHRONOS_SUPPORT_FLOAT   1
+#define KHRONOS::SUPPORT_INT64   1
+#define KHRONOS::SUPPORT_FLOAT   1
 
 #elif defined(_WIN32) && !defined(__SCITECH_SNAP__)
 
@@ -176,8 +176,8 @@ typedef __int32                 khronos_int32_t;
 typedef unsigned __int32        khronos_uint32_t;
 typedef __int64                 khronos_int64_t;
 typedef unsigned __int64        khronos_uint64_t;
-#define KHRONOS_SUPPORT_INT64   1
-#define KHRONOS_SUPPORT_FLOAT   1
+#define KHRONOS::SUPPORT_INT64   1
+#define KHRONOS::SUPPORT_FLOAT   1
 
 #elif defined(__sun__) || defined(__digital__)
 
@@ -193,8 +193,8 @@ typedef unsigned long int       khronos_uint64_t;
 typedef long long int           khronos_int64_t;
 typedef unsigned long long int  khronos_uint64_t;
 #endif /* __arch64__ */
-#define KHRONOS_SUPPORT_INT64   1
-#define KHRONOS_SUPPORT_FLOAT   1
+#define KHRONOS::SUPPORT_INT64   1
+#define KHRONOS::SUPPORT_FLOAT   1
 
 #elif 0
 
@@ -203,8 +203,8 @@ typedef unsigned long long int  khronos_uint64_t;
  */
 typedef int                     khronos_int32_t;
 typedef unsigned int            khronos_uint32_t;
-#define KHRONOS_SUPPORT_INT64   0
-#define KHRONOS_SUPPORT_FLOAT   0
+#define KHRONOS::SUPPORT_INT64   0
+#define KHRONOS::SUPPORT_FLOAT   0
 
 #else
 
@@ -216,8 +216,8 @@ typedef int32_t                 khronos_int32_t;
 typedef uint32_t                khronos_uint32_t;
 typedef int64_t                 khronos_int64_t;
 typedef uint64_t                khronos_uint64_t;
-#define KHRONOS_SUPPORT_INT64   1
-#define KHRONOS_SUPPORT_FLOAT   1
+#define KHRONOS::SUPPORT_INT64   1
+#define KHRONOS::SUPPORT_FLOAT   1
 
 #endif
 
@@ -247,14 +247,14 @@ typedef signed   long  int     khronos_ssize_t;
 typedef unsigned long  int     khronos_usize_t;
 #endif
 
-#if KHRONOS_SUPPORT_FLOAT
+#if KHRONOS::SUPPORT_FLOAT
 /*
  * Float type
  */
 typedef          float         khronos_float_t;
 #endif
 
-#if KHRONOS_SUPPORT_INT64
+#if KHRONOS::SUPPORT_INT64
 /* Time types
  *
  * These types can be used to represent a time interval in nanoseconds or
@@ -271,20 +271,20 @@ typedef khronos_int64_t        khronos_stime_nanoseconds_t;
 /*
  * Dummy value used to pad enum types to 32 bits.
  */
-#ifndef KHRONOS_MAX_ENUM
-#define KHRONOS_MAX_ENUM 0x7FFFFFFF
+#ifndef KHRONOS::MAX_ENUM
+#define KHRONOS::MAX_ENUM 0x7FFFFFFF
 #endif
 
 /*
  * Enumerated boolean type
  *
  * Values other than zero should be considered to be true.  Therefore
- * comparisons should not be made against KHRONOS_TRUE.
+ * comparisons should not be made against KHRONOS::TRUE.
  */
 typedef enum {
-    KHRONOS_FALSE = 0,
-    KHRONOS_TRUE  = 1,
-    KHRONOS_BOOLEAN_ENUM_FORCE_SIZE = KHRONOS_MAX_ENUM
+    KHRONOS::FALSE = 0,
+    KHRONOS::TRUE  = 1,
+    KHRONOS::BOOLEAN_ENUM_FORCE_SIZE = KHRONOS::MAX_ENUM
 } khronos_boolean_enum_t;
 
 #endif /* __khrplatform_h_ */
