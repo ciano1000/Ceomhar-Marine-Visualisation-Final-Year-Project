@@ -16,7 +16,13 @@
 
 #include "ceomhar_math.h"
 #include "ceomhar_memory.h"
+#include "ceomhar_string.h"
 #include "ceomhar_os.h"
+#include "ceomhar_memory.cpp"
+#include "ceomhar_os.cpp"
+#include "ceomhar_string.cpp"
+#include "win32_platform.cpp"
+#include "win32_app_loading.cpp"
 
 // TODO(Cian): @Win32 win32 layer should have nothing to do with Opengl/nanovg context, should be in a seperate thread eventually
 #include "nano\nanovg.h"
@@ -25,79 +31,7 @@
 #include "nano\nanovg_gl.h"
 global NVGcontext *vg_context = {};
 
-
-#include "ceomhar_memory.cpp"
-#include "ceomhar_os.cpp"
-#include "win32_app_loading.cpp"
-
-global OS::State global_os;
-
-namespace Win32 {
-    PLATFORM_RESERVE_MEMORY(reserve_memory) {
-        void * memory = VirtualAlloc(0, size, MEM_RESERVE, PAGE_NOACCESS);
-        return memory;
-    }
-    
-    PLATFORM_COMMIT_MEMORY(commit_memory) {
-        VirtualAlloc(memory, size, MEM_COMMIT, PAGE_READWRITE);
-    }
-    
-    PLATFORM_DECOMMIT_MEMORY(decommit_memory) {
-        VirtualFree(memory, size, MEM_DECOMMIT);
-    }
-    
-    PLATFORM_RELEASE_MEMORY(release_memory) {
-        VirtualFree(memory, size, MEM_RELEASE);
-    }
-    
-    DEBUG_PLATFORM_READ_ENTIRE_FILE(debug_read_entire_file) {
-        b32 result = false;
-        
-        HANDLE file_handle = CreateFileA((LPCSTR)file_path, GENERIC_READ, NULL, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-        if(file_handle != INVALID_HANDLE_VALUE) {
-            LARGE_INTEGER file_size_struct = {};
-            
-            if(GetFileSizeEx(file_handle, &file_size_struct)) {
-                u64 file_size = (u64)file_size_struct.QuadPart + 1;
-                file_read->size = file_size;
-                
-                // TODO(Cian): @Win32 have some kind of debug arena
-                void *file_buffer = Memory::arena_push(&os->permanent_arena, file_size);
-                file_read->data = (char *)file_buffer;
-                
-                u32 bytes_read = 0;
-                if(ReadFile(file_handle, file_buffer, (DWORD)file_size, (LPDWORD)&bytes_read, NULL)) {
-                    result = true;
-                    file_read->data[file_read->size] = '\0';
-                }
-            }
-            CloseHandle(file_handle);
-        }
-        
-        return result;
-    } 
-    
-    
-    void get_screen_info(HWND window_handle, OS::App_Display  *screen_dimension) {
-        RECT window_rect = {};
-        
-        GetClientRect(window_handle, &window_rect);
-        screen_dimension->width = (f32)(window_rect.right - window_rect.left);
-        screen_dimension->height = (f32)(window_rect.bottom - window_rect.top);
-        
-        screen_dimension->pixel_ratio = ((f32)screen_dimension->width) / ((f32)screen_dimension->height);
-        
-        HDC hdc = GetDC(window_handle);
-        //screen_dimension->dpi = GetDpiForWindow(window_handle);
-        // TODO(Cian): Should only redo this if monitor changes
-        u32 monitor_x = GetDeviceCaps(hdc, HORZRES);
-        u32 monitor_y = GetDeviceCaps(hdc, VERTRES);
-        u32 monitor_product = monitor_x * monitor_y;
-        screen_dimension->dpi = (u32)((f32)(monitor_product / OS_DEFAULT_DISPLAY_DENSITY) * OS_DEFAULT_DPI);
-    }
-}
-
-using namespace Win32;
+global OS_State global_os;
 
 global b32 Running;
 LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LPARAM l_param)
@@ -139,19 +73,19 @@ LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LP
         
         case WM_LBUTTONDOWN:
         {
-            OS::push_event(OS::mouse_button_down_event(OS::Mouse_Button_Left, global_os.mouse_pos));
+            os_push_event(os_mouse_button_down_event(OS_Mouse_Button_Left, global_os.mouse_pos));
         } break;
         case WM_LBUTTONUP:
         {
-            OS::push_event(OS::mouse_button_up_event(OS::Mouse_Button_Left, global_os.mouse_pos));
+            os_push_event(os_mouse_button_up_event(OS_Mouse_Button_Left, global_os.mouse_pos));
         } break;
         case WM_RBUTTONDOWN:
         {
-            OS::push_event(OS::mouse_button_down_event(OS::Mouse_Button_Right, global_os.mouse_pos));
+            os_push_event(os_mouse_button_down_event(OS_Mouse_Button_Right, global_os.mouse_pos));
         } break;
         case WM_RBUTTONUP:
         {
-            OS::push_event(OS::mouse_button_up_event(OS::Mouse_Button_Right, global_os.mouse_pos));
+            os_push_event(os_mouse_button_up_event(OS_Mouse_Button_Right, global_os.mouse_pos));
         } break;
         case WM_MOUSEMOVE:
         {
@@ -166,7 +100,7 @@ LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LP
             global_os.mouse_pos = pos;
             V2 delta_pos = v2(global_os.mouse_pos.x - last_pos.x, global_os.mouse_pos.y - last_pos.y);
             
-            OS::push_event(OS::mouse_move_event(pos, delta_pos));
+            os_push_event(os_mouse_move_event(pos, delta_pos));
             
             if(weird_windows_mouse_tracking == false) {
                 weird_windows_mouse_tracking = true;
@@ -202,7 +136,7 @@ LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LP
 
 int main(u32 argc, char **argv) {
     //NVGcontext *vg_context = {};
-    //OS::State *os = {};
+    //OS_State *os = {};
     
     
     for(u32 i = 0; i<argc; i++) {
@@ -239,8 +173,8 @@ int main(u32 argc, char **argv) {
     
     if(window_handle)
     {
-        init_gl(window_handle,device_context);
-        load_all_gl_procs();
+        win32_init_gl(window_handle,device_context);
+        win32_load_all_gl_procs();
         ReleaseDC(window_handle,device_context);
         ShowWindow(window_handle, SW_SHOWDEFAULT);
         
@@ -260,18 +194,18 @@ int main(u32 argc, char **argv) {
         global_os.decommit_memory = &decommit_memory;
         global_os.release_memory = &release_memory;
         
-        global_os.permanent_arena = Memory::arena_initialise();
-        global_os.frame_arena = Memory::arena_initialise();
-        global_os.scope_arena = Memory::arena_initialise();
+        global_os.permanent_arena = memory_arena_initialise();
+        global_os.frame_arena = memory_arena_initialise();
+        global_os.scope_arena = memory_arena_initialise();
         
         global_os.debug_read_entire_file = &debug_read_entire_file;
         
         // TODO(Cian): ReCalculate window RECT on size change and notify game layer
-        OS::App_Display screen_dimension = {};
+        OS_App_Display screen_dimension = {};
         get_screen_info(window_handle, &screen_dimension);
         global_os.display = screen_dimension;
         
-        Win32::App_Code code = {};
+        Win32_App_Code code = {};
         // NOTE(Cian): Load app code
         HMODULE app_dll = LoadLibraryA("Ceomhar_app.dll");
         code.app_start = (App_Start*)GetProcAddress(app_dll,"update_and_render"); 
@@ -301,7 +235,7 @@ int main(u32 argc, char **argv) {
             code.app_update_and_render();
             
             // TODO(Cian): @Platform When seperating app and platform layer, different app entry/exit points and functions need to be specified, e.g. here a function to clean up necessary platform stuff would occur
-            OS::flush_events();
+            os_flush_events();
             
             HDC dc = GetDC(window_handle);
             SwapBuffers(dc);
@@ -314,11 +248,11 @@ int main(u32 argc, char **argv) {
                 
             }
             
-            Memory::arena_clear(&os->frame_arena);
+            memory_arena_clear(&os->frame_arena);
         }
-        Memory::arena_release(&os->permanent_arena);
-        Memory::arena_release(&os->frame_arena);
-        Memory::arena_release(&os->scope_arena);
+        memory_arena_release(&os->permanent_arena);
+        memory_arena_release(&os->frame_arena);
+        memory_arena_release(&os->scope_arena);
         
         // TODO(Cian): Clean up contexts and memory arenas
     }

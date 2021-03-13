@@ -6754,7 +6754,7 @@ extern "C" {
     typedef void (APIENTRYP PFNGLPUSHGROUPMARKEREXTPROC) (GLsizei length, const GLchar *marker);
     typedef void (APIENTRYP PFNGLPOPGROUPMARKEREXTPROC) (void);
 #ifdef GL_GLEXT_PROTOTYPES
-    GLAPI void APIENTRY glInsertEventMarkerEXT (GLsizei length, const GLchar *marker);
+    GLAPI void APIENTRY glInsertOS_EventMarkerEXT (GLsizei length, const GLchar *marker);
     GLAPI void APIENTRY glPushGroupMarkerEXT (GLsizei length, const GLchar *marker);
     GLAPI void APIENTRY glPopGroupMarkerEXT (void);
 #endif

@@ -6,9 +6,9 @@
 #include "stb\stb_sprintf.h"
 #include "ceomhar_math.h"
 #include "ceomhar_memory.h"
+#include "ceomhar_string.h"
 #include "ceomhar_os.h"
 
-#include "ceomhar_string.h"
 #include "ceomhar_ui.h"
 #include "ceomhar_parsing.h"
 #include "app_ceomhar.h"
@@ -22,16 +22,16 @@
 
 
 // TODO(Cian): @App Temporary for demo
-void AppStart(OS::State *state, NVGcontext *vg) {
+void AppStart(OS_State *state, NVGcontext *vg) {
     vg_context = vg;
-    // TODO(Cian): when app and platform are split into seperate TU's, put OS::State stuff here
-    ui_state = (UI::State*)Memory::arena_push(&os->permanent_arena, sizeof(UI::State));
+    // TODO(Cian): when app and platform are split into seperate TU's, put OS_State stuff here
+    ui_state = (UI_State*)memory_arena_push(&os->permanent_arena, sizeof(UI_State));
     *ui_state = {};
     // TODO(Cian): @APP push this to debug arena
-    debug = (APP_Debug*)Memory::arena_push(&os->permanent_arena, sizeof(APP_Debug));
+    debug = (App_Debug*)memory_arena_push(&os->permanent_arena, sizeof(App_Debug));
     
     os->debug_read_entire_file("D:\\dev\\fyp_ceomhar\\FSS_NMEA_SampleData.txt", &debug->demo_read);
-    Parsing::debug_parse_measurements(debug->demo_read, debug->measurements);
+    parsing_debug_parse_measurements(debug->demo_read, debug->measurements);
 }
 
 // TODO(Cian): How should we pass the vgContext???
@@ -42,7 +42,6 @@ void AppUpdateAndRender() {
     nvgBeginFrame(vg_context, (f32)os->display.width,  (f32)os->display.height, 1);
     
     // NOTE(Cian): UI_Begin just creates a root Row container thats the same size as our display, containers can only have one child(for now maybe idk)
-    using namespace UI;
     BEGIN_UI
     {
         static b32 is_started = false;
@@ -52,17 +51,17 @@ void AppUpdateAndRender() {
                 //Both of these buttons below are actually reference the same button since they use the same hash string
                 HEIGHT_AUTO WIDTH_AUTO {
                     if(!is_started){
-                        if(button("Start###replacement_hash")) {
+                        if(ui_button("Start###replacement_hash")) {
                             is_started = true;
                         }
                     }
                     else {
-                        if(button("Stop###replacement_hash")) {
+                        if(ui_button("Stop###replacement_hash")) {
                             is_started = false;
                         }
                     }
                     FILLER(1);
-                    label("Dashboard Demo Monday 22 Feb");
+                    ui_label("Dashboard Demo Monday 22 Feb");
                     FILLER(1);
                 }
             }
@@ -72,11 +71,11 @@ void AppUpdateAndRender() {
                         FILLER(1);
                         HEIGHT_AUTO ROW {
                             HEIGHT(500, 1.0f) WIDTH_RATIO(0.32f, 1.0f) {
-                                test_box(HIGHLIGHT_COLOR, "TestBox");
+                                ui_test_box(HIGHLIGHT_COLOR, "TestBox");
                                 FILLER(1);
-                                test_box(HIGHLIGHT_COLOR, "TestBox1");
+                                ui_test_box(HIGHLIGHT_COLOR, "TestBox1");
                                 FILLER(1);
-                                test_box(HIGHLIGHT_COLOR, "TestBox2");
+                                ui_test_box(HIGHLIGHT_COLOR, "TestBox2");
                             }
                         }
                         FILLER(1);
@@ -86,7 +85,7 @@ void AppUpdateAndRender() {
                     HEIGHT_AUTO WIDTH_FILL COL {
                         ROW {
                             FILLER(1);
-                            label(20.0f, "Options");
+                            ui_label(20.0f, "Options");
                             FILLER(1);
                         }
                     }

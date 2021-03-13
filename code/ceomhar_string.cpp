@@ -37,310 +37,307 @@ global u32 CRC32_Table[256] = {
     0xb3667a2e,0xc4614ab8,0x5d681b02,0x2a6f2b94,0xb40bbe37,0xc30c8ea1,0x5a05df1b,0x2d02ef8d,  
 };
 
-namespace String{
-    
 #ifndef CRC32_LUT
-    internal void generate_crc32_table() {
-        
-        u32 n, crc;
-        for(n = 0; n < 256; ++n) {
-            crc = n;
-            // NOTE(Cian): Loop through each bit
-            for(u32 k = 0; k < 8; ++k) {
-                // NOTE(Cian): If the MSB is 1
-                if(crc & 1) {
-                    crc = HASH_POLY ^ (c >> 1);
-                } else {
-                    crc = c >> 1;
-                }
+internal void string_generate_crc32_table() {
+    
+    u32 n, crc;
+    for(n = 0; n < 256; ++n) {
+        crc = n;
+        // NOTE(Cian): Loop through each bit
+        for(u32 k = 0; k < 8; ++k) {
+            // NOTE(Cian): If the MSB is 1
+            if(crc & 1) {
+                crc = HASH_POLY ^ (c >> 1);
+            } else {
+                crc = c >> 1;
             }
-            CRC32_Table[n] = c;
         }
+        CRC32_Table[n] = c;
     }
+}
 #endif
-    
-    
-    internal u32 string_to_crc32(char *string, u32 n, u32 seed) {
+
+
+internal u32 string_to_crc32(char *string, u32 n, u32 seed) {
 #ifndef CRC32_LUT
-        generate_crc32_table();
+    generate_crc32_table();
 #endif
-        u32 crc = seed;
-        for(u32 i = 0; i < n; ++i) {
-            u32 pos = (crc ^ string[i]) & 255;
-            crc =(CRC32_Table[pos] ^ (crc >> 8));
-        }
-        return crc;
+    u32 crc = seed;
+    for(u32 i = 0; i < n; ++i) {
+        u32 pos = (crc ^ string[i]) & 255;
+        crc =(CRC32_Table[pos] ^ (crc >> 8));
     }
+    return crc;
+}
+
+internal u32 string_to_crc32(char *string, u32 seed) {
+    u32 crc = string_to_crc32(string, (u32)strlen(string), seed);
+    return crc;
+}
+
+internal String8 string_from_cstring(char *string) {
+    String8 result = {};
+    result.data = string;
     
-    internal u32 string_to_crc32(char *string, u32 seed) {
-        u32 crc = string_to_crc32(string, (u32)strlen(string), seed);
-        return crc;
-    }
-    
-    internal String8 string_from_cstring(char *string) {
-        String8 result = {};
-        result.data = string;
+    u32 size = 0;
+    if(string) {
         
-        u32 size = 0;
-        if(string) {
-            
-            
-            char *curr = string;
-            while((*curr) != null) {
-                size++;
-                curr += 1;
-            }
+        
+        char *curr = string;
+        while((*curr) != null) {
             size++;
-            
-            result.size = size;
-        }
-        return result;
-    }
-    
-    internal String8 push_string(Memory_Arena *arena, u32 size) {
-        String8 result = {};
-        result.size = size;
-        
-        result.data = (char*)Memory::arena_push(arena, size);
-        
-        result.data[size - 1] = null;
-        
-        return result;
-    }
-    
-    // TODO(Cian): @String8 might get around to either replacing C string funcs like snprintf etc myself or by using stb headers
-    internal String8 make(Memory_Arena *arena, char *string,...) {
-        String8 result = {};
-        
-        va_list args;
-        va_start(args, string);
-        u32 size = stbsp_vsnprintf(null, 0, string, args) + 1;
-        va_end(args);
-        
-        result.data = (char*)Memory::arena_push(arena, size);
-        // TODO(Cian): Have error logging to check if memory allocation was successful or not
-        if(result.data) {
-            result.size = size;
-            
-            va_start(args, string);
-            stbsp_vsnprintf(result.data, size, string, args);
-            va_end(args);
-            
-            result.data[size - 1] = null;
-        }
-        
-        return result;
-    }
-    
-    internal String8 make(Memory_Arena *arena, char *string, va_list args) {
-        String8 result = {};
-        
-        u32 size = vsnprintf(null, 0, string, args) + 1;
-        
-        result.data = (char*)Memory::arena_push(arena, size);
-        // TODO(Cian): Have error logging to check if memory allocation was successful or not
-        if(result.data) {
-            result.size = size;
-            stbsp_vsnprintf(result.data, size, string, args);
-            result.data[size - 1] = null;
-        }
-        
-        return result;
-    }
-    
-    internal String8 append(Memory_Arena *arena, String8 *string_1, String8 *string_2) {
-        String8 result = {};
-        
-        u32 size = (string_1->size + string_2->size) - 1;
-        result.data = (char*)Memory::arena_push(arena, size);
-        result.size = size;
-        
-        if(result.data) {
-            stbsp_snprintf(result.data, string_1->size, string_1->data);
-            stbsp_snprintf(result.data + (string_1->size - 1), string_2->size, string_2->data);
-            result.data[size - 1] = null;
-        }
-        
-        return result;
-    }
-    
-    // TODO(Cian): Maybe this shouldn't return a new string and should just reallocate the original?? Idk, revaluate after using it for a bit
-    internal String8 append(Memory_Arena *arena, String8 string_1, char *string_2, ...) {
-        // TODO(Cian): Seem to be redoing a lot of stuff here?
-        String8 result = {};
-        
-        va_list args;
-        va_start(args, string_2);
-        // NOTE(Cian): String8.size already includes null terminator so don't need to +1 vsnprintf result
-        u32 str_2_size = string_1.size + (stbsp_vsnprintf(null, 0, string_2, args));
-        u32 size = string_1.size + str_2_size;
-        va_end(args);
-        
-        result.data = (char*)Memory::arena_push(arena, size);
-        
-        if(result.data) {
-            stbsp_snprintf(result.data, string_1.size, string_1.data);
-            va_start(args, string_2);
-            stbsp_vsnprintf(result.data + (string_1.size - 1), size, string_2, args);
-            va_end(args);
-            
-        }
-        
-        return result;
-    }
-    
-    internal void copy(String8 dest, String8 src, u32 src_offset, u32 count) {
-        assert(count <= dest.size); 
-        assert((src_offset + (count - 1)) < src.size);
-        
-        for(u32 i = 0; i < count - 1; i++) {
-            dest.data[i] = src.data[src_offset + i];
-        }
-        dest.data[count - 1] = null;
-    }
-    
-    internal b32 char_is_digit(char c) {
-        return c >= '0' && c <= '9';
-    }
-    
-    internal b32 char_is_letter(char c) {
-        return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
-    }
-    
-    internal char char_to_upper(char c) {
-        return (c >= 'a' && c <= 'z') ? c - 32 : c;
-    }
-    
-    internal char char_to_lower(char c) {
-        return (c >= 'A' && c <= 'Z') ? c + 32 : c;
-    }
-    
-    internal void to_upper(String8 string) {
-        for(u32 i = 0; i < string.size; i++) {
-            string.data[i] = char_to_upper(string.data[i]);
-        }
-    }
-    
-    internal void to_lower(String8 string) {
-        for(u32 i = 0; i < string.size; i++) {
-            string.data[i] = char_to_lower(string.data[i]);
-        }
-    }
-    
-    internal void gen_random(char *s, int len) {
-        static const char alphanum[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-        
-        for (int i = 0; i < len -1; ++i) {
-            s[i] = alphanum[rand() % (sizeof(alphanum) - 1)];
-        }
-        
-        s[len-1] = 0;
-    }
-    
-    internal b32 compare(String8 str_1, String8 str_2) {
-        b32 result = false;
-        
-        if(str_1.size == str_2.size) {
-            result = true;
-            
-            for(u32 i = 0; i < str_1.size; i++) {
-                if(str_1.data[i] != str_2.data[i]) 
-                    result = false;
-            }
-        }
-        
-        return result;
-    }
-    
-    internal String8 tokenizer(Memory_Arena *arena, String8 main_string, char delimiter, u32 *bytes_read) {
-        u32 size = 0;
-        u32 skip_count = 0;
-        
-        while(main_string.data[(*bytes_read) + size] != delimiter) {
-            char curr = main_string.data[(*bytes_read) + size];
-            
-            if(curr == '\0' || curr == '\n') {
-                break;
-            } else if(curr == '\r') {
-                char next_curr = main_string.data[(*bytes_read) + size + 1];
-                if(next_curr == '\n') {
-                    skip_count++;
-                    break;
-                }
-            }
-            size++;
+            curr += 1;
         }
         size++;
         
-        String8 result = {};
-        result = push_string(arena, size);
-        copy(result, main_string, *bytes_read, size);
-        (*bytes_read) += size + skip_count;
+        result.size = size;
+    }
+    return result;
+}
+
+internal String8 string_push(Memory_Arena *arena, u32 size) {
+    String8 result = {};
+    result.size = size;
+    
+    result.data = (char*)memory_arena_push(arena, size);
+    
+    result.data[size - 1] = null;
+    
+    return result;
+}
+
+// TODO(Cian): @String8 might get around to either replacing C string funcs like snprintf etc myself or by using stb headers
+internal String8 string_make(Memory_Arena *arena, char *string,...) {
+    String8 result = {};
+    
+    va_list args;
+    va_start(args, string);
+    u32 size = stbsp_vsnprintf(null, 0, string, args) + 1;
+    va_end(args);
+    
+    result.data = (char*)memory_arena_push(arena, size);
+    // TODO(Cian): Have error logging to check if memory allocation was successful or not
+    if(result.data) {
+        result.size = size;
         
-        return result;
+        va_start(args, string);
+        stbsp_vsnprintf(result.data, size, string, args);
+        va_end(args);
+        
+        result.data[size - 1] = null;
     }
     
-    internal b32 is_float(String8 string) {
-        b32 result = false;
-        for(u32 i = 0; i < string.size - 1; i++) {
-            if(string.data[i] == '.') {
-                result = true;
-            } else {
-                if(string.data[i] < '0' || string.data[i] > '9') {
-                    result = false;
-                    break;
-                }
+    return result;
+}
+
+internal String8 string_make(Memory_Arena *arena, char *string, va_list args) {
+    String8 result = {};
+    
+    u32 size = stbsp_vsnprintf(null, 0, string, args) + 1;
+    
+    result.data = (char*)memory_arena_push(arena, size);
+    // TODO(Cian): Have error logging to check if memory allocation was successful or not
+    if(result.data) {
+        result.size = size;
+        stbsp_vsnprintf(result.data, size, string, args);
+        result.data[size - 1] = null;
+    }
+    
+    return result;
+}
+
+internal String8 string_append(Memory_Arena *arena, String8 *string_1, String8 *string_2) {
+    String8 result = {};
+    
+    u32 size = (string_1->size + string_2->size) - 1;
+    result.data = (char*)memory_arena_push(arena, size);
+    result.size = size;
+    
+    if(result.data) {
+        stbsp_snprintf(result.data, string_1->size, string_1->data);
+        stbsp_snprintf(result.data + (string_1->size - 1), string_2->size, string_2->data);
+        result.data[size - 1] = null;
+    }
+    
+    return result;
+}
+
+// TODO(Cian): Maybe this shouldn't return a new string and should just reallocate the original?? Idk, revaluate after using it for a bit
+internal String8 string_append(Memory_Arena *arena, String8 string_1, char *string_2, ...) {
+    // TODO(Cian): Seem to be redoing a lot of stuff here?
+    String8 result = {};
+    
+    va_list args;
+    va_start(args, string_2);
+    // NOTE(Cian): String8.size already includes null terminator so don't need to +1 vsnprintf result
+    u32 str_2_size = string_1.size + (stbsp_vsnprintf(null, 0, string_2, args));
+    u32 size = string_1.size + str_2_size;
+    va_end(args);
+    
+    result.data = (char*)memory_arena_push(arena, size);
+    
+    if(result.data) {
+        stbsp_snprintf(result.data, string_1.size, string_1.data);
+        va_start(args, string_2);
+        stbsp_vsnprintf(result.data + (string_1.size - 1), size, string_2, args);
+        va_end(args);
+        
+    }
+    
+    return result;
+}
+
+internal void string_copy(String8 dest, String8 src, u32 src_offset, u32 count) {
+    assert(count <= dest.size); 
+    assert((src_offset + (count - 1)) < src.size);
+    
+    for(u32 i = 0; i < count - 1; i++) {
+        dest.data[i] = src.data[src_offset + i];
+    }
+    dest.data[count - 1] = null;
+}
+
+internal b32 char_is_digit(char c) {
+    return c >= '0' && c <= '9';
+}
+
+internal b32 char_is_letter(char c) {
+    return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+}
+
+internal char char_to_upper(char c) {
+    return (c >= 'a' && c <= 'z') ? c - 32 : c;
+}
+
+internal char char_to_lower(char c) {
+    return (c >= 'A' && c <= 'Z') ? c + 32 : c;
+}
+
+internal void string_to_upper(String8 string) {
+    for(u32 i = 0; i < string.size; i++) {
+        string.data[i] = char_to_upper(string.data[i]);
+    }
+}
+
+internal void string_to_lower(String8 string) {
+    for(u32 i = 0; i < string.size; i++) {
+        string.data[i] = char_to_lower(string.data[i]);
+    }
+}
+
+internal void string_gen_random(char *s, int len) {
+    static const char alphanum[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    
+    for (int i = 0; i < len -1; ++i) {
+        s[i] = alphanum[rand() % (sizeof(alphanum) - 1)];
+    }
+    
+    s[len-1] = 0;
+}
+
+internal b32 string_compare(String8 str_1, String8 str_2) {
+    b32 result = false;
+    
+    if(str_1.size == str_2.size) {
+        result = true;
+        
+        for(u32 i = 0; i < str_1.size; i++) {
+            if(str_1.data[i] != str_2.data[i]) 
+                result = false;
+        }
+    }
+    
+    return result;
+}
+
+internal String8 string_tokenizer(Memory_Arena *arena, String8 main_string, char delimiter, u32 *bytes_read) {
+    u32 size = 0;
+    u32 skip_count = 0;
+    
+    while(main_string.data[(*bytes_read) + size] != delimiter) {
+        char curr = main_string.data[(*bytes_read) + size];
+        
+        if(curr == '\0' || curr == '\n') {
+            break;
+        } else if(curr == '\r') {
+            char next_curr = main_string.data[(*bytes_read) + size + 1];
+            if(next_curr == '\n') {
+                skip_count++;
+                break;
             }
         }
-        
-        return result;
+        size++;
     }
+    size++;
     
-    internal u32 to_u32(String8 decimal_string) {
-        u32 result = 0;
-        
-        char *curr_char = decimal_string.data;
-        while(*curr_char) {
-            result = 10 * result + (*curr_char++ - '0');
-        }
-        
-        return result;
-    }
+    String8 result = {};
+    result = string_push(arena, size);
+    string_copy(result, main_string, *bytes_read, size);
+    (*bytes_read) += size + skip_count;
     
-    internal f32 to_f32(String8 float_string) {
-        
-        return strtof(float_string.data, null);
-    }
-    
-    enum HexString8Endianness{
-        HexString8_LittleEndian,
-        HexString8_BigEndian,
-    };
-    
-    internal u32 hex_string_to_u32(String8 hex_string, HexString8Endianness endianness) {
-        // NOTE(Cian): This function assumes we are running on a little endian machine, endianness arg refers to the endianness of the incoming hex string
-        
-        char *curr_char = hex_string.data;
-        
-        u32 result = 0;
-        if(endianness == HexString8_BigEndian) {
-            while(*curr_char) {
-                //Each hex digit is 4 bits, so shift left 4 bits each time, this naturally handles BigEndian on our LittleEndian machine as the leftmost byte is the MSB, and is left shifted to the same position in memory
-                result = (result << 4) | hextable[*curr_char++];
-            }
+    return result;
+}
+
+internal b32 string_is_float(String8 string) {
+    b32 result = false;
+    for(u32 i = 0; i < string.size - 1; i++) {
+        if(string.data[i] == '.') {
+            result = true;
         } else {
-            curr_char = hex_string.data + (hex_string.size - 2);
-            
-            for(u32 i = 1; i < hex_string.size; i++) {
-                //some "fancy" flipping between -1: when i is odd & 1: when i is even, this is to ensure bytes are read in correct ordering
-                s32 offset = ((((i % 2) - 1) * -1) * 2) - 1;
-                
-                result = (result << 4) | hextable[*(curr_char + offset)];
-                curr_char--;
+            if(string.data[i] < '0' || string.data[i] > '9') {
+                result = false;
+                break;
             }
-            
         }
-        return result;
     }
+    
+    return result;
+}
+
+internal u32 string_to_u32(String8 decimal_string) {
+    u32 result = 0;
+    
+    char *curr_char = decimal_string.data;
+    while(*curr_char) {
+        result = 10 * result + (*curr_char++ - '0');
+    }
+    
+    return result;
+}
+
+internal f32 string_to_f32(String8 float_string) {
+    
+    return strtof(float_string.data, null);
+}
+
+enum HexString8Endianness{
+    HexString8_LittleEndian,
+    HexString8_BigEndian,
+};
+
+internal u32 string_hex_to_u32(String8 hex_string, HexString8Endianness endianness) {
+    // NOTE(Cian): This function assumes we are running on a little endian machine, endianness arg refers to the endianness of the incoming hex string
+    
+    char *curr_char = hex_string.data;
+    
+    u32 result = 0;
+    if(endianness == HexString8_BigEndian) {
+        while(*curr_char) {
+            //Each hex digit is 4 bits, so shift left 4 bits each time, this naturally handles BigEndian on our LittleEndian machine as the leftmost byte is the MSB, and is left shifted to the same position in memory
+            result = (result << 4) | hextable[*curr_char++];
+        }
+    } else {
+        curr_char = hex_string.data + (hex_string.size - 2);
+        
+        for(u32 i = 1; i < hex_string.size; i++) {
+            //some "fancy" flipping between -1: when i is odd & 1: when i is even, this is to ensure bytes are read in correct ordering
+            s32 offset = ((((i % 2) - 1) * -1) * 2) - 1;
+            
+            result = (result << 4) | hextable[*(curr_char + offset)];
+            curr_char--;
+        }
+        
+    }
+    return result;
 }
 #pragma warning(pop)

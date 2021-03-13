@@ -26,10 +26,10 @@ static const long hextable[] = {
 #ifndef CRC32_LUT
 internal void GenerateCRC32Table();
 #endif
-namespace String {
-    internal u32 string_to_crc32(char *string, u32 n, u32 seed);
-    internal u32 string_to_crc32(char *string, u32 seed);
-    internal String8 make(Memory_Arena *arena, char *string,...);
-}
+
+internal u32 string_to_crc32(char *string, u32 n, u32 seed);
+internal u32 string_to_crc32(char *string, u32 seed);
+internal String8 string_make(Memory_Arena *arena, char *string,...);
+
 //internal String String_AppendString(Memory_Arena *arena, String *string_1, char *string_2,...);
 //internal String String_AppendString(Memory_Arena *arena, String *string_1, String *string_2);

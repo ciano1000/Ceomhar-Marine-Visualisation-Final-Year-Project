@@ -592,13 +592,13 @@ extern "C" {
 #define WGL_IMAGE_BUFFER_LOCK_I3D         0x00000002
     typedef LPVOID (WINAPI * PFNWGLCREATEIMAGEBUFFERI3DPROC) (HDC hDC, DWORD dwSize, UINT uFlags);
     typedef BOOL (WINAPI * PFNWGLDESTROYIMAGEBUFFERI3DPROC) (HDC hDC, LPVOID pAddress);
-    typedef BOOL (WINAPI * PFNWGLASSOCIATEIMAGEBUFFEREVENTSI3DPROC) (HDC hDC, const HANDLE *pEvent, const LPVOID *pAddress, const DWORD *pSize, UINT count);
+    typedef BOOL (WINAPI * PFNWGLASSOCIATEIMAGEBUFFEREVENTSI3DPROC) (HDC hDC, const HANDLE *pOS_Event, const LPVOID *pAddress, const DWORD *pSize, UINT count);
     typedef BOOL (WINAPI * PFNWGLRELEASEIMAGEBUFFEREVENTSI3DPROC) (HDC hDC, const LPVOID *pAddress, UINT count);
 #ifdef WGL_WGLEXT_PROTOTYPES
     LPVOID WINAPI wglCreateImageBufferI3D (HDC hDC, DWORD dwSize, UINT uFlags);
     BOOL WINAPI wglDestroyImageBufferI3D (HDC hDC, LPVOID pAddress);
-    BOOL WINAPI wglAssociateImageBufferEventsI3D (HDC hDC, const HANDLE *pEvent, const LPVOID *pAddress, const DWORD *pSize, UINT count);
-    BOOL WINAPI wglReleaseImageBufferEventsI3D (HDC hDC, const LPVOID *pAddress, UINT count);
+    BOOL WINAPI wglAssociateImageBufferOS_EventsI3D (HDC hDC, const HANDLE *pOS_Event, const LPVOID *pAddress, const DWORD *pSize, UINT count);
+    BOOL WINAPI wglReleaseImageBufferOS_EventsI3D (HDC hDC, const LPVOID *pAddress, UINT count);
 #endif
 #endif /* WGL_I3D_image_buffer */
     
