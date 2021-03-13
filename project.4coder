@@ -35,19 +35,19 @@ command_list = {
 		.footer_panel = true,
 		.save_dirty_files = true,
 		.cursor_at_end = false,
-		.cmd = {{".\\code\\build.bat", .os = "win"},},
+		.cmd = {{".\\build.bat", .os = "win"},},
 	},
 	{
 		.name = "run",
 		.out = "*compilation*",
 		.cursor_at_end = true,
-		.cmd = {{".\\code\\run.bat", .os = "win"},},
+		.cmd = {{".\\run.bat", .os = "win"},},
 	},
 	{
 		.name = "debug",
 		.out = "*compilation*",
 		.cursor_at_end = true,
-		.cmd = {{".\\code\\debug.bat", .os = "win"},},
+		.cmd = {{".\\debug.bat", .os = "win"},},
 	}
 };
 

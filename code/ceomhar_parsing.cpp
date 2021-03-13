@@ -1,3 +1,4 @@
+#if CEOMHAR_INTERNAL
 internal u32 parsing_parse_explicit_time(Memory_Arena *arena, String8 time_string) {
     // NOTE(Cian): Time string is in the for HHMMSS.SS
     String8 hours_string = string_push(arena, 3);
@@ -19,7 +20,6 @@ internal u32 parsing_parse_explicit_time(Memory_Arena *arena, String8 time_strin
     //convert to milliseconds
     return (hours * 60 * 60 * 1000) + (minutes * 60 * 1000) + (seconds * 1000) + (centiseconds * 10);
 }
-
 internal void parsing_debug_parse_measurements(String8 file, Measurement *measurements) {
     u32 bytes_read = 0;
     u32 curr_measure = 0;
@@ -180,3 +180,4 @@ internal void parsing_debug_parse_measurements(String8 file, Measurement *measur
         curr_measure++;
     }
 }
+#endif
