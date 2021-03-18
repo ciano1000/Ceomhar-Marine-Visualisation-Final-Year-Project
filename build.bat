@@ -16,5 +16,7 @@ echo **	Building Platform	**
 cl %build_options% ..\\code\\win32_ceomhar.cpp  %compile_flags% /link %platform_link_flags%  /out:%application_name%.exe
 echo **	Building Datagen	**
 cl -DCEOMHAR_DATAGEN=1 ..\\code\\debug_serial_data_gen\\win32_datagen.cpp  %compile_flags% /link user32.lib /out:debug_datagen.exe
+echo **	Building Server	**
+cl -DCEOMHAR_SERVER=1 ..\\code\\server\\win32_ceomhar_server.cpp  %compile_flags% /link user32.lib ws2_32.lib /out:ceomhar_server.exe
 popd
 call ctime -end ceomhar.time

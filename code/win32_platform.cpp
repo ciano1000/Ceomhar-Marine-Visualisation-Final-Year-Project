@@ -44,6 +44,7 @@ DEBUG_PLATFORM_READ_ENTIRE_FILE(debug_read_entire_file) {
 
 // TODO(Cian): Messy way of excluding this from datagen, should probably make this its own thing
 #ifndef CEOMHAR_DATAGEN
+#ifndef CEOMHAR_SERVER
 void get_screen_info(HWND window_handle, OS_App_Display  *screen_dimension) {
     RECT window_rect = {};
     
@@ -61,4 +62,5 @@ void get_screen_info(HWND window_handle, OS_App_Display  *screen_dimension) {
     u32 monitor_product = monitor_x * monitor_y;
     screen_dimension->dpi = (u32)((f32)(monitor_product / OS_DEFAULT_DISPLAY_DENSITY) * OS_DEFAULT_DPI);
 }
+#endif
 #endif
