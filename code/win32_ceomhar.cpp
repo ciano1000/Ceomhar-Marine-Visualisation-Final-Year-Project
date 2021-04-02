@@ -14,6 +14,12 @@
 #include "win32_gl_init.cpp"
 #include "win32_ceomhar.h"
 
+// TODO(Cian): @Win32 win32 layer should have nothing to do with Opengl/nanovg context, should be in a seperate thread eventually
+#include "nano\nanovg.h"
+#include "nano\nanovg.c"
+#define NANOVG_GL3_IMPLEMENTATION
+#include "nano\nanovg_gl.h"
+
 #include "ceomhar_math.h"
 #include "ceomhar_memory.h"
 #include "ceomhar_string.h"
@@ -24,14 +30,12 @@
 #include "win32_platform.cpp"
 #include "win32_app_loading.cpp"
 
-// TODO(Cian): @Win32 win32 layer should have nothing to do with Opengl/nanovg context, should be in a seperate thread eventually
-#include "nano\nanovg.h"
-#include "nano\nanovg.c"
-#define NANOVG_GL3_IMPLEMENTATION
-#include "nano\nanovg_gl.h"
-global NVGcontext *vg_context = {};
+
+global NVGcontext *vg_context = null;
 
 global OS_State global_os;
+
+global Win32_App_Code code = {};
 
 global b32 Running;
 LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LPARAM l_param)
@@ -46,10 +50,14 @@ LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LP
         case WM_SIZE:
         {
             // TODO(Cian): Again, some cleanup needs to be done with how we store and call certain things
-            if(Running)
+            if(global_os.running)
             {
-                get_screen_info(window_handle, &global_os.display);
-                AppUpdateAndRender();
+                get_screen_info(window_handle, &os->display);
+                // TODO(Cian): @Platform remove this when moving all opengl usage to app layer
+                glViewport( 0, 0, (u32)os->display.width, (u32)os->display.height);
+                glClearColor(0.0f,0.0f,0.0f,1.0f);
+                glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT); 
+                code.app_update_and_render();
                 HDC dc = GetDC(window_handle);
                 SwapBuffers(dc);
                 ReleaseDC(window_handle, dc);
@@ -68,7 +76,7 @@ LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LP
         case WM_DESTROY:
         case WM_CLOSE:
         {
-            Running = false;
+            global_os.running = false;
         } break;
         
         case WM_LBUTTONDOWN:
@@ -116,6 +124,12 @@ LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LP
         case WM_MOUSELEAVE:
         {
             weird_windows_mouse_tracking = false;
+        } break;
+        case WM_MOUSEWHEEL:
+        {
+            s16 scroll_delta = HIWORD(w_param);
+            os_push_event(os_mouse_scroll_event((f32)scroll_delta));
+            
         } break;
         case WM_GETMINMAXINFO:
         {
@@ -179,6 +193,8 @@ int main(u32 argc, char **argv) {
         ShowWindow(window_handle, SW_SHOWDEFAULT);
         
         vg_context= nvgCreateGL3( NVG_STENCIL_STROKES|NVG_ANTIALIAS| NVG_DEBUG );
+        global_os.vg = vg_context;
+        
         
         // NOTE(Cian): Load font(s)
         // TODO(Cian): Get the CWD instead of hardcoding location
@@ -205,11 +221,11 @@ int main(u32 argc, char **argv) {
         get_screen_info(window_handle, &screen_dimension);
         global_os.display = screen_dimension;
         
-        Win32_App_Code code = {};
         // NOTE(Cian): Load app code
         HMODULE app_dll = LoadLibraryA("Ceomhar_app.dll");
-        code.app_start = (App_Start*)GetProcAddress(app_dll,"update_and_render"); 
-        code.app_update_and_render = (App_Update_And_Render*)GetProcAddress(app_dll,"update_and_render"); 
+        code.app_start = (App_Start*)GetProcAddress(app_dll,"app_start"); 
+        code.app_update_and_render = (App_Update_And_Render*)GetProcAddress(app_dll,"app_update_and_render"); 
+        
         
         code.app_start(os);
         
@@ -229,6 +245,8 @@ int main(u32 argc, char **argv) {
             get_screen_info(window_handle, &screen_dimension);
             os->display = screen_dimension;
             
+            
+            // TODO(Cian): @Platform move all opengl and nanovg stuff to the usage layer, will solve weird stretching issues
             glViewport( 0, 0, (u32)os->display.width, (u32)os->display.height);
             glClearColor(0.0f,0.0f,0.0f,1.0f);
             glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT|GL_STENCIL_BUFFER_BIT); 

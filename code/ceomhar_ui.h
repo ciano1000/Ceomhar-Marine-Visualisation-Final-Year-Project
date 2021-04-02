@@ -39,19 +39,23 @@
 enum UI_Widget_Property{
     UI_Widget_Property_RenderBackground,
     UI_Widget_Property_RenderBackgroundRounded,
-    UI_Widget_Property_Clickable,
+    UI_Widget_Property_RenderActive,
+    UI_Widget_Property_RenderHot,
     UI_Widget_Property_RenderText,
     UI_Widget_Property_RenderBorder,
-    UI_Widget_Property_RenderHot,
-    UI_Widget_Property_RenderActive,
+    
+    UI_Widget_Property_Clickable,
+    UI_Widget_Property_Togglable,
+    UI_Widget_Property_ScrollHorizontal, //horizontal scrolling only occurs when we overflowing uin elements
+    UI_Widget_Property_ScrollVertical, 
+    UI_Widget_Property_EditText,
+    
     UI_Widget_Property_Container,
     UI_Widget_Property_LayoutHorizontal,
     UI_Widget_Property_LayoutVertical,
-    // TODO(Cian): @UI These are temporary properties until custom update & render is working
-    UI_Widget_Property_Togglable,
-    UI_Widget_Property_Scrollable,
     
     UI_Widget_Property_CustomUpdate,
+    UI_Widget_Property_CustomLayout,
     UI_Widget_Property_CustomRender,
     UI_Widget_Property_MAX
 };
@@ -75,6 +79,16 @@ struct UI_Size_Parameters {
         f32 ratio;
     };
     f32 strictness;
+};
+
+// TODO(Cian): @UI add styling functionality
+struct UI_Widget_Style {
+    NVGcolor background_color;
+    NVGcolor text_color;
+    NVGcolor border_color;
+    f32 radius;
+    f32 border_thickness;
+    f32 font_size;
 };
 
 struct UI_ID {
@@ -101,7 +115,13 @@ struct UI_Widget{
     NVGcolor color;
     NVGcolor text_color;
     f32 font_size;
+    
+    String8 edit_text;
+    // NOTE(Cian): The scroll offsets are for the containers, they then apply these offsets to their childrens position
+    f32 scroll_offset_x;
+    f32 scroll_offset_y;
 };
+
 struct UI_State {
     // NOTE(Cian): Current in context widgets
     u32 widget_size;
@@ -124,6 +144,17 @@ type current;\
     UI_STACK(height, UI_Size_Parameters);
     UI_STACK(padding, V4);
     u32 non_interactive_count;
+    
+    // NOTE(Cian): Editable string stuff, the current in-focus string is referenced here and operated on at the start of each frame
+    // TODO(Cian): @UI @String implement text boxes based on below
+    struct {
+        String8 *text;
+        u32 max_length;
+        u32 cursor_idx;
+        u32 selected_offset;
+    } focused_text; 
+    
+    UI_Widget_Style *default_styles;
 };
 
 #define MAKE_FORMAT_STRING(string, format) \

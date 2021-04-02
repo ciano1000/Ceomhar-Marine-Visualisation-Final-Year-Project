@@ -151,6 +151,13 @@ u32 main() {
             
             buffer[char_count] = read_char;
             
+            // TODO(Cian): @Server depending on how the client config is setup, parsing & data analytics will either be done here on the server on the client, giving two different code paths
+            
+            Memory_ScopeBlock {
+                String8 incoming_string = string_make(&os->scope_arena, buffer);
+                
+                // TODO(Cian): Kick off parsing & data analytics threads here, or send string straight to the server thread, dependent on config
+            }
             char_count++;
             if(read_char == null) {
                 printf("%s \n", buffer);

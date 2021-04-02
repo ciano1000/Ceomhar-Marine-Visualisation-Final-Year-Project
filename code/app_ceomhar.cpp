@@ -22,8 +22,11 @@
 
 
 // TODO(Cian): @App Temporary for demo
-void AppStart(OS_State *state, NVGcontext *vg) {
-    vg_context = vg;
+//void app_start(OS_State *state, NVGcontext *vg) {
+external APP_START(app_start){
+    os = state;
+    
+    vg_context = os->vg;
     // TODO(Cian): when app and platform are split into seperate TU's, put OS_State stuff here
     ui_state = (UI_State*)memory_arena_push(&os->permanent_arena, sizeof(UI_State));
     *ui_state = {};
@@ -35,7 +38,7 @@ void AppStart(OS_State *state, NVGcontext *vg) {
 }
 
 // TODO(Cian): How should we pass the vgContext???
-void AppUpdateAndRender() {
+external APP_UPDATE_AND_RENDER(app_update_and_render) {
     
     // NOTE(Cian): Begin creates a blank panel and sets up UI, at every UI_End or UI_Pop we do some very simple auto layout, e.g fit everything to the the ROW height, draw everything, and perform input
     

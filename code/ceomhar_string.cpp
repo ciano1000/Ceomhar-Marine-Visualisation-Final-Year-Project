@@ -106,7 +106,6 @@ internal String8 string_push(Memory_Arena *arena, u32 size) {
     return result;
 }
 
-// TODO(Cian): @String8 might get around to either replacing C string funcs like snprintf etc myself or by using stb headers
 internal String8 string_make(Memory_Arena *arena, char *string,...) {
     String8 result = {};
     

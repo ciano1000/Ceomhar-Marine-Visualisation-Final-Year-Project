@@ -317,6 +317,8 @@ internal void ui_begin_panel(NVGcolor color, char *format,...) {
     UI_Widget *panel_container = ui_init_widget(string);
     ui_widget_add_property(panel_container, UI_Widget_Property_Container);
     ui_widget_add_property(panel_container, UI_Widget_Property_RenderBackground);
+    ui_widget_add_property(panel_container, UI_Widget_Property_ScrollHorizontal);
+    ui_widget_add_property(panel_container,  UI_Widget_Property_ScrollVertical);
     panel_container->color = color;
     ui_push_parent(panel_container);
     // NOTE(Cian): The row inside of the panel shouldn't receive any of the panels padding or sizes, maybe should change this
@@ -467,84 +469,151 @@ internal inline f32 ui_get_size(UI_Widget *widget, u32 axis) {
     return result;
 }
 
-internal inline b32 ui_is_auto_size(UI_Widget *widget, u32 axis) {
-    // TODO(Cian): @UI Maybe a better way of deciding this
-    if(widget->parameters[axis].size == 0 && widget->parameters[axis].strictness == 0) {
-        return true;
-    }
-    
-    return false;
-}
-
-internal void ui_measure_widget(UI_Widget *widget, b32 is_tiled, u32 axis) {
+internal void ui_measure_widget(UI_Widget *widget, UI_Widget_Property layout_dir, b32 is_width_auto, b32 is_height_auto) {
     if(ui_widget_has_property(widget, UI_Widget_Property_Container)){
-        f32 size = 0;
-        f32 strictness = 0;
         
-        UI_Widget *curr = widget->tree_first_child;
-        if(is_tiled) {
-            f32 min_sum = 0;
-            f32 sum = 0;
+        b32 horizontal = ui_widget_has_property(widget, UI_Widget_Property_LayoutHorizontal);
+        b32 vertical = ui_widget_has_property(widget, UI_Widget_Property_LayoutVertical);
+        
+        f32 width = 0;
+        f32 width_strictness = 0;
+        
+        f32 height = 0;
+        f32 height_strictness = 0;
+        
+        if(vertical || horizontal) {
+            u32 primary_idx = 0;
+            f32 primary_axis = 0;
+            f32 primary_axis_strictness = 0;
             
+            u32 secondary_idx = 0;
+            f32 secondary_axis = 0;
+            f32 secondary_axis_strictness = 0;
+            
+            f32 min_sum_primary_axis = 0;
+            f32 sum_primary_axis = 0;
+            
+            f32 max_secondary_axis = 0;
+            f32 max_min_secondary_axis = 0;
+            
+            if(layout_dir == UI_Widget_Property_LayoutHorizontal) {
+                primary_idx = UI_ParameterIndex_Width;
+                secondary_idx = UI_ParameterIndex_Height;
+            } else if(layout_dir ==UI_Widget_Property_LayoutVertical) {
+                primary_idx = UI_ParameterIndex_Height;
+                secondary_idx = UI_ParameterIndex_Width;
+            }
+            
+            UI_Widget *curr = widget->tree_first_child;
             while(curr) {
-                // NOTE(Cian): Child widget may not share same layout direction
-                if(ui_is_auto_size(curr, axis)) {
-                    if(ui_widgets_share_one_property(widget, curr, UI_Widget_Property_LayoutHorizontal, UI_Widget_Property_LayoutVertical)){
-                        ui_measure_widget(curr, is_tiled, axis);
-                    } else {
-                        if(ui_widget_has_property(widget, UI_Widget_Property_Container)) {
-                            ui_measure_widget(curr, is_tiled, axis);
-                        } else {
-                            ui_measure_widget(curr, !is_tiled, axis);
-                        }
-                    }
+                
+                b32 width_is_auto = curr->parameters[0].size == 0;
+                b32 height_is_auto = curr->parameters[1].size == 0;
+                
+                // TODO(Cian): @UI Haven't decided how/if to support ratios inside auto-sized containers
+                /*assert(!curr->parameters[primary_idx].is_ratio);
+                assert(!curr->parameters[secondary_idx].is_ratio);*/
+                
+                //decide if we need to measure children & if so which axes to measure
+                if(width_is_auto || height_is_auto) {
+                    if(ui_widget_has_property(curr, UI_Widget_Property_LayoutHorizontal)) 
+                        ui_measure_widget(curr, UI_Widget_Property_LayoutHorizontal, width_is_auto,height_is_auto);
+                    else if(ui_widget_has_property(curr, UI_Widget_Property_LayoutVertical))
+                        ui_measure_widget(curr, UI_Widget_Property_LayoutHorizontal, width_is_auto, height_is_auto);
+                    else //setting to MAX(e.g. the last property in the enum) so that we can avoid weird clashes with other properties
+                        ui_measure_widget(curr, UI_Widget_Property_MAX, width_is_auto, height_is_auto);
                 }
                 
-                sum += curr->parameters[axis].size;
-                min_sum += curr->parameters[axis].size * curr->parameters[axis].strictness;
+                f32 size = curr->parameters[primary_idx].size;
+                f32 strictness = curr->parameters[primary_idx].strictness;
+                
+                sum_primary_axis += size;
+                min_sum_primary_axis += size * strictness;
+                
+                size = curr->parameters[secondary_idx].size;
+                strictness = curr->parameters[secondary_idx].strictness;
+                
+                if(size > max_secondary_axis)
+                    max_secondary_axis = size;
+                
+                f32 min_secondary_axis = size * strictness;
+                
+                if(min_secondary_axis > max_min_secondary_axis)
+                    max_min_secondary_axis = min_secondary_axis;
                 
                 curr = curr->tree_next_sibling;
             }
-            size = sum +  (widget->padding.elements[axis] + widget->padding.elements[axis + 2]);
             // TODO(Cian): @UI was having some issues with auto-sized strictness, keep in mind for rewrite
-            strictness =  (min_sum +  (widget->padding.elements[axis] + widget->padding.elements[axis + 2])) / size;
-        } else {
-            f32 max_pref_size = 0;
-            f32 max_min_size = 0;
+            primary_axis = sum_primary_axis;
+            primary_axis_strictness = (min_sum_primary_axis + (widget->padding.x0 + widget->padding.x1)) / primary_axis;
             
-            while(curr) {
-                // TODO(Cian): @UI Could probably simplify this, may as well check in an if this info, ok for now
-                // NOTE(Cian): Child widget may not share same layout direction
-                if(ui_is_auto_size(curr, axis)) {
-                    if(ui_widgets_share_one_property(widget, curr, UI_Widget_Property_LayoutHorizontal, UI_Widget_Property_LayoutVertical)){
-                        ui_measure_widget(curr, is_tiled, axis);
-                    } else {
-                        if(ui_widget_has_property(widget, UI_Widget_Property_Container)) {
-                            ui_measure_widget(curr, is_tiled, axis);
-                        } else {
-                            ui_measure_widget(curr, !is_tiled, axis);
-                        }
-                    }
-                }
+            secondary_axis = max_secondary_axis;
+            secondary_axis_strictness = (max_min_secondary_axis + (widget->padding.y0 + widget->padding.y1)) / secondary_axis;
+            
+            if(horizontal) {
+                width = primary_axis;
+                width_strictness = primary_axis_strictness;
                 
-                f32 pref_size = curr->parameters[axis].size;
-                f32 min_size = pref_size * curr->parameters[axis].strictness;
+                height = secondary_axis;
+                height_strictness = secondary_axis_strictness;
+            } else {
+                width = secondary_axis;
+                width_strictness = secondary_axis_strictness;
                 
-                if(pref_size > max_pref_size)
-                    max_pref_size = pref_size;
-                if(min_size > max_min_size)
-                    max_min_size = min_size;
-                
-                curr = curr->tree_next_sibling;
+                height= primary_axis;
+                height_strictness = primary_axis_strictness;
             }
-            size = max_pref_size +  (widget->padding.elements[axis] + widget->padding.elements[axis + 2]);
-            strictness = (max_min_size + (widget->padding.elements[axis] + widget->padding.elements[axis + 2])) / size;
-            // TODO(Cian): @UI was having some issues with auto-sized strictness, keep in mind for rewrite
-            
         }
-        // TODO(Cian): @UI padding stuff is a bit crude here
-        widget->parameters[axis].size = size;
-        widget->parameters[axis].strictness = strictness;
+        else {
+            // NOTE(Cian): Plain container
+            UI_Widget *child = widget->tree_first_child;
+            
+            width = 0;
+            width_strictness = 0;
+            height = 0;
+            height_strictness = 0;
+            
+            // TODO(Cian): Take padding, borders, title into account
+            if(child) {
+                
+                b32 width_is_auto = child->parameters[0].size == 0;
+                b32 height_is_auto = child->parameters[1].size == 0;
+                
+                // TODO(Cian): @UI Haven't decided how/if to support ratios inside auto-sized containers
+                /*assert(!curr->parameters[primary_idx].is_ratio);
+                assert(!curr->parameters[secondary_idx].is_ratio);*/
+                
+                //decide if we need to measure children & if so which axes to measure
+                if(width_is_auto || height_is_auto) {
+                    if(ui_widget_has_property(child, UI_Widget_Property_LayoutHorizontal)) 
+                        ui_measure_widget(child, UI_Widget_Property_LayoutHorizontal, width_is_auto,height_is_auto);
+                    else if(ui_widget_has_property(child, UI_Widget_Property_LayoutVertical))
+                        ui_measure_widget(child, UI_Widget_Property_LayoutHorizontal, width_is_auto, height_is_auto);
+                    else //setting to MAX(e.g. the last property in the enum) so that we can avoid weird clashes with other properties
+                        ui_measure_widget(child, UI_Widget_Property_MAX, width_is_auto, height_is_auto);
+                }
+                
+                width = child->parameters[UI_ParameterIndex_Width].size;
+                width_strictness = child->parameters[UI_ParameterIndex_Width].strictness;
+                
+                height = child->parameters[UI_ParameterIndex_Height].size;
+                height_strictness = child->parameters[UI_ParameterIndex_Height].strictness;
+            }
+        }
+        
+        //add padding... strictness is gonna be a little off rn
+        width += (widget->padding.x0 + widget->padding.x1);
+        height += (widget->padding.y0 + widget->padding.y1);
+        
+        if(is_width_auto) {
+            widget->parameters[0].size = width;
+            widget->parameters[0].strictness = width_strictness;
+        }
+        
+        if(is_height_auto) {
+            widget->parameters[1].size = height;
+            widget->parameters[1].strictness = height_strictness;
+        }
     } else {
         // TODO(Cian): @UI Handle things like widgets that have text etc, if a widget doesn't fall into any category here just set some default size
         nvgSave(vg_context);
@@ -556,7 +625,7 @@ internal void ui_measure_widget(UI_Widget *widget, b32 is_tiled, u32 axis) {
             f32 width = nvgTextBounds(vg_context, 0, 0, widget->string.data, null, bounds);
             f32 height = bounds[3] - bounds[1];
             
-            if(axis == UI_ParameterIndex_Width) {
+            if(is_width_auto) {
                 f32 padding_x0 = UI_OS_DEFAULT_TEXT_PADDING_X;
                 f32 padding_x1 = UI_OS_DEFAULT_TEXT_PADDING_X;
                 
@@ -566,11 +635,13 @@ internal void ui_measure_widget(UI_Widget *widget, b32 is_tiled, u32 axis) {
                 }
                 
                 // TODO(Cian): add padding and appropriate strictness so that there is always enough room for text
-                widget->parameters[axis].size = width + (padding_x0 + padding_x1);
+                widget->parameters[0].size = width + (padding_x0 + padding_x1);
                 // TODO(Cian): @UI setting text strictness to 1 to solve some headaches right now, will fix in rewrite
                 //widget->parameters[axis].strictness = (width + (2 * UI_MIN_TEXT_PADDING_X)) / widget->parameters[axis].size;
-                widget->parameters[axis].strictness = 1.0f;
-            } else {
+                widget->parameters[0].strictness = 1.0f;
+            } 
+            
+            if(is_height_auto) {
                 f32 padding_y0 = UI_OS_DEFAULT_TEXT_PADDING_Y;
                 f32 padding_y1 = UI_OS_DEFAULT_TEXT_PADDING_Y;
                 
@@ -579,116 +650,115 @@ internal void ui_measure_widget(UI_Widget *widget, b32 is_tiled, u32 axis) {
                     padding_y1 = widget->padding.y1;
                 }
                 
-                widget->parameters[axis].size = height + (padding_y0 + padding_y1);
+                widget->parameters[1].size = height + (padding_y0 + padding_y1);
                 //widget->parameters[axis].strictness = (height + (2 * UI_MIN_TEXT_PADDING_Y)) / widget->parameters[axis].size;
-                widget->parameters[axis].strictness = 1.0f;
+                widget->parameters[1].strictness = 1.0f;
             }
             
         } else {
             // TODO(Cian): @UI can probably remove this or only enable it in certain debug situations?
-            if(axis == UI_ParameterIndex_Width){
-                widget->parameters[axis].size = 10;
-                widget->parameters[axis].strictness = 1.0f;
+            if(is_width_auto){
+                widget->parameters[0].size = 10;
+                widget->parameters[0].strictness = 1.0f;
             } else {
-                widget->parameters[axis].size = 10;
-                widget->parameters[axis].strictness = 1.0f;
+                widget->parameters[1].size = 10;
+                widget->parameters[1].strictness = 1.0f;
             }
         }
         nvgRestore(vg_context);
         
     }
 }
-// TODO(Cian): @UI Both of these layout functions loop through the children, maybe these loops could occur at the same time? Doubt it really matters for performance whatsoever but it's kinda bothering my OCD
-// NOTE(Cian): Lays out the widgets in the direction of the Container e.g. if a row it will lay out/re-size horizontally
-internal void ui_layout_in_flow(UI_Widget *first_child, f32 available, f32 initial_offset, u32 axis) {
-    f32 sum_delta = 0;
-    f32 sum = 0;
-    
-    f32 offset = initial_offset;
-    UI_Widget *curr = first_child;
-    while(curr) {
-        // TODO(Cian): @UI This is pretty piggy, if both sizes are auto we will measure children 2 times for each axis
-        if(ui_is_auto_size(curr, axis)) {
-            // TODO(Cian): @UI Temporary fix for layouting, simpler rewrite needed later
-            if((axis == UI_ParameterIndex_Width && ui_widget_has_property(curr, UI_Widget_Property_LayoutHorizontal))
-               || (axis == UI_ParameterIndex_Height && ui_widget_has_property(curr, UI_Widget_Property_LayoutVertical))) {
-                ui_measure_widget(curr, true, axis);
-            } else {
-                ui_measure_widget(curr, false, axis);
-            }
-        }
-        
-        f32 pref_size = ui_get_size(curr, axis);
-        
-        sum_delta +=  (pref_size * (1 - curr->parameters[axis].strictness));
-        sum += pref_size;
-        
-        // NOTE(Cian): Attempt to layout with the preferred size
-        curr->curr_layout.elements[axis] = offset;
-        curr->curr_layout.elements[axis + 2] = pref_size;
-        offset += curr->curr_layout.elements[axis + 2];
-        
-        curr = curr->tree_next_sibling;
-    }
-    
-    offset = initial_offset;
-    if(sum > available && sum_delta != 0) {
-        
-        curr = first_child;
-        while(curr) {
-            
-            f32 pref_size = ui_get_size(curr, axis);
-            f32 factor = (pref_size * (1 - curr->parameters[axis].strictness)) / sum_delta; 
-            
-            curr->curr_layout.elements[axis] = offset;
-            curr->curr_layout.elements[axis + 2] -= (factor * (sum - available)); 
-            offset += curr->curr_layout.elements[axis + 2];
-            
-            curr = curr->tree_next_sibling;
-        }
-    } 
-}
-
+//
+//internal void ui_layout_in_flow(UI_Widget *first_child, f32 available, f32 initial_offset, u32 axis) {
+//f32 sum_delta = 0;
+//f32 sum = 0;
+//
+//f32 offset = initial_offset;
+//UI_Widget *curr = first_child;
+//while(curr) {
+// TODO(Cian): @UI This is pretty piggy, if both sizes are auto we will measure children 2 times for each axis
+//if(ui_is_auto_size(curr, axis)) {
+// TODO(Cian): @UI Temporary fix for layouting, simpler rewrite needed later
+//if((axis == UI_ParameterIndex_Width && ui_widget_has_property(curr, UI_Widget_Property_LayoutHorizontal))
+//|| (axis == UI_ParameterIndex_Height && ui_widget_has_property(curr, UI_Widget_Property_LayoutVertical))) {
+//ui_measure_widget(curr, true, axis);
+//} else {
+//ui_measure_widget(curr, false, axis);
+//}
+//}
+//
+//f32 pref_size = ui_get_size(curr, axis);
+//
+//sum_delta += (pref_size * (1 - curr->parameters[axis].strictness));
+//sum += pref_size;
+//
+// NOTE(Cian): Attempt to layout with the preferred size
+//curr->curr_layout.elements[axis] = offset;
+//curr->curr_layout.elements[axis + 2] = pref_size;
+//offset += curr->curr_layout.elements[axis + 2];
+//
+//curr = curr->tree_next_sibling;
+//}
+//
+//offset = initial_offset;
+//if(sum > available && sum_delta != 0) {
+//
+//curr = first_child;
+//while(curr) {
+//
+//f32 pref_size = ui_get_size(curr, axis);
+//f32 factor = (pref_size * (1 - curr->parameters[axis].strictness)) / sum_delta; 
+//
+//curr->curr_layout.elements[axis] = offset;
+//curr->curr_layout.elements[axis + 2] -= (factor * (sum - available)); 
+//offset += curr->curr_layout.elements[axis + 2];
+//
+//curr = curr->tree_next_sibling;
+//}
+//} 
+//}
+//
 // NOTE(Cian): Lays out the widgets in the non-flow axis e.g. if a row it will do layout/re-sizing on the height, simply "centers" the widget on this axis
-internal void ui_layout_non_flow(UI_Widget *first_child, f32 available, f32 initial_offset, u32 axis) {
-    UI_Widget *curr = first_child;
-    while(curr) {
-        if(ui_is_auto_size(curr, axis)) {
-            // TODO(Cian): @UI Temporary fix for layouting, simpler rewrite needed later
-            if((axis == UI_ParameterIndex_Width && ui_widget_has_property(curr, UI_Widget_Property_LayoutHorizontal))
-               || (axis == UI_ParameterIndex_Height && ui_widget_has_property(curr, UI_Widget_Property_LayoutVertical))) {
-                ui_measure_widget(curr, true, axis);
-            } else {
-                ui_measure_widget(curr, false, axis);
-            }
-        }
-        // TODO(Cian): @UI Maybe do fancy alignment stuff?
-        
-        f32 size = 0;
-        
-        f32 pref_size = ui_get_size(curr, axis);
-        f32 delta_size = pref_size * (1 - curr->parameters[axis].strictness);
-        
-        f32 factor = (pref_size - available) / delta_size;
-        if(pref_size > available && factor <= 1) {
-            size = pref_size - (factor * delta_size);
-        } else {
-            size = pref_size;
-        }
-        // NOTE(Cian): Center the widget 
-        // TODO(Cian): @UI Might wanna use ABS here, also might wanna round but whatever
-        f32 pos_offset = (available - size) / 2;
-        
-        // TODO(Cian): @UI need to sort out alignment later
-        //The offset...
-        curr->curr_layout.elements[axis] = initial_offset;
-        //The size...
-        curr->curr_layout.elements[axis + 2] = size;
-        
-        curr = curr->tree_next_sibling;
-    }
-}
-
+//internal void ui_layout_non_flow(UI_Widget *first_child, f32 available, f32 initial_offset, u32 axis) {
+//UI_Widget *curr = first_child;
+//while(curr) {
+//if(ui_is_auto_size(curr, axis)) {
+// TODO(Cian): @UI Temporary fix for layouting, simpler rewrite needed later
+//if((axis == UI_ParameterIndex_Width && ui_widget_has_property(curr, UI_Widget_Property_LayoutHorizontal))
+//|| (axis == UI_ParameterIndex_Height && ui_widget_has_property(curr, UI_Widget_Property_LayoutVertical))) {
+//ui_measure_widget(curr, true, axis);
+//} else {
+//ui_measure_widget(curr, false, axis);
+//}
+//}
+// TODO(Cian): @UI Maybe do fancy alignment stuff?
+//
+//f32 size = 0;
+//
+//f32 pref_size = ui_get_size(curr, axis);
+//f32 delta_size = pref_size * (1 - curr->parameters[axis].strictness);
+//
+//f32 factor = (pref_size - available) / delta_size;
+//if(pref_size > available && factor <= 1) {
+//size = pref_size - (factor * delta_size);
+//} else {
+//size = pref_size;
+//}
+// NOTE(Cian): Center the widget 
+// TODO(Cian): @UI Might wanna use ABS here, also might wanna round but whatever
+//f32 pos_offset = (available - size) / 2;
+//
+// TODO(Cian): @UI need to sort out alignment later
+//The offset...
+//curr->curr_layout.elements[axis] = initial_offset;
+//The size...
+//curr->curr_layout.elements[axis + 2] = size;
+//
+//curr = curr->tree_next_sibling;
+//}
+//}
+//
 // NOTE(Cian): 
 internal void ui_do_layout(UI_Widget *root) {
     // TODO(Cian): @UI Take padding into account here;
@@ -699,6 +769,7 @@ internal void ui_do_layout(UI_Widget *root) {
     f32 initial_offset_y = root->curr_layout.y + root->padding.y0;
     
     if(ui_widget_has_property(root, UI_Widget_Property_RenderBorder)) {
+        // TODO(Cian): @UI @Styles custom styles need to go here
         parent_width -= 2 * UI_BORDER_SIZE;
         parent_height -= 2 * UI_BORDER_SIZE;
         
@@ -706,16 +777,157 @@ internal void ui_do_layout(UI_Widget *root) {
         initial_offset_y += UI_BORDER_SIZE;
     }
     
-    if(ui_widget_has_property(root, UI_Widget_Property_LayoutHorizontal)) {
-        ui_layout_in_flow(root->tree_first_child, parent_width, initial_offset_x, 0);
-        ui_layout_non_flow(root->tree_first_child, parent_height, initial_offset_y,1);
-    } else if (ui_widget_has_property(root, UI_Widget_Property_LayoutVertical)) {
-        ui_layout_in_flow(root->tree_first_child, parent_height, initial_offset_y,1);
-        ui_layout_non_flow(root->tree_first_child, parent_width, initial_offset_x,0);
-    } else {
-        ui_layout_non_flow(root->tree_first_child, parent_width, initial_offset_x,0);
-        ui_layout_non_flow(root->tree_first_child, parent_height, initial_offset_y,1);
-    }
+    // NOTE(Cian): Not sure we even need to do this check as it's also done elsewhere...
+    if(ui_widget_has_property(root, UI_Widget_Property_Container)) {
+        
+        b32 is_horizontal = ui_widget_has_property(root, UI_Widget_Property_LayoutHorizontal);
+        b32 is_vertical = ui_widget_has_property(root, UI_Widget_Property_LayoutVertical);
+        
+        if(is_horizontal || is_vertical) {
+            
+            f32 primary_offset = 0;
+            f32 primary_available = 0;
+            UI_Size_Parameters_Idx primary_idx;
+            
+            f32 secondary_offset = 0;
+            f32 secondary_available = 0;
+            UI_Size_Parameters_Idx secondary_idx;
+            
+            if(is_horizontal) {
+                primary_idx = UI_ParameterIndex_Width;
+                primary_offset = initial_offset_x;
+                primary_available = parent_width;
+                
+                secondary_idx = UI_ParameterIndex_Height;
+                secondary_offset = initial_offset_y;
+                secondary_available = parent_height;
+                
+            } else {
+                primary_idx = UI_ParameterIndex_Height;
+                primary_offset = initial_offset_y;
+                primary_available = parent_height;
+                
+                secondary_idx = UI_ParameterIndex_Width;
+                secondary_offset = initial_offset_x;
+                secondary_available = parent_width;
+            }
+            
+            f32 initial_primary_offset = primary_offset;
+            
+            f32 primary_axis_sum = 0;
+            f32 primary_axis_sum_delta = 0;
+            
+            UI_Widget *curr = root->tree_first_child;
+            while(curr) {
+                
+                b32 width_is_auto = curr->parameters[0].size == 0;
+                b32 height_is_auto = curr->parameters[1].size == 0;
+                
+                //decide if we need to measure children & if so which axes to measure
+                if(width_is_auto || height_is_auto) {
+                    if(ui_widget_has_property(curr, UI_Widget_Property_LayoutHorizontal)) 
+                        ui_measure_widget(curr, UI_Widget_Property_LayoutHorizontal, width_is_auto,height_is_auto);
+                    else if(ui_widget_has_property(curr, UI_Widget_Property_LayoutVertical))
+                        ui_measure_widget(curr, UI_Widget_Property_LayoutHorizontal, width_is_auto, height_is_auto);
+                    else //setting to MAX(e.g. the last property in the enum) so that we can avoid weird clashes with other properties
+                        ui_measure_widget(curr, UI_Widget_Property_MAX, width_is_auto, height_is_auto);
+                }
+                
+                f32 pref_size = ui_get_size(curr, primary_idx);
+                primary_axis_sum_delta += (pref_size * (1 - curr->parameters[primary_idx].strictness));
+                primary_axis_sum += pref_size;
+                
+                curr->curr_layout.elements[primary_idx] = primary_offset;
+                curr->curr_layout.elements[primary_idx + 2] = pref_size;
+                primary_offset += curr->curr_layout.elements[primary_idx + 2];
+                
+                pref_size = ui_get_size(curr, secondary_idx);
+                f32 secondary_axis_delta = pref_size * (1 - curr->parameters[secondary_idx].strictness);
+                
+                f32 secondary_factor = (pref_size - secondary_available) / secondary_axis_delta;
+                
+                f32 secondary_size = pref_size;
+                if(pref_size > secondary_available && secondary_factor <= 1) {
+                    secondary_size = pref_size - (secondary_factor * secondary_axis_delta);
+                }
+                
+                f32 pos_offset = (secondary_available - secondary_size) / 2;
+                
+                curr->curr_layout.elements[secondary_idx] = secondary_offset;
+                curr->curr_layout.elements[secondary_idx + 2] = secondary_size;
+                
+                curr = curr->tree_next_sibling;
+            }
+            primary_offset = initial_primary_offset;
+            
+            if(primary_axis_sum > primary_available && primary_axis_sum_delta != 0) {
+                curr = root->tree_first_child;
+                while(curr) {
+                    
+                    f32 pref_size = ui_get_size(curr, primary_idx);
+                    f32 factor = (pref_size * (1 - curr->parameters[primary_idx].strictness)) / primary_axis_sum_delta; 
+                    
+                    curr->curr_layout.elements[primary_idx] = primary_offset;
+                    curr->curr_layout.elements[primary_idx + 2] -= (factor * (primary_axis_sum - primary_available)); 
+                    primary_offset += curr->curr_layout.elements[primary_idx + 2];
+                    
+                    curr = curr->tree_next_sibling;
+                }
+            }
+            
+        } else { //just a plain container e.g. a panel
+            // NOTE(Cian): Containers can only have one child
+            UI_Widget *child = root->tree_first_child;
+            if(child) {
+                b32 width_is_auto = child->parameters[0].size == 0;
+                b32 height_is_auto = child->parameters[1].size == 0;
+                
+                assert(root->tree_first_child->tree_next_sibling == null);
+                //decide if we need to measure children & if so which axes to measure
+                if(width_is_auto || height_is_auto) {
+                    if(ui_widget_has_property(child, UI_Widget_Property_LayoutHorizontal)) 
+                        ui_measure_widget(child, UI_Widget_Property_LayoutHorizontal, width_is_auto,height_is_auto);
+                    else if(ui_widget_has_property(child, UI_Widget_Property_LayoutVertical))
+                        ui_measure_widget(child, UI_Widget_Property_LayoutHorizontal, width_is_auto, height_is_auto);
+                    else //setting to MAX(e.g. the last property in the enum) so that we can avoid weird clashes with other properties
+                        ui_measure_widget(child, UI_Widget_Property_MAX, width_is_auto, height_is_auto);
+                }
+                
+                f32 width = 0;
+                f32 pref_width = ui_get_size(child, UI_ParameterIndex_Width);
+                f32 delta_width = pref_width * (1 - child->parameters[UI_ParameterIndex_Width].strictness);
+                f32 width_factor = (pref_width - parent_width) / delta_width;
+                
+                if(pref_width > parent_width && width_factor <=1) {
+                    width = pref_width - (width_factor * delta_width);
+                }
+                
+                child->curr_layout.elements[UI_LayoutIndex_X] = initial_offset_x;
+                child->curr_layout.elements[UI_LayoutIndex_Width] = width;
+                
+                f32 height = 0;
+                f32 pref_height = ui_get_size(child, UI_ParameterIndex_Height);
+                f32 delta_height = pref_height * (1 - child->parameters[UI_ParameterIndex_Height].strictness);
+                f32 height_factor = (pref_height - parent_height) / delta_height;
+                
+                if(pref_height > parent_height && height_factor <=1) {
+                    height = pref_height - (height_factor * delta_height);
+                }
+                
+                child->curr_layout.elements[UI_LayoutIndex_Y] = initial_offset_y;
+                child->curr_layout.elements[UI_LayoutIndex_Height] = height;
+                
+                if(width > parent_width && ui_widget_has_property(root, UI_Widget_Property_ScrollHorizontal)) {
+                    // TODO(Cian): @Checkpoint do scrolling logic here
+                }
+                
+                if(height > parent_height && ui_widget_has_property(root, UI_Widget_Property_ScrollVertical)) {
+                    // TODO(Cian): @Checkpoint do scrolling logic here also
+                }
+                
+            }
+        }
+    } 
     
     // TODO(Cian): @UI Lil annoying that I have a third loop here, need to try and clean this up once I get things working
     UI_Widget *curr = root->tree_first_child;

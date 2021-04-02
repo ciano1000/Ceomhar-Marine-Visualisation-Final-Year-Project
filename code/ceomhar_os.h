@@ -58,7 +58,7 @@ struct OS_Event {
     // TODO(Cian): add keys etc
     V2 pos;
     V2 delta;
-    V2 scroll;
+    f32 scroll_delta;
 };
 
 
@@ -85,30 +85,29 @@ struct OS_State
     Memory_Arena frame_arena;
     Memory_Arena permanent_arena; 
     // NOTE(Cian): A scope arena has a lifetime of some local scope, useful for very temporary strings etc.
-    Memory_Arena scope_arena; 
+    Memory_Arena scope_arena;
+    
+#ifndef CEOMHAR_DATAGEN
+#ifndef CEOMHAR_SERVER
+    NVGcontext *vg;
+#endif
+#endif
 };
 
 
 global OS_State *os = null;
 
-#define APP_FUNCTION __declspec(dllexport)
+#define external extern "C" __declspec(dllexport)
 
-// NOTE(Cian): Typedefs are for the platform(no declspec)
-APP_FUNCTION void start(OS_State *os);
-typedef void App_Start(OS_State *os);
-internal void app_start_stub(OS_State *os);
+#define APP_START(name) void name(OS_State *state)
+typedef APP_START(App_Start);
+APP_START(app_start_stub) {
+    
+}
 
-APP_FUNCTION void update_and_render();
-typedef void App_Update_And_Render();
-internal void app_update_and_render_stub();
-
-APP_FUNCTION void unload();
-typedef void App_Unload();
-internal void app_unload_stub(OS_State *os);
-
-APP_FUNCTION void reload();
-typedef void App_Reload();
-internal void app_reload_stub(OS_State *os);
-
-
+#define APP_UPDATE_AND_RENDER(name) void name()
+typedef APP_UPDATE_AND_RENDER(App_Update_And_Render);
+APP_UPDATE_AND_RENDER(app_update_and_render_stub) {
+    
+}
 

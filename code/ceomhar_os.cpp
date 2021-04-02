@@ -4,6 +4,54 @@ internal void os_push_event(OS_Event event) {
     }
 }
 
+internal void os_flush_events() {
+    for(u32 i = 0; i < os->event_count; i++) {
+        os->events[i] = {};
+    }
+    
+    os->event_count = 0;
+}
+
+internal OS_Event os_mouse_move_event(V2 position, V2 delta_pos) {
+    OS_Event mouse_event = {};
+    
+    mouse_event.type = OS_Event_Type_MouseMove;
+    mouse_event.pos = position;
+    mouse_event.delta = delta_pos;
+    
+    return mouse_event;
+}
+
+internal OS_Event os_mouse_button_down_event(OS_Mouse_Button button, V2 position) {
+    OS_Event mouse_event = {};
+    
+    mouse_event.type = OS_Event_Type_MouseDown;
+    mouse_event.pos = position;
+    mouse_event.mouse_button = button;
+    
+    return mouse_event;
+}
+
+internal OS_Event os_mouse_button_up_event(OS_Mouse_Button button, V2 position) {
+    OS_Event mouse_event = {};
+    
+    mouse_event.type = OS_Event_Type_MouseUp;
+    mouse_event.pos = position;
+    mouse_event.mouse_button = button;
+    
+    return mouse_event;
+}
+
+// TODO(Cian): @OS @Input add scroll modifiers here, e.g. for zooming when CTRL is held
+internal OS_Event os_mouse_scroll_event(f32 scroll_delta) {
+    OS_Event scroll_event = {};
+    scroll_event.scroll_delta = scroll_delta;
+    
+    return scroll_event;
+}
+
+
+#ifdef CEOMHAR_APP
 internal b32 os_get_next_event(OS_Event **event) {
     b32 result = false;
     
@@ -59,40 +107,4 @@ internal b32 os_peek_mouse_button_event(OS_Event **event, OS_Event_Type type, OS
     return result;
 }
 
-internal void os_flush_events() {
-    for(u32 i = 0; i < os->event_count; i++) {
-        os->events[i] = {};
-    }
-    
-    os->event_count = 0;
-}
-
-internal OS_Event os_mouse_move_event(V2 position, V2 delta_pos) {
-    OS_Event mouse_event = {};
-    
-    mouse_event.type = OS_Event_Type_MouseMove;
-    mouse_event.pos = position;
-    mouse_event.delta = delta_pos;
-    
-    return mouse_event;
-}
-
-internal OS_Event os_mouse_button_down_event(OS_Mouse_Button button, V2 position) {
-    OS_Event mouse_event = {};
-    
-    mouse_event.type = OS_Event_Type_MouseDown;
-    mouse_event.pos = position;
-    mouse_event.mouse_button = button;
-    
-    return mouse_event;
-}
-
-internal OS_Event os_mouse_button_up_event(OS_Mouse_Button button, V2 position) {
-    OS_Event mouse_event = {};
-    
-    mouse_event.type = OS_Event_Type_MouseUp;
-    mouse_event.pos = position;
-    mouse_event.mouse_button = button;
-    
-    return mouse_event;
-}
+#endif
