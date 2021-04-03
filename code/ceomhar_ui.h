@@ -48,6 +48,8 @@ enum UI_Widget_Property{
     UI_Widget_Property_Togglable,
     UI_Widget_Property_ScrollHorizontal, //horizontal scrolling only occurs when we overflowing uin elements
     UI_Widget_Property_ScrollVertical, 
+    UI_Widget_Property_ScrollHorizontalEnable, 
+    UI_Widget_Property_ScrollVerticalEnable, 
     UI_Widget_Property_EditText,
     
     UI_Widget_Property_Container,

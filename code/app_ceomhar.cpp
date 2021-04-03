@@ -90,6 +90,20 @@ external APP_UPDATE_AND_RENDER(app_update_and_render) {
                             FILLER(1);
                             ui_label(20.0f, "Options");
                             FILLER(1);
+                            
+                        }
+                        HEIGHT(100, 1.0f) {
+                            ui_test_box(HIGHLIGHT_COLOR, "TestBox##1");
+                            ui_test_box(SECONDARY_COLOR, "TestBox##2");
+                            ui_test_box(HIGHLIGHT_COLOR, "TestBox##3");
+                            ui_test_box(SECONDARY_COLOR, "TestBox##4");
+                            ui_test_box(HIGHLIGHT_COLOR, "TestBox##5");
+                            ui_test_box(SECONDARY_COLOR, "TestBox##6");
+                            ui_test_box(HIGHLIGHT_COLOR, "TestBox##7");
+                            ui_test_box(SECONDARY_COLOR, "TestBox##8");
+                            ui_test_box(HIGHLIGHT_COLOR, "TestBox##9");
+                            ui_test_box(SECONDARY_COLOR, "TestBox##10");
+                            ui_test_box(HIGHLIGHT_COLOR, "TestBox##11");
                         }
                     }
                 }

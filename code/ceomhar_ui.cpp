@@ -320,6 +320,35 @@ internal void ui_begin_panel(NVGcolor color, char *format,...) {
     ui_widget_add_property(panel_container, UI_Widget_Property_ScrollHorizontal);
     ui_widget_add_property(panel_container,  UI_Widget_Property_ScrollVertical);
     panel_container->color = color;
+    
+    V4 panel_rect = panel_container->old_layout;
+    V2 mouse_pos = os->mouse_pos;
+    
+    b32 mouse_is_over = mouse_pos.x > panel_rect.x &&
+        mouse_pos.x < panel_rect.x + panel_rect.width &&
+        mouse_pos.y > panel_rect.y &&
+        mouse_pos.y < panel_rect.y + panel_rect.height;
+    
+    if(ui_state->active.hash == panel_container->id.hash) {
+        // TODO(Cian): @UI handle dragging of scroll bar
+    } else if(ui_state->hot.hash == panel_container->id.hash) {
+        if(!mouse_is_over) {
+            ui_state->hot = UI_NullID;
+        } else {
+            // TODO(Cian): @UI @Scroll for now only handling vertical scroll
+            if(ui_widget_has_property(panel_container, UI_Widget_Property_ScrollVerticalEnable)) {
+                OS_Event *scroll_event = null;
+                os_peek_mouse_scroll(&scroll_event);
+                panel_container->scroll_offset_y += (50 * scroll_event->scroll_delta); 
+                os_take_event(scroll_event);
+            }
+        }
+    } else {
+        if(mouse_is_over  && (ui_state->hot.hash == 0))
+            ui_state->hot = panel_container->id;
+    }
+    
+    
     ui_push_parent(panel_container);
     // NOTE(Cian): The row inside of the panel shouldn't receive any of the panels padding or sizes, maybe should change this
     WIDTH_AUTO HEIGHT_AUTO PADDING2(v2(0,0))
@@ -347,10 +376,18 @@ internal void ui_spacer(f32 size, f32 strictness) {
         spacer->parameters[UI_ParameterIndex_Width].size = size;
         spacer->parameters[UI_ParameterIndex_Width].strictness = strictness;
         spacer->parameters[UI_ParameterIndex_Width].is_ratio = false;
+        
+        // NOTE(Cian): Bit of a hack but this prevents weird measuring behaviour with fillers
+        spacer->parameters[UI_ParameterIndex_Height].size = 1;
+        spacer->parameters[UI_ParameterIndex_Height].strictness = 1;
     } else {
         spacer->parameters[UI_ParameterIndex_Height].size = size;
         spacer->parameters[UI_ParameterIndex_Height].strictness = strictness;
         spacer->parameters[UI_ParameterIndex_Height].is_ratio = false;
+        
+        // NOTE(Cian): Bit of a hack but this prevents weird measuring behaviour with fillers
+        spacer->parameters[UI_ParameterIndex_Width].size = 1;
+        spacer->parameters[UI_ParameterIndex_Width].strictness = 1;
     }
 }
 
@@ -519,7 +556,7 @@ internal void ui_measure_widget(UI_Widget *widget, UI_Widget_Property layout_dir
                     if(ui_widget_has_property(curr, UI_Widget_Property_LayoutHorizontal)) 
                         ui_measure_widget(curr, UI_Widget_Property_LayoutHorizontal, width_is_auto,height_is_auto);
                     else if(ui_widget_has_property(curr, UI_Widget_Property_LayoutVertical))
-                        ui_measure_widget(curr, UI_Widget_Property_LayoutHorizontal, width_is_auto, height_is_auto);
+                        ui_measure_widget(curr, UI_Widget_Property_LayoutVertical, width_is_auto, height_is_auto);
                     else //setting to MAX(e.g. the last property in the enum) so that we can avoid weird clashes with other properties
                         ui_measure_widget(curr, UI_Widget_Property_MAX, width_is_auto, height_is_auto);
                 }
@@ -588,7 +625,7 @@ internal void ui_measure_widget(UI_Widget *widget, UI_Widget_Property layout_dir
                     if(ui_widget_has_property(child, UI_Widget_Property_LayoutHorizontal)) 
                         ui_measure_widget(child, UI_Widget_Property_LayoutHorizontal, width_is_auto,height_is_auto);
                     else if(ui_widget_has_property(child, UI_Widget_Property_LayoutVertical))
-                        ui_measure_widget(child, UI_Widget_Property_LayoutHorizontal, width_is_auto, height_is_auto);
+                        ui_measure_widget(child, UI_Widget_Property_LayoutVertical, width_is_auto, height_is_auto);
                     else //setting to MAX(e.g. the last property in the enum) so that we can avoid weird clashes with other properties
                         ui_measure_widget(child, UI_Widget_Property_MAX, width_is_auto, height_is_auto);
                 }
@@ -690,6 +727,9 @@ internal void ui_do_layout(UI_Widget *root) {
     // NOTE(Cian): Not sure we even need to do this check as it's also done elsewhere...
     if(ui_widget_has_property(root, UI_Widget_Property_Container)) {
         
+        initial_offset_x += root->scroll_offset_x;
+        initial_offset_y += root->scroll_offset_y;
+        
         b32 is_horizontal = ui_widget_has_property(root, UI_Widget_Property_LayoutHorizontal);
         b32 is_vertical = ui_widget_has_property(root, UI_Widget_Property_LayoutVertical);
         
@@ -738,7 +778,7 @@ internal void ui_do_layout(UI_Widget *root) {
                     if(ui_widget_has_property(curr, UI_Widget_Property_LayoutHorizontal)) 
                         ui_measure_widget(curr, UI_Widget_Property_LayoutHorizontal, width_is_auto,height_is_auto);
                     else if(ui_widget_has_property(curr, UI_Widget_Property_LayoutVertical))
-                        ui_measure_widget(curr, UI_Widget_Property_LayoutHorizontal, width_is_auto, height_is_auto);
+                        ui_measure_widget(curr, UI_Widget_Property_LayoutVertical, width_is_auto, height_is_auto);
                     else //setting to MAX(e.g. the last property in the enum) so that we can avoid weird clashes with other properties
                         ui_measure_widget(curr, UI_Widget_Property_MAX, width_is_auto, height_is_auto);
                 }
@@ -798,7 +838,7 @@ internal void ui_do_layout(UI_Widget *root) {
                     if(ui_widget_has_property(child, UI_Widget_Property_LayoutHorizontal)) 
                         ui_measure_widget(child, UI_Widget_Property_LayoutHorizontal, width_is_auto,height_is_auto);
                     else if(ui_widget_has_property(child, UI_Widget_Property_LayoutVertical))
-                        ui_measure_widget(child, UI_Widget_Property_LayoutHorizontal, width_is_auto, height_is_auto);
+                        ui_measure_widget(child, UI_Widget_Property_LayoutVertical, width_is_auto, height_is_auto);
                     else //setting to MAX(e.g. the last property in the enum) so that we can avoid weird clashes with other properties
                         ui_measure_widget(child, UI_Widget_Property_MAX, width_is_auto, height_is_auto);
                 }
@@ -828,11 +868,18 @@ internal void ui_do_layout(UI_Widget *root) {
                 child->curr_layout.elements[UI_LayoutIndex_Height] = height;
                 
                 if(width > parent_width && ui_widget_has_property(root, UI_Widget_Property_ScrollHorizontal)) {
-                    // TODO(Cian): @Checkpoint do scrolling logic here
+                    //we enable the scrolling property, this will enable rendering, input and (future) layout for the scrollbar
+                    ui_widget_add_property(root, UI_Widget_Property_ScrollHorizontalEnable);
+                    
+                } else {
+                    ui_widget_remove_property(root,  UI_Widget_Property_ScrollHorizontalEnable);
                 }
                 
                 if(height > parent_height && ui_widget_has_property(root, UI_Widget_Property_ScrollVertical)) {
                     // TODO(Cian): @Checkpoint do scrolling logic here also
+                    ui_widget_add_property(root, UI_Widget_Property_ScrollVerticalEnable);
+                } else {
+                    ui_widget_remove_property(root,  UI_Widget_Property_ScrollVerticalEnable);
                 }
                 
             }

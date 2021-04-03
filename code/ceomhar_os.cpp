@@ -45,6 +45,7 @@ internal OS_Event os_mouse_button_up_event(OS_Mouse_Button button, V2 position) 
 // TODO(Cian): @OS @Input add scroll modifiers here, e.g. for zooming when CTRL is held
 internal OS_Event os_mouse_scroll_event(f32 scroll_delta) {
     OS_Event scroll_event = {};
+    scroll_event.type = OS_Event_Type_MouseScroll;
     scroll_event.scroll_delta = scroll_delta;
     
     return scroll_event;
@@ -101,6 +102,19 @@ internal b32 os_peek_mouse_button_event(OS_Event **event, OS_Event_Type type, OS
                 *event = new_event;
                 result = true;
             }
+        }
+    }
+    
+    return result;
+}
+
+internal b32 os_peek_mouse_scroll(OS_Event **event) {
+    // TODO(Cian):  not sure would there be more than one mouse event per frame? Might be possible
+    b32 result = false;
+    for(OS_Event *new_event = 0; os_get_next_event(&new_event);) {
+        if(new_event->type ==  OS_Event_Type_MouseScroll) {
+            *event = new_event;
+            result = true;
         }
     }
     

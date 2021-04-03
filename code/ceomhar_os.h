@@ -48,6 +48,7 @@ enum OS_Event_Type {
     OS_Event_Type_MouseMove,
     OS_Event_Type_MouseDown,
     OS_Event_Type_MouseUp,
+    OS_Event_Type_MouseScroll,
     
     OS_Event_Type_MAX
 };
