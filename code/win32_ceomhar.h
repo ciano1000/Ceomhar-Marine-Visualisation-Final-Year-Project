@@ -1,0 +1,2 @@
+#define GET_MONITOR_DPI(name) HRESULT name(HMONITOR hmonitor, MONITOR_DPI_TYPE dpiType, UINT *dpiX, UINT *dpiY)
+typedef GET_MONITOR_DPI(GET_DPI_FOR_MONITOR);

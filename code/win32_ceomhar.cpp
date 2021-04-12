@@ -8,7 +8,7 @@
 #include "stb\stb_sprintf.h"
 
 #include <windows.h>
-#include <Shellscalingapi.h>
+#include <shellscalingapi.h>
 #include "utils.h"
 #include "win32_gl_init.h"
 #include "win32_gl_init.cpp"
@@ -29,6 +29,7 @@
 #include "ceomhar_string.cpp"
 #include "win32_platform.cpp"
 #include "win32_app_loading.cpp"
+#include "win32_ceomhar.h"
 
 
 global NVGcontext *vg_context = null;
@@ -38,6 +39,24 @@ global OS_State global_os;
 global Win32_App_Code code = {};
 
 global b32 Running;
+
+global HMODULE shcore;
+global GET_DPI_FOR_MONITOR *get_dpi_for_monitor;
+
+void update_dpi_scale(HWND window) {
+    if(shcore) {
+        HMONITOR monitor = MonitorFromWindow(window, MONITOR_DEFAULTTOPRIMARY);
+        
+        UINT x, y;
+        HRESULT res = get_dpi_for_monitor(monitor, MDT_EFFECTIVE_DPI, &x, &y);
+        os->display.dpi = x;
+    } else {
+        HDC screen = GetDC(NULL);
+        global_os.display.dpi = GetDeviceCaps(screen, LOGPIXELSY);
+        ReleaseDC(NULL, screen);
+    }
+}
+
 LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LPARAM l_param)
 {
     static b32 weird_windows_mouse_tracking = false;
@@ -62,7 +81,11 @@ LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LP
                 SwapBuffers(dc);
                 ReleaseDC(window_handle, dc);
             }
-        }break;
+        } break;
+        case WM_DPICHANGED:
+        {
+            update_dpi_scale(window_handle);
+        } break;
         case WM_SYSKEYDOWN:
         case WM_SYSKEYUP:
         case WM_KEYDOWN:
@@ -111,6 +134,7 @@ LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LP
             os_push_event(os_mouse_move_event(pos, delta_pos));
             
             if(weird_windows_mouse_tracking == false) {
+                global_os.mouse_off_screen = false;
                 weird_windows_mouse_tracking = true;
                 
                 TRACKMOUSEEVENT track_event = {};
@@ -124,6 +148,7 @@ LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LP
         case WM_MOUSELEAVE:
         {
             weird_windows_mouse_tracking = false;
+            global_os.mouse_off_screen = true;
         } break;
         case WM_MOUSEWHEEL:
         {
@@ -152,6 +177,20 @@ int main(u32 argc, char **argv) {
     //NVGcontext *vg_context = {};
     //OS_State *os = {};
     
+    OSVERSIONINFOEXW version = { sizeof(version) };
+    ((LONG (*)(PRTL_OSVERSIONINFOEXW)) GetProcAddress(GetModuleHandleW(L"ntdll.dll"), "RtlGetVersion"))(&version);
+    
+    shcore = null;
+    
+    if(version.dwMajorVersion >=10) {
+        shcore = LoadLibraryA("shcore.dll");
+        
+        SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+        
+        get_dpi_for_monitor = (GET_DPI_FOR_MONITOR *) GetProcAddress(shcore, "GetDpiForMonitor");
+    } else {
+        SetProcessDPIAware();
+    }
     
     for(u32 i = 0; i<argc; i++) {
         printf("Command %i: %s",i,argv[i]);
@@ -204,6 +243,8 @@ int main(u32 argc, char **argv) {
         nvgCreateFont(vg_context,"roboto-medium", fontLocation_2);
         
         os = &global_os;
+        
+        
         global_os.running = true;
         global_os.reserve_memory = &reserve_memory;
         global_os.commit_memory = &commit_memory;
@@ -220,6 +261,7 @@ int main(u32 argc, char **argv) {
         OS_App_Display screen_dimension = {};
         get_screen_info(window_handle, &screen_dimension);
         global_os.display = screen_dimension;
+        update_dpi_scale(window_handle);
         
         // NOTE(Cian): Load app code
         HMODULE app_dll = LoadLibraryA("Ceomhar_app.dll");
@@ -231,9 +273,15 @@ int main(u32 argc, char **argv) {
         
         wglSwapIntervalEXT(1);
         
-        SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
         while(global_os.running)
         {
+            MSG message; 
+            while(PeekMessage(&message,0,0,0,PM_REMOVE|PM_NOYIELD))
+            {
+                TranslateMessage(&message);
+                DispatchMessage(&message);
+            }
+            
             LARGE_INTEGER win_perf_counter_large;
             QueryPerformanceCounter(&win_perf_counter_large);
             
@@ -241,8 +289,8 @@ int main(u32 argc, char **argv) {
             
             os->current_time = initial_perf_counter / perf_frequency;
             //Main game loop
-            MSG message; 
             get_screen_info(window_handle, &screen_dimension);
+            screen_dimension.dpi = os->display.dpi;
             os->display = screen_dimension;
             
             
@@ -258,13 +306,6 @@ int main(u32 argc, char **argv) {
             HDC dc = GetDC(window_handle);
             SwapBuffers(dc);
             ReleaseDC(window_handle, device_context);
-            
-            while(PeekMessage(&message,0,0,0,PM_REMOVE|PM_NOYIELD))
-            {
-                TranslateMessage(&message);
-                DispatchMessage(&message);
-                
-            }
             
             memory_arena_clear(&os->frame_arena);
         }

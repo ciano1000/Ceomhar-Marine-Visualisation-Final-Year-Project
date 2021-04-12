@@ -3,7 +3,6 @@
 #define OS_DEFAULT_DPI 96.0f
 #define OS_DEFAULT_DISPLAY_X 2560
 #define OS_DEFAULT_DISPLAY_Y 1440
-#define OS_DEFAULT_DISPLAY_DENSITY 3686400.0f
 
 #define PLATFORM_RESERVE_MEMORY(name) void *##name(u64 size)
 typedef PLATFORM_RESERVE_MEMORY(Platform_Reserve_Memory);
@@ -74,6 +73,7 @@ struct OS_State
     u32 event_count;
     OS_Event events[OS_MAX_EVENTS];
     V2 mouse_pos;
+    b32 mouse_off_screen;
     
     Platform_Reserve_Memory *reserve_memory;
     Platform_Commit_Memory *commit_memory;

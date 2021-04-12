@@ -92,6 +92,20 @@ internal b32 os_peek_mouse_move(OS_Event **event) {
     return result;
 }
 
+internal b32 os_sum_mouse_moves(V2 *delta_sum) {
+    b32 result = false;
+    for(OS_Event *new_event = 0; os_get_next_event(&new_event);) {
+        if(new_event->type == OS_Event_Type_MouseMove) {
+            result = true;
+            
+            delta_sum->x += new_event->delta.x;
+            delta_sum->y += new_event->delta.y;
+        }
+    }
+    
+    return true;
+}
+
 internal b32 os_peek_mouse_button_event(OS_Event **event, OS_Event_Type type, OS_Mouse_Button button) {
     b32 result = false;
     // TODO(Cian):  not sure would there be more than one mouse event per frame? Might be possible
