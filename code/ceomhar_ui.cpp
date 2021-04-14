@@ -346,14 +346,8 @@ internal void ui_render(UI_Widget *root) {
     
     V4 title_rect = v4(window->curr_layout.x, window->curr_layout.y, window->curr_layout.width, 20);
     V4 border_left = v4(window->curr_layout.x, window->curr_layout.y + 20, 4.0f,  window->curr_layout.height - 20);
-    V4 border_right = v4(window->curr_layout.x + ( window->curr_layout.width - 4.0f), window->curr_layout.y - 20, 4.0f,  window->curr_layout.height - 20);
+    V4 border_right = v4(window->curr_layout.x + ( window->curr_layout.width - 4.0f), window->curr_layout.y + 20, 4.0f,  window->curr_layout.height - 20);
     V4 border_bottom = v4(window->curr_layout.x, window->curr_layout.y + ( window->curr_layout.height - 4.0f), window->curr_layout.width,  4.0f);
-    
-    nvgBeginPath(vg_context);
-    nvgRect(vg_context, border_bottom.x, border_bottom.y, border_bottom.width, border_bottom.height);
-    nvgFillColor(vg_context, nvgRGB(255, 255 ,255));
-    nvgFill(vg_context);
-    
     
     if(dragging_title) {
         
@@ -363,7 +357,15 @@ internal void ui_render(UI_Widget *root) {
         nvgFillColor(vg_context, nvgRGB(255, 255 ,255));
         nvgFill(vg_context);
     } else if(dragging_right) {
+        nvgBeginPath(vg_context);
+        nvgRect(vg_context, border_right.x, border_right.y, border_right.width, border_right.height);
+        nvgFillColor(vg_context, nvgRGB(255, 255 ,255));
+        nvgFill(vg_context);
     } else if(dragging_bottom) {
+        nvgBeginPath(vg_context);
+        nvgRect(vg_context, border_bottom.x, border_bottom.y, border_bottom.width, border_bottom.height);
+        nvgFillColor(vg_context, nvgRGB(255, 255 ,255));
+        nvgFill(vg_context);
     }
 }
 
@@ -421,7 +423,7 @@ internal void ui_begin_window(V4 layout, b32 is_open, char *title...) {
     // TODO(Cian): This will need to use the windows style to calculate later
     V4 title_rect = v4(window->curr_layout.x, window->curr_layout.y, window->curr_layout.width, 20);
     V4 border_left = v4(window->curr_layout.x, window->curr_layout.y - 20, 4.0f,  window->curr_layout.height - 20);
-    V4 border_right = v4(window->curr_layout.x + ( window->curr_layout.width - 4.0f), window->curr_layout.y - 20, 4.0f,  window->curr_layout.height - 20);
+    V4 border_right = v4(window->curr_layout.x + ( window->curr_layout.width - 4.0f), window->curr_layout.y + 20, 4.0f,  window->curr_layout.height - 20);
     V4 border_bottom = v4(window->curr_layout.x, window->curr_layout.y + ( window->curr_layout.height - 4.0f), window->curr_layout.width,  4.0f);
     //not sure if I want the top of the window to do resizing
     //V4 border_top = v4(window->curr_layout.x, window->curr_layout.y - 20, 4.0f,  window->curr_layout.height - 20);
@@ -445,11 +447,6 @@ internal void ui_begin_window(V4 layout, b32 is_open, char *title...) {
         
         if(mouse_up) {
             ui->active = ui_null_id();
-            
-            ui_widget_remove_property(window, UI_Widget_Property_DraggingTitle);
-            ui_widget_remove_property(window,  UI_Widget_Property_ResizeLeft);
-            ui_widget_remove_property(window,  UI_Widget_Property_ResizeRight);
-            ui_widget_remove_property(window,  UI_Widget_Property_ResizeBottom);
             
             if(!(mouse_is_over_title || mouse_is_over_left || mouse_is_over_right || mouse_is_over_bottom)) {
                 ui->hot = ui_null_id();
@@ -475,25 +472,35 @@ internal void ui_begin_window(V4 layout, b32 is_open, char *title...) {
     } else if(ui_is_id_equal(ui->hot, window->id)) { 
         if(mouse_down) {
             ui->active = window->id;
-            
-            if(mouse_is_over_title) {
-                ui_widget_add_property(window, UI_Widget_Property_DraggingTitle);
-            } else if(mouse_is_over_left) {
-                ui_widget_add_property(window, UI_Widget_Property_ResizeLeft);
-            } else if(mouse_is_over_right) {
-                ui_widget_add_property(window, UI_Widget_Property_ResizeRight);
-            } else if(mouse_is_over_bottom) {
-                ui_widget_add_property(window, UI_Widget_Property_ResizeBottom);
-            }
-            
             os_take_event(mouse_down_event);
         } else if(!(mouse_is_over_title || mouse_is_over_left || mouse_is_over_right || mouse_is_over_bottom)) {
             ui->hot = ui_null_id();
         }
     } else {
-        if((mouse_is_over_title || mouse_is_over_left || mouse_is_over_right || mouse_is_over_bottom) && !mouse_down && ui_is_id_equal(ui->hot, ui_null_id())) {
-            ui->hot = window->id;
+        
+        if (!mouse_down && ui_is_id_equal(ui->hot, ui_null_id())) {
+            if(mouse_is_over_title) {
+                ui_widget_add_property(window, UI_Widget_Property_DraggingTitle);
+                ui->hot = window->id;
+            } else if(mouse_is_over_left) {
+                ui_widget_add_property(window, UI_Widget_Property_ResizeLeft);
+                ui->hot = window->id;
+            } else if(mouse_is_over_right) {
+                ui_widget_add_property(window, UI_Widget_Property_ResizeRight);
+                ui->hot = window->id;
+            } else if(mouse_is_over_bottom) {
+                ui_widget_add_property(window, UI_Widget_Property_ResizeBottom);
+                ui->hot = window->id;
+            }
         }
+        
+    }
+    
+    if(!(ui_is_id_equal(ui->hot, window->id) || ui_is_id_equal(ui->active, window->id))) {
+        ui_widget_remove_property(window, UI_Widget_Property_DraggingTitle);
+        ui_widget_remove_property(window,  UI_Widget_Property_ResizeLeft);
+        ui_widget_remove_property(window,  UI_Widget_Property_ResizeRight);
+        ui_widget_remove_property(window,  UI_Widget_Property_ResizeBottom);
     }
     
     // TODO(Cian): @Checkpoint first, get the style table implemented, then do all the TODO's listed above, cleanup the code, and get the resizing working. If there is still time extend to work with multiple windows

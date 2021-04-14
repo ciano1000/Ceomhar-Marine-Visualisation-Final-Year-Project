@@ -33,8 +33,8 @@ external APP_START(app_start){
     // TODO(Cian): @APP push this to debug arena
     debug = (App_Debug*)memory_arena_push(&os->permanent_arena, sizeof(App_Debug));
     
-    os->debug_read_entire_file("D:\\dev\\fyp_ceomhar\\FSS_NMEA_SampleData.txt", &debug->demo_read);
-    parsing_debug_parse_measurements(debug->demo_read, debug->measurements);
+    //os->debug_read_entire_file("D:\\dev\\fyp_ceomhar\\FSS_NMEA_SampleData.txt", &debug->demo_read);
+    //parsing_debug_parse_measurements(debug->demo_read, debug->measurements);
 }
 
 // TODO(Cian): How should we pass the vgContext???
