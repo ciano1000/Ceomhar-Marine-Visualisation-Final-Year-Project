@@ -71,6 +71,12 @@ struct UI_Size_Parameters {
     f32 strictness;
 };
 
+enum UI_Widget_Color_State {
+    UI_ColorState_Normal,
+    UI_ColorState_Hot,
+    UI_ColorState_Active,
+};
+
 struct UI_Widget_Colors {
     NVGcolor background_color;
     NVGcolor text_color;
@@ -93,7 +99,7 @@ enum UI_Widget_Styles {
 };
 
 static UI_Widget_Style widget_style_table[UI_Widget_Style_MAX] = {
-    {UI_MAKE_COLOR_STYLE(UI_DARK, UI_WHITE, UI_LIGHT, UI_LIGHT, UI_WHITE, UI_DARK, UI_DARKEST, UI_WHITE, UI_LIGHT), 2.0f, 4.0f, 16.0f, {10.0f, 10.0f, 10.0f, 10.0f}, 30.0f}
+    {UI_MAKE_COLOR_STYLE(UI_DARK, UI_WHITE, UI_LIGHT, UI_LIGHT, UI_WHITE, UI_DARK, UI_DARKEST, UI_WHITE, UI_LIGHT), 4.0f, 4.0f, 16.0f, {10.0f, 10.0f, 10.0f, 10.0f}, 30.0f}
 };
 
 enum UI_ID_Property {
@@ -120,6 +126,10 @@ struct UI_Widget{
     UI_Widget *tree_parent;
     UI_Widget *window_parent;
     
+    UI_Widget *next_sorted_container;
+    UI_Widget *prev_sorted_container;
+    UI_Widget *front_child;
+    
     UI_ID id;
     u64 last_frame;
     V4 curr_layout;
@@ -139,8 +149,8 @@ struct UI_State {
     s32 widget_free_list_count;
     UI_Widget *widget_free_list;
     
-    u32 container_count;
-    UI_Widget *sorted_containers[UI_MAX_CONTAINERS];
+    UI_Widget *sorted_containers_start;
+    UI_Widget *sorted_containers_end;
     UI_Widget *active_window; //set when a window is created && reset when a window ends
     UI_Widget *clickable_window;
     
@@ -160,6 +170,7 @@ type current;\
 } name##_stack
     
     UI_STACK(parent, UI_Widget*);
+    UI_STACK(window, UI_Widget*);
     UI_STACK(width, UI_Size_Parameters);
     UI_STACK(height, UI_Size_Parameters);
     UI_STACK(padding, V4);

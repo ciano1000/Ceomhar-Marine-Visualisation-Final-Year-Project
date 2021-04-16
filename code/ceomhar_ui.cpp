@@ -35,6 +35,79 @@ internal b32 ui_is_id_equal(UI_ID id_1, UI_ID id_2) {
     return res;
 }
 
+// NOTE(Cian): Brings widgets to the front relative to their parent
+internal void ui_bring_to_front(UI_Widget *widget) {
+    if( widget != ui->sorted_containers_start){
+        if(ui->curr_frame > 0) {
+            UI_Widget *curr = widget;
+            while(curr) {
+                UI_Widget *parent = widget->window_parent;
+                UI_Widget *swap_widget = null;
+                UI_Widget *last_descendant = null;
+                
+                UI_Widget *old_neighbour_left = null;
+                UI_Widget *old_neighbour_right = curr->next_sorted_container;
+                
+                UI_Widget *swap_neighbour = null;
+                
+                if(parent->front_child) {
+                    swap_widget = parent->front_child;
+                    while(swap_widget->front_child) {
+                        swap_widget = swap_widget->front_child;
+                    }
+                } else {
+                    swap_widget = parent;
+                }
+                
+                //widget to the left of the swap widget
+                swap_neighbour = swap_widget->prev_sorted_container;
+                
+                //the leftmost child in this widget chain
+                last_descendant = widget;
+                while(last_descendant->front_child) {
+                    last_descendant = last_descendant->front_child;
+                }
+                
+                old_neighbour_left = last_descendant->prev_sorted_container;
+                
+                curr->next_sorted_container = swap_widget;
+                swap_widget->prev_sorted_container = curr;
+                
+                old_neighbour_left->next_sorted_container = old_neighbour_right;
+                old_neighbour_right->prev_sorted_container = old_neighbour_left;
+                
+                if(!swap_neighbour && swap_widget == ui->sorted_containers_start) {
+                    ui->sorted_containers_start = last_descendant;
+                    last_descendant->prev_sorted_container = null;
+                } else {
+                    last_descendant->prev_sorted_container = swap_neighbour;
+                    swap_neighbour->next_sorted_container = last_descendant;
+                }
+                
+                curr->window_parent->front_child = curr;
+                
+                //bring our parents to the front relative to their parent e.g. clicking a window "bubbles up"
+                if(widget->window_parent != ui->sorted_containers_end)
+                    curr = widget->window_parent;
+                else
+                    curr = null;
+            }
+            
+        } else {
+            
+            if(!ui->sorted_containers_start) {
+                ui->sorted_containers_start = widget;
+                ui->sorted_containers_end = widget;
+            } else {
+                widget->next_sorted_container = ui->sorted_containers_start;
+                ui->sorted_containers_start->prev_sorted_container = widget;
+                ui->sorted_containers_start = widget;
+                widget->window_parent->front_child = widget;
+            }
+        }
+    }
+}
+
 internal void ui_widget_add_property(UI_Widget *widget, UI_Widget_Property property) {
     u32 idx = property / 64;
     widget->properties[idx] |= ((u64)1 << (property % 64));
@@ -80,6 +153,22 @@ internal void ui_pop_parent() {
     ui->parent_stack.size--;
     u32 size = ui->parent_stack.size;
     ui->parent_stack.current = ui->parent_stack.stack[size - 1];
+}
+
+internal void ui_push_window(UI_Widget *window) {
+    u32 size = ui->window_stack.size;
+    if(size > 0)
+        ui->window_stack.stack[size - 1] = ui->window_stack.current;
+    ui->window_stack.current = window;
+    ui->window_stack.size++;
+}
+
+internal void ui_pop_window() {
+    //when a window ends, it needs to be the previous widget, not its last child, so its siblings can correctly reference it
+    ui->prev_widget = ui->window_stack.current;
+    ui->window_stack.size--;
+    u32 size = ui->window_stack.size;
+    ui->window_stack.current = ui->window_stack.stack[size - 1];
 }
 
 internal void ui_push_width(f32 size, f32 strictness) {
@@ -186,7 +275,9 @@ internal UI_Widget* ui_init_widget(String8 string, b32 *newly_created) {
         } else {
             hash_string = string;
         }
-        UI_Widget *window = ui->active_window;
+        UI_Widget *window = null;
+        if(ui->window_stack.current)
+            window = ui->parent_stack.current;
         
         u32 seed = 0;
         
@@ -265,7 +356,10 @@ internal UI_Widget* ui_init_widget(String8 string, b32 *newly_created) {
     
     widget->parameters[0] = ui->width_stack.current;
     widget->parameters[1] = ui->height_stack.current;
-    widget->window_parent = ui->active_window;
+    
+    if(ui->window_stack.current)
+        widget->window_parent = ui->parent_stack.current;
+    
     widget->style = &widget_style_table[UI_Widget_Style_Default];
     
     if(ui->parent_stack.current) {
@@ -298,15 +392,19 @@ internal void ui_begin() {
     // TODO(Cian): @UI might reqork this so it only does this in debug mode?
     String8 main_row_string = string_from_cstring("main");
     UI_Widget *main_window = ui_init_widget(main_row_string, null);
+    
+    if(ui->curr_frame == 0)
+        ui_bring_to_front(main_window);
+    
     main_window->curr_layout = v4(0, 0, display_width, display_height);
-    ui->active_window = main_window;
     ui_pop_width();
     ui_pop_height();
     
     ui->root_widget = main_window;
     ui->active_window = main_window;
     ui_push_parent(main_window);
-    ui_widget_add_property(main_window, UI_Widget_Property_Container);
+    ui_push_window(main_window);
+    ui_widget_add_property(main_window, UI_Widget_Property_MainWindow);
     ui_widget_add_property(main_window, UI_Widget_Property_LayoutHorizontal);
     
     if(ui->curr_frame == 0){
@@ -316,56 +414,62 @@ internal void ui_begin() {
 }
 
 internal void ui_render(UI_Widget *root) {
-    UI_Widget *window = root->tree_first_child;
-    
-    f32 x = window->curr_layout.x;
-    f32 y = window->curr_layout.y;
-    
-    f32 width = window->curr_layout.width;
-    f32 height = window->curr_layout.height;
-    
-    y += 20;
-    height -= 20;
-    
-    //main body
-    nvgBeginPath(vg_context);
-    nvgRect(vg_context, x, y, width, height);
-    nvgFillColor(vg_context, nvgRGB(30, 30 ,30));
-    nvgFill(vg_context);
-    
-    //titlebar
-    nvgBeginPath(vg_context);
-    nvgRect(vg_context, x, y - 20, width, 20);
-    nvgFillColor(vg_context, nvgRGB(100, 100 ,100));
-    nvgFill(vg_context);
-    
-    b32 dragging_title = ui_widget_has_property(window, UI_Widget_Property_DraggingTitle);
-    b32 dragging_left = ui_widget_has_property(window, UI_Widget_Property_ResizeLeft);
-    b32 dragging_right = ui_widget_has_property(window, UI_Widget_Property_ResizeRight);
-    b32 dragging_bottom = ui_widget_has_property(window, UI_Widget_Property_ResizeBottom);
-    
-    V4 title_rect = v4(window->curr_layout.x, window->curr_layout.y, window->curr_layout.width, 20);
-    V4 border_left = v4(window->curr_layout.x, window->curr_layout.y + 20, 4.0f,  window->curr_layout.height - 20);
-    V4 border_right = v4(window->curr_layout.x + ( window->curr_layout.width - 4.0f), window->curr_layout.y + 20, 4.0f,  window->curr_layout.height - 20);
-    V4 border_bottom = v4(window->curr_layout.x, window->curr_layout.y + ( window->curr_layout.height - 4.0f), window->curr_layout.width,  4.0f);
-    
-    if(dragging_title) {
+    // TODO(Cian): @UI @Render all this will change, plan is for layout to generate a "draw list" in sorted render order that this render function will simply loop through, below is just for testing window sorting
+    UI_Widget *window = ui->sorted_containers_end->prev_sorted_container;
+    while(window) {
+        f32 x = window->curr_layout.x;
+        f32 y = window->curr_layout.y;
         
-    } else if(dragging_left) {
+        f32 width = window->curr_layout.width;
+        f32 height = window->curr_layout.height;
+        
+        f32 title_height = window->style->title_height;
+        f32 border_thickness = window->style->border_thickness;
+        
+        y += title_height;
+        height -= title_height;
+        
+        //main body
         nvgBeginPath(vg_context);
-        nvgRect(vg_context, border_left.x, border_left.y, border_left.width, border_left.height);
-        nvgFillColor(vg_context, nvgRGB(255, 255 ,255));
+        nvgRect(vg_context, x, y, width, height);
+        nvgFillColor(vg_context, nvgRGB(30, 30 ,30));
         nvgFill(vg_context);
-    } else if(dragging_right) {
+        
+        //titlebar
         nvgBeginPath(vg_context);
-        nvgRect(vg_context, border_right.x, border_right.y, border_right.width, border_right.height);
-        nvgFillColor(vg_context, nvgRGB(255, 255 ,255));
+        nvgRect(vg_context, x, y - title_height, width, title_height);
+        nvgFillColor(vg_context, nvgRGB(100, 100 ,100));
         nvgFill(vg_context);
-    } else if(dragging_bottom) {
-        nvgBeginPath(vg_context);
-        nvgRect(vg_context, border_bottom.x, border_bottom.y, border_bottom.width, border_bottom.height);
-        nvgFillColor(vg_context, nvgRGB(255, 255 ,255));
-        nvgFill(vg_context);
+        
+        b32 dragging_title = ui_widget_has_property(window, UI_Widget_Property_DraggingTitle);
+        b32 dragging_left = ui_widget_has_property(window, UI_Widget_Property_ResizeLeft);
+        b32 dragging_right = ui_widget_has_property(window, UI_Widget_Property_ResizeRight);
+        b32 dragging_bottom = ui_widget_has_property(window, UI_Widget_Property_ResizeBottom);
+        
+        V4 title_rect = v4(window->curr_layout.x, window->curr_layout.y, window->curr_layout.width, title_height);
+        V4 border_left = v4(window->curr_layout.x, window->curr_layout.y + title_height, border_thickness,  window->curr_layout.height - title_height);
+        V4 border_right = v4(window->curr_layout.x + ( window->curr_layout.width - border_thickness), window->curr_layout.y + title_height, border_thickness,  window->curr_layout.height - title_height);
+        V4 border_bottom = v4(window->curr_layout.x, window->curr_layout.y + ( window->curr_layout.height - border_thickness), window->curr_layout.width,  border_thickness);
+        
+        if(dragging_title) {
+            
+        } else if(dragging_left) {
+            nvgBeginPath(vg_context);
+            nvgRect(vg_context, border_left.x, border_left.y, border_left.width, border_left.height);
+            nvgFillColor(vg_context, nvgRGB(255, 255 ,255));
+            nvgFill(vg_context);
+        } else if(dragging_right) {
+            nvgBeginPath(vg_context);
+            nvgRect(vg_context, border_right.x, border_right.y, border_right.width, border_right.height);
+            nvgFillColor(vg_context, nvgRGB(255, 255 ,255));
+            nvgFill(vg_context);
+        } else if(dragging_bottom) {
+            nvgBeginPath(vg_context);
+            nvgRect(vg_context, border_bottom.x, border_bottom.y, border_bottom.width, border_bottom.height);
+            nvgFillColor(vg_context, nvgRGB(255, 255 ,255));
+            nvgFill(vg_context);
+        }
+        window = window->prev_sorted_container;
     }
 }
 
@@ -399,6 +503,7 @@ internal void ui_begin_window(V4 layout, b32 is_open, char *title...) {
     b32 newly_created = false;
     UI_Widget *window = ui_init_widget(window_string, &newly_created);
     ui_push_parent(window);
+    ui_push_window(window);
     ui_widget_add_property(window, UI_Widget_Property_Container);
     ui_widget_add_property(window, UI_Widget_Property_LayoutVertical);
     ui_widget_add_property(window, UI_Widget_Property_TitleBar);
@@ -406,13 +511,13 @@ internal void ui_begin_window(V4 layout, b32 is_open, char *title...) {
     if(newly_created) {
         window->curr_layout = layout;
         window->old_layout = layout;
+        
+        ui_bring_to_front(window);
     }
     
     V2 mouse_delta = {};
     
-    // TODO(Cian): @UI should add a method for this
     b32 mouse_move = os_sum_mouse_moves(&mouse_delta);
-    
     
     OS_Event *mouse_down_event = null;
     OS_Event *mouse_up_event = null;
@@ -420,11 +525,14 @@ internal void ui_begin_window(V4 layout, b32 is_open, char *title...) {
     b32 mouse_up = os_peek_mouse_button_event(&mouse_up_event, OS_Event_Type_MouseUp, OS_Mouse_Button_Left);
     
     V2 mouse_pos = os->mouse_pos;
+    f32 title_height = window->style->title_height;
+    f32 border_thickness = window->style->border_thickness;
+    
     // TODO(Cian): This will need to use the windows style to calculate later
-    V4 title_rect = v4(window->curr_layout.x, window->curr_layout.y, window->curr_layout.width, 20);
-    V4 border_left = v4(window->curr_layout.x, window->curr_layout.y - 20, 4.0f,  window->curr_layout.height - 20);
-    V4 border_right = v4(window->curr_layout.x + ( window->curr_layout.width - 4.0f), window->curr_layout.y + 20, 4.0f,  window->curr_layout.height - 20);
-    V4 border_bottom = v4(window->curr_layout.x, window->curr_layout.y + ( window->curr_layout.height - 4.0f), window->curr_layout.width,  4.0f);
+    V4 title_rect = v4(window->curr_layout.x, window->curr_layout.y, window->curr_layout.width, title_height);
+    V4 border_left = v4(window->curr_layout.x, window->curr_layout.y - title_height, border_thickness,  window->curr_layout.height - title_height);
+    V4 border_right = v4(window->curr_layout.x + ( window->curr_layout.width - border_thickness), window->curr_layout.y + title_height, border_thickness,  window->curr_layout.height - title_height);
+    V4 border_bottom = v4(window->curr_layout.x, window->curr_layout.y + ( window->curr_layout.height - border_thickness), window->curr_layout.width,  border_thickness);
     //not sure if I want the top of the window to do resizing
     //V4 border_top = v4(window->curr_layout.x, window->curr_layout.y - 20, 4.0f,  window->curr_layout.height - 20);
     
@@ -437,6 +545,7 @@ internal void ui_begin_window(V4 layout, b32 is_open, char *title...) {
     b32 dragging_left = ui_widget_has_property(window, UI_Widget_Property_ResizeLeft);
     b32 dragging_right = ui_widget_has_property(window, UI_Widget_Property_ResizeRight);
     b32 dragging_bottom = ui_widget_has_property(window, UI_Widget_Property_ResizeBottom);
+    
     
     //windows are only active when dragging e.g. when button is held on the title bar
     // we only handle title bar events here since we don't want to take events away from our inner children
@@ -460,17 +569,26 @@ internal void ui_begin_window(V4 layout, b32 is_open, char *title...) {
                     window->curr_layout.x += mouse_delta.x;
                     window->curr_layout.y += mouse_delta.y;
                 } else if(dragging_left) {
-                    window->curr_layout.x += mouse_delta.x;
-                    window->curr_layout.width -= mouse_delta.x;
+                    if(window->curr_layout.x < (window->curr_layout.x + window->curr_layout.width - mouse_delta.x) || mouse_delta.x < 0) {
+                        window->curr_layout.x += mouse_delta.x;
+                        window->curr_layout.width -= mouse_delta.x;
+                    }
                 } else if(dragging_right) {
-                    window->curr_layout.width += mouse_delta.x;
+                    if(window->curr_layout.x < (window->curr_layout.x + window->curr_layout.width + mouse_delta.x) || mouse_delta.x > 0) {
+                        window->curr_layout.width += mouse_delta.x;
+                    }
                 } else if(dragging_bottom) {
-                    window->curr_layout.height += mouse_delta.y;
+                    if((window->curr_layout.y + title_height) < (window->curr_layout.y + window->curr_layout.height + mouse_delta.y) || mouse_delta.y > 0) {
+                        window->curr_layout.height += mouse_delta.y;
+                    }
                 }
+                
             }
         }
     } else if(ui_is_id_equal(ui->hot, window->id)) { 
         if(mouse_down) {
+            //this only works if mouse is over window controls, to catch fall-through clicks end-window must do the same check
+            ui_bring_to_front(window);
             ui->active = window->id;
             os_take_event(mouse_down_event);
         } else if(!(mouse_is_over_title || mouse_is_over_left || mouse_is_over_right || mouse_is_over_bottom)) {
@@ -503,12 +621,13 @@ internal void ui_begin_window(V4 layout, b32 is_open, char *title...) {
         ui_widget_remove_property(window,  UI_Widget_Property_ResizeBottom);
     }
     
-    // TODO(Cian): @Checkpoint first, get the style table implemented, then do all the TODO's listed above, cleanup the code, and get the resizing working. If there is still time extend to work with multiple windows
+    // TODO(Cian): @UI @Windows add some way of having a min/max width/height for windows when resizing, maybe use last frames info on the childrens size? Could be stored in the windows size_parameters, then we should also have some default min/max size
     
 }
 
 internal void ui_end_window() {
     ui_pop_parent();
+    ui_pop_window();
 }
 internal void ui_begin_row(char *string) {
     String8 widget_string = string_from_cstring(string);

@@ -57,6 +57,10 @@ UI_Window(...) {
         ui_begin_window(v4(100, 100, 200, 200), null, "Window");
         
         ui_end_window();
+        
+        ui_begin_window(v4(200, 200, 200, 200), null, "Window Numero Dos");
+        
+        ui_end_window();
     }
     
     
