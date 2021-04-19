@@ -294,9 +294,11 @@ internal UI_Widget* ui_init_widget(String8 string, b32 *newly_created) {
                 widget = ui->widget_free_list;
                 ui->widget_free_list = widget->hash_next; // we reuse the hash_next pointer as the free-list linked list pointer
                 widget->hash_next = null;
+                ui->widget_size++;
             } else {
                 widget = (UI_Widget*)memory_arena_push(&os->permanent_arena, sizeof(UI_Widget));
                 ui->widgets[idx] = widget;
+                ui->widget_size++;
             }
             **p_newly_created = true; 
         } else {
@@ -313,8 +315,10 @@ internal UI_Widget* ui_init_widget(String8 string, b32 *newly_created) {
                     widget = ui->widget_free_list;
                     ui->widget_free_list = widget->hash_next; // we reuse the hash_next pointer as the free-list linked list pointer
                     widget->hash_next = null;
+                    ui->widget_size++;
                 } else {
                     widget = (UI_Widget*)memory_arena_push(&os->permanent_arena, sizeof(UI_Widget));
+                    ui->widget_size++;
                 }
             }
             if(previous) 
@@ -375,7 +379,6 @@ internal UI_Widget* ui_init_widget(String8 string, b32 *newly_created) {
     }
     
     ui->prev_widget = widget;
-    ui->widget_size++;
     
     return widget;
 }
@@ -410,6 +413,22 @@ internal void ui_begin() {
     if(ui->curr_frame == 0){
         ui->active = ui_null_id();
         ui->hot = ui_null_id();
+    } else {
+        //find the clickable_window
+        UI_Widget *container = ui->sorted_containers_start;
+        while(container) {
+            V4 container_rect = container->curr_layout;
+            b32 mouse_is_over = math_point_in_rect(container_rect, os->mouse_pos);
+            
+            if(mouse_is_over) {
+                ui->clickable_window = container;
+                
+                break;
+            }
+            
+            ui->clickable_window = null;
+            container = container->next_sorted_container;
+        }
     }
 }
 
@@ -481,6 +500,64 @@ internal void ui_end() {
     
     ui->prev_widget = null;
     ui->parent_stack.current = null;
+    
+    // TODO(Cian): maybe doing this cleanup via the sorted linked list might be better idk we'll see
+    //Clean up widgets that weren't persisted this frame
+    for (u32 i = 0; i < UI_WIDGET_TABLE_SIZE; i += 1) {
+        
+        UI_Widget *curr = ui->widgets[i];
+        UI_Widget *prev = null;
+        
+        while(curr) {
+            if(curr->last_frame != ui->curr_frame) {
+                //if widget is a window, go through its children and add to free list and remove from window sorting
+                if(ui_widget_has_property(curr, UI_Widget_Property_Container)) {
+                    if(curr == ui->sorted_containers_start) {
+                        //don't need to check if there is a next sorted container as there will always be the main window at the bottom
+                        curr->next_sorted_container->prev_sorted_container = null;
+                        ui->sorted_containers_start = curr->next_sorted_container;
+                        
+                    } else {
+                        curr->prev_sorted_container->next_sorted_container = curr->next_sorted_container;
+                        curr->next_sorted_container->prev_sorted_container = curr->prev_sorted_container;
+                    }
+                }
+                
+                if(prev) {
+                    if(curr->hash_next) {
+                        prev->hash_next = curr->hash_next;
+                    } else {
+                        prev->hash_next = null;
+                    }
+                } else {
+                    if(curr->hash_next) {
+                        ui->widgets[i] = curr->hash_next;
+                    } else {
+                        ui->widgets[i] = null;
+                    }
+                }
+                
+                if(ui_is_id_equal(ui->active, curr->id))
+                    ui->active = ui_null_id();
+                
+                if(ui_is_id_equal(ui->hot, curr->id))
+                    ui->hot = ui_null_id();
+                
+                //clear curr
+                *curr = {};
+                
+                curr->hash_next = ui->widget_free_list;
+                ui->widget_free_list = curr;
+                ui->widget_free_list_count++;
+                
+            }
+            prev = curr;
+            curr = curr->hash_next;
+        }
+    }
+    
+    
+    
     ui->curr_frame++;
     //Autolayout for rendering and next frame goes here
     /* NOTE(Cian): Auto-layout works as follows:
@@ -596,7 +673,7 @@ internal void ui_begin_window(V4 layout, b32 is_open, char *title...) {
         }
     } else {
         
-        if (!mouse_down && ui_is_id_equal(ui->hot, ui_null_id())) {
+        if (!mouse_down && ui_is_id_equal(ui->hot, ui_null_id()) && ui->clickable_window == window) {
             if(mouse_is_over_title) {
                 ui_widget_add_property(window, UI_Widget_Property_DraggingTitle);
                 ui->hot = window->id;
@@ -626,6 +703,17 @@ internal void ui_begin_window(V4 layout, b32 is_open, char *title...) {
 }
 
 internal void ui_end_window() {
+    UI_Widget *window = ui->window_stack.current;
+    V2 mouse_pos = os->mouse_pos;
+    
+    OS_Event *event = null;
+    b32 mouse_down = os_peek_mouse_button_event(&event, OS_Event_Type_MouseDown, OS_Mouse_Button_Left);
+    
+    if(mouse_down && ui->clickable_window == window) {
+        ui_bring_to_front(window);
+        os_take_event(event);
+    }
+    
     ui_pop_parent();
     ui_pop_window();
 }
