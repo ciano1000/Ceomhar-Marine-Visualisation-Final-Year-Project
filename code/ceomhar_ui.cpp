@@ -572,8 +572,59 @@ internal void ui_end() {
     ui->active_window = null;
 }
 
+internal void ui_begin_split_pane(V4 layout, b32 split_vertical, f32 min_size_1, V2 *size_pos_1, f32 min_size_2, V2 *size_pos_2, u32 options, char *string...) {
+    String8 split_string = {};
+    MAKE_FORMAT_STRING(split_string, string);
+    
+    b32 newly_created = false;
+    UI_Widget *split_pane = ui_init_widget(split_string, &newly_created);
+    ui_push_parent(split_pane);
+    
+    split_pane->curr_layout = layout;
+    split_pane->old_layout = layout;
+    
+    V4 splitter_rect = {};
+    f32 total_size = size_pos_1->size + size_pos_2->size;
+    
+    if(split_vertical) {
+        if(total_size > split_pane->curr_layout.width || total_size < split_pane->curr_layout.width) {
+            f32 splitter_ratio = size_pos_1->size / total_size;
+            size_pos_1->size = (split_pane->curr_layout.width * splitter_ratio) - 10.0f;
+            splitter_ratio = size_pos_2->size / total_size;
+            size_pos_2->size = (split_pane->curr_layout.width * splitter_ratio) - 10.0f;
+        }
+        splitter_rect.x = split_pane->curr_layout.x + size_pos_1->size + 8.0f;
+        splitter_rect.y = split_pane->curr_layout.y; // might add some padding to this
+        splitter_rect.width = 4.0f;
+        splitter_rect.height = split_pane->curr_layout.height; //use border style probably here
+    } else {
+        if(total_size > split_pane->curr_layout.height || total_size < split_pane->curr_layout.height) {
+            f32 splitter_ratio = size_pos_1->size / total_size;
+            size_pos_1->size = (split_pane->curr_layout.height * splitter_ratio) - 10.0f;
+            splitter_ratio = size_pos_2->size / total_size;
+            size_pos_2->size = (split_pane->curr_layout.height * splitter_ratio) - 10.0f;
+        }
+        splitter_rect.y = split_pane->curr_layout.y + size_pos_1->size + 8.0f;
+        splitter_rect.x = split_pane->curr_layout.x; // might add some padding to this
+        splitter_rect.width = split_pane->curr_layout.width;
+        splitter_rect.height = 4.0f; //use border style probably here
+    }
+    
+}
+
+internal void ui_end_split_pane() {
+    
+}
 // TODO(Cian): @UI @Styles add optional arguments to allow changing the default styles, or maybe optional styles should be pushed into ctx?
-internal void ui_begin_window(V4 layout, b32 is_open, char *title...) {
+internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title...) {
+    //if options are no_move && no_resize, we set the size to be the inputed layout every frame
+    //if the width or height are auto && the widget is newly created, skip input till the next frame - we won't implement this for awhile since we don't really need it tbh
+    
+    if(is_open) {
+        if(*is_open == false)
+            return;
+    }
+    
     String8 window_string = {};
     MAKE_FORMAT_STRING(window_string, title);
     
@@ -583,13 +634,31 @@ internal void ui_begin_window(V4 layout, b32 is_open, char *title...) {
     ui_push_window(window);
     ui_widget_add_property(window, UI_Widget_Property_Container);
     ui_widget_add_property(window, UI_Widget_Property_LayoutVertical);
-    ui_widget_add_property(window, UI_Widget_Property_TitleBar);
     
-    if(newly_created) {
+    if(~options & UI_ContainerOptions_NoTitle)
+        ui_widget_add_property(window, UI_Widget_Property_TitleBar);
+    
+    if(~options & UI_ContainerOptions_NoMove)
+        ui_widget_add_property(window, UI_Widget_Property_Draggable);
+    
+    if(newly_created || (options & (UI_ContainerOptions_NoMove | UI_ContainerOptions_NoResize))) {
+        // TODO(Cian): @UI @Window need to figure out how relative positioning and immediate input work, something like adding to parents old_layout or something
+        
         window->curr_layout = layout;
         window->old_layout = layout;
         
-        ui_bring_to_front(window);
+        if(layout.width == UI_AUTO_SIZE || layout.height == UI_AUTO_SIZE) {
+            if(layout.width == UI_AUTO_SIZE) 
+                ui_widget_add_property(window, UI_Widget_Property_Container_SizeAuto_Width);
+            
+            if(layout.height == UI_AUTO_SIZE) 
+                ui_widget_add_property(window, UI_Widget_Property_Container_SizeAuto_Height);
+            
+            return;
+        } 
+        
+        if(newly_created)
+            ui_bring_to_front(window);
     }
     
     V2 mouse_delta = {};
@@ -605,7 +674,6 @@ internal void ui_begin_window(V4 layout, b32 is_open, char *title...) {
     f32 title_height = window->style->title_height;
     f32 border_thickness = window->style->border_thickness;
     
-    // TODO(Cian): This will need to use the windows style to calculate later
     V4 title_rect = v4(window->curr_layout.x, window->curr_layout.y, window->curr_layout.width, title_height);
     V4 border_left = v4(window->curr_layout.x, window->curr_layout.y - title_height, border_thickness,  window->curr_layout.height - title_height);
     V4 border_right = v4(window->curr_layout.x + ( window->curr_layout.width - border_thickness), window->curr_layout.y + title_height, border_thickness,  window->curr_layout.height - title_height);
@@ -613,20 +681,28 @@ internal void ui_begin_window(V4 layout, b32 is_open, char *title...) {
     //not sure if I want the top of the window to do resizing
     //V4 border_top = v4(window->curr_layout.x, window->curr_layout.y - 20, 4.0f,  window->curr_layout.height - 20);
     
-    b32 mouse_is_over_title = math_point_in_rect(title_rect, mouse_pos);
-    b32 mouse_is_over_right = math_point_in_rect(border_right, mouse_pos);
-    b32 mouse_is_over_left = math_point_in_rect(border_left, mouse_pos);
-    b32 mouse_is_over_bottom = math_point_in_rect(border_bottom, mouse_pos);
+    b32 mouse_is_over_title = false;
+    b32 mouse_is_over_right = false;
+    b32 mouse_is_over_left = false;
+    b32 mouse_is_over_bottom = false;
     
     b32 dragging_title = ui_widget_has_property(window, UI_Widget_Property_DraggingTitle);
     b32 dragging_left = ui_widget_has_property(window, UI_Widget_Property_ResizeLeft);
     b32 dragging_right = ui_widget_has_property(window, UI_Widget_Property_ResizeRight);
     b32 dragging_bottom = ui_widget_has_property(window, UI_Widget_Property_ResizeBottom);
     
+    if(!(options & UI_ContainerOptions_NoMove))
+        mouse_is_over_title = math_point_in_rect(title_rect, mouse_pos);
+    if(!(options & UI_ContainerOptions_NoResize)) {
+        mouse_is_over_right = math_point_in_rect(border_right, mouse_pos);
+        mouse_is_over_left = math_point_in_rect(border_left, mouse_pos);
+        mouse_is_over_bottom = math_point_in_rect(border_bottom, mouse_pos);
+    }
     
     //windows are only active when dragging e.g. when button is held on the title bar
     // we only handle title bar events here since we don't want to take events away from our inner children
     // window click events are handled in ui_window_end
+    // TODO(Cian): @Window for dragging and resizing add set struct clamped positions/sizes to prevent weird behaviour
     if(ui_is_id_equal(ui->active, window->id)) {
         if(os->mouse_off_screen)
             ui->active = ui_null_id();
@@ -709,7 +785,7 @@ internal void ui_end_window() {
     OS_Event *event = null;
     b32 mouse_down = os_peek_mouse_button_event(&event, OS_Event_Type_MouseDown, OS_Mouse_Button_Left);
     
-    if(mouse_down && ui->clickable_window == window) {
+    if(mouse_down && ui->clickable_window == window && ui_widget_has_property(window, UI_Widget_Property_Draggable)) {
         ui_bring_to_front(window);
         os_take_event(event);
     }

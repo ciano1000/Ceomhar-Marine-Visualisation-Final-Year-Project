@@ -41,8 +41,14 @@ enum UI_Widget_Property{
     UI_Widget_Property_ScrollHorizontal, 
     
     UI_Widget_Property_Container, // e.g. a window
+    UI_Widget_Property_Container_SizeAuto_Width, // e.g. a window
+    UI_Widget_Property_Container_SizeAuto_Height, // e.g. a window
     UI_Widget_Property_LayoutHorizontal,
     UI_Widget_Property_LayoutVertical,
+    
+    //Used for clipping potential overflow in split panes, maybe don't need this
+    UI_Widget_Property_SplitVertically,
+    UI_Widget_Property_SplitHorizontally,
     
     UI_Widget_Property_ResizeTop,
     UI_Widget_Property_ResizeLeft,
@@ -54,6 +60,7 @@ enum UI_Widget_Property{
     UI_Widget_Property_Draggable,
     UI_Widget_Property_Resizable,
     UI_Widget_Property_TitleBar, //draggable containers must have this, static can also have them
+    UI_Widget_Property_Closable,
     
     UI_Widget_Property_CustomUpdate,
     UI_Widget_Property_CustomLayout,
@@ -61,8 +68,8 @@ enum UI_Widget_Property{
     UI_Widget_Property_MAX
 };
 
-#define UI_SIZE_IS_RATIO(size_parameters) (size_parameters.size < 1 && size_parameters.size > 0) ? true : false;
-#define UI_SIZE_IS_AUTO(size_parameters) (size_parameters.size == 0 && parameters.strictness == 0) ? true : false;
+#define UI_PARAM_IS_RATIO(size_parameters) (size_parameters.size < 1 && size_parameters.size > 0) ? true : false;
+#define UI_PARAM_IS_AUTO(size_parameters) (size_parameters.size == 0 && parameters.strictness == 0) ? true : false;
 
 struct UI_Size_Parameters {
     //if size is < 1 it's a ratio
@@ -111,6 +118,17 @@ enum UI_ID_Property {
 struct UI_ID {
     u32 hash;
     UI_ID_Property property;
+};
+
+// TODO(Cian): @UI implement all these options
+enum UI_ContainerOptions {
+    UI_ContainerOptions_NoResize = 1 << 0,
+    UI_ContainerOptions_NoTitle = 1 << 1,
+    UI_ContainerOptions_NoMove = 1 << 2,
+    UI_ContainerOptions_NoClose = 1 << 3,
+    UI_ContainerOptions_Center = 1 << 4,
+    UI_ContainerOptions_AlignRight = 1 << 5,
+    UI_ContainerOptions_Popup = 1 << 6,
 };
 
 struct UI_Widget{
@@ -197,9 +215,9 @@ va_end(args);
 #define PADDING2(pad_v2)  _UI_DEFER_LOOP(ui_push_padding(v4(pad_v2.x, pad_v2.y, pad_v2.x, pad_v2.y)), ui_pop_padding(), UNIQUE_INT)
 #define Width(size, strictness) _UI_DEFER_LOOP(ui_push_width(size, strictness), ui_pop_width(), UNIQUE_INT)
 #define Width_Fill Width(UI_MAX_SIZE, 0.0f)
-#define Width_Auto Width(0.0f, 0.0f)
+#define Width_Auto Width(UI_AUTO_SIZE, 0.0f)
 #define Height(size, strictness) _UI_DEFER_LOOP(ui_push_height(size, strictness), ui_pop_height(), UNIQUE_INT)
-#define Height_Auto  Height(0.0f, 0.0f)
+#define Height_Auto  Height(UI_AUTO_SIZE, 0.0f)
 #define Height_Fill Height(UI_MAX_SIZE, 0.0f)
 #define Filler(factor) ui_spacer(factor * UI_MAX_SIZE, 0.0f)
 

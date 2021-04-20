@@ -24,6 +24,9 @@ union V2 {
     struct {
         f32 size, strictness;
     };
+    struct {
+        f32 size, pos;
+    };
     f32 elements[2];
 };
 

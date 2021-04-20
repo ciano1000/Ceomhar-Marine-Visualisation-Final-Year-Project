@@ -42,7 +42,7 @@ external APP_UPDATE_AND_RENDER(app_update_and_render) {
     
     // NOTE(Cian): Begin creates a blank panel and sets up UI, at every UI_End or UI_Pop we do some very simple auto layout, e.g fit everything to the the ROW height, draw everything, and perform input
     
-    nvgBeginFrame(vg_context, (f32)os->display.width,  (f32)os->display.height, os->display.pixel_ratio);
+    nvgBeginFrame(vg_context, (f32)os->display.width, (f32)os->display.height, os->display.pixel_ratio);
     
     UI {
         /* Target goal for tommorow, 2 windows with sorting order working, titles rendering, and close button working
@@ -54,11 +54,11 @@ UI_Window(...) {
 
 }
 */
-        ui_begin_window(v4(100, 100, 200, 200), null, "Window");
+        ui_begin_window(v4(0, 0, 300,  (f32)os->display.height), null, UI_ContainerOptions_NoResize | UI_ContainerOptions_NoMove,"Window");
         
         ui_end_window();
         
-        ui_begin_window(v4(200, 200, 200, 200), null, "Window Numero Dos");
+        ui_begin_window(v4(200, 200, 200, 200), null, null,"Window Numero Dos");
         
         ui_end_window();
     }
