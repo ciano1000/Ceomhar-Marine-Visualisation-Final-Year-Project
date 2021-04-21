@@ -12,13 +12,18 @@
 #define UI_DARKEST     nvgRGBA(0,0,0,255)
 #define UI_DARKER      nvgRGBA(18,18,18,255)
 #define UI_DARK        nvgRGBA(30,30,30,255)
-#define UI_LIGHT       nvgRGBA(50,50,50,255)
+#define UI_LIGHT       nvgRGBA(100,100,100,255)
 #define UI_PURPLE      nvgRGBA(187,134,252,255)
 #define UI_PINK        nvgRGBA(239,183,255,255)
 #define UI_DARK_PURPLE nvgRGBA(136,88,200,255)
 #define UI_AQUA        nvgRGBA(3,218,198,255)
 #define UI_RED         nvgRGBA(207,102,121,255)
 
+#define UI_WINDOW_FILL_WIDTH ui->window_stack.current->curr_layout.width
+#define UI_WINDOW_FILL_HEIGHT ui->window_stack.current->curr_layout.height
+
+#define UI_WINDOW_RATIO_HEIGHT(ratio) ui->window_stack.current->curr_layout.height * ratio
+#define UI_WINDOW_RATIO_WIDTH(ratio) ui->window_stack.current->curr_layout.width * ratio
 
 enum UI_Widget_Property{
     UI_Widget_Property_RenderBackground,
@@ -26,10 +31,10 @@ enum UI_Widget_Property{
     UI_Widget_Property_RenderHot,
     UI_Widget_Property_RenderText,
     UI_Widget_Property_RenderBorder,
-    UI_Widget_Property_RenderBorderHot_Left,
-    UI_Widget_Property_RenderBorderHot_Right,
-    UI_Widget_Property_RenderBorderHot_Bottom,
+    UI_Widget_Property_RenderBorderHot,
     UI_Widget_Property_RenderCloseButton,
+    UI_Widget_Property_RenderSplit,
+    UI_Widget_Property_RenderTitleBar, //draggable containers must have this, static can also have them
     
     UI_Widget_Property_MainWindow,
     
@@ -46,11 +51,7 @@ enum UI_Widget_Property{
     UI_Widget_Property_LayoutHorizontal,
     UI_Widget_Property_LayoutVertical,
     
-    //Used for clipping potential overflow in split panes, maybe don't need this
-    UI_Widget_Property_SplitVertically,
-    UI_Widget_Property_SplitHorizontally,
     
-    UI_Widget_Property_ResizeTop,
     UI_Widget_Property_ResizeLeft,
     UI_Widget_Property_ResizeRight,
     UI_Widget_Property_ResizeBottom,
@@ -59,8 +60,6 @@ enum UI_Widget_Property{
     //~Container Options
     UI_Widget_Property_Draggable,
     UI_Widget_Property_Resizable,
-    UI_Widget_Property_TitleBar, //draggable containers must have this, static can also have them
-    UI_Widget_Property_Closable,
     
     UI_Widget_Property_CustomUpdate,
     UI_Widget_Property_CustomLayout,
@@ -106,7 +105,7 @@ enum UI_Widget_Styles {
 };
 
 static UI_Widget_Style widget_style_table[UI_Widget_Style_MAX] = {
-    {UI_MAKE_COLOR_STYLE(UI_DARK, UI_WHITE, UI_LIGHT, UI_LIGHT, UI_WHITE, UI_DARK, UI_DARKEST, UI_WHITE, UI_LIGHT), 4.0f, 4.0f, 16.0f, {10.0f, 10.0f, 10.0f, 10.0f}, 30.0f}
+    {UI_MAKE_COLOR_STYLE(UI_DARK, UI_WHITE, UI_LIGHT, UI_LIGHT, UI_WHITE, UI_WHITE, UI_DARKEST, UI_WHITE, UI_LIGHT), 4.0f, 4.0f, 16.0f, {10.0f, 10.0f, 10.0f, 10.0f}, 30.0f}
 };
 
 enum UI_ID_Property {
@@ -159,6 +158,7 @@ struct UI_Widget{
     // NOTE(Cian): The scroll offsets are for the containers(e.g. windows), they then apply these offsets to their childrens position
     f32 scroll_offset_x;
     f32 scroll_offset_y;
+    V4 splitter_rect;
 };
 
 struct UI_State {

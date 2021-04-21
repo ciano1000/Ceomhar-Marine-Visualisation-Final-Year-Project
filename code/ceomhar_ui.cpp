@@ -433,61 +433,132 @@ internal void ui_begin() {
 }
 
 internal void ui_render(UI_Widget *root) {
-    // TODO(Cian): @UI @Render all this will change, plan is for layout to generate a "draw list" in sorted render order that this render function will simply loop through, below is just for testing window sorting
-    UI_Widget *window = ui->sorted_containers_end->prev_sorted_container;
+    UI_Widget **render_stack = (UI_Widget **)memory_arena_push(&os->frame_arena, sizeof(UI_Widget*) * ui->widget_size);
+    UI_Widget *render_stack_current = null;
+    u32 size = 0;
+    
+#define render_stack_push(widget) {\
+if(size > 0 && size < ui->widget_size)\
+render_stack[size - 1] = render_stack_current;\
+render_stack_current = widget;\
+size++;\
+}
+    
+#define render_stack_pop() {\
+if(size >= 1)\
+size--;\
+if(size > 0) {\
+render_stack_current = render_stack[size - 1];\
+} else {\
+render_stack_current = null;\
+}\
+}
+    UI_Widget *window = ui->sorted_containers_end;
     while(window) {
-        f32 x = window->curr_layout.x;
-        f32 y = window->curr_layout.y;
+        //reset stack
+        size = 0;
+        render_stack_current = null;
         
-        f32 width = window->curr_layout.width;
-        f32 height = window->curr_layout.height;
-        
-        f32 title_height = window->style->title_height;
-        f32 border_thickness = window->style->border_thickness;
-        
-        y += title_height;
-        height -= title_height;
-        
-        //main body
-        nvgBeginPath(vg_context);
-        nvgRect(vg_context, x, y, width, height);
-        nvgFillColor(vg_context, nvgRGB(30, 30 ,30));
-        nvgFill(vg_context);
-        
-        //titlebar
-        nvgBeginPath(vg_context);
-        nvgRect(vg_context, x, y - title_height, width, title_height);
-        nvgFillColor(vg_context, nvgRGB(100, 100 ,100));
-        nvgFill(vg_context);
-        
-        b32 dragging_title = ui_widget_has_property(window, UI_Widget_Property_DraggingTitle);
-        b32 dragging_left = ui_widget_has_property(window, UI_Widget_Property_ResizeLeft);
-        b32 dragging_right = ui_widget_has_property(window, UI_Widget_Property_ResizeRight);
-        b32 dragging_bottom = ui_widget_has_property(window, UI_Widget_Property_ResizeBottom);
-        
-        V4 title_rect = v4(window->curr_layout.x, window->curr_layout.y, window->curr_layout.width, title_height);
-        V4 border_left = v4(window->curr_layout.x, window->curr_layout.y + title_height, border_thickness,  window->curr_layout.height - title_height);
-        V4 border_right = v4(window->curr_layout.x + ( window->curr_layout.width - border_thickness), window->curr_layout.y + title_height, border_thickness,  window->curr_layout.height - title_height);
-        V4 border_bottom = v4(window->curr_layout.x, window->curr_layout.y + ( window->curr_layout.height - border_thickness), window->curr_layout.width,  border_thickness);
-        
-        if(dragging_title) {
+        //push window onto stack
+        render_stack_push(window);
+        //do clipping/nvgScissor stuff here
+        nvgScissor(vg_context, window->curr_layout.x, window->curr_layout.y, window->curr_layout.width, window->curr_layout.height);
+        while(render_stack_current) {
+            //pop element from stack
+            UI_Widget *curr = render_stack_current;
             
-        } else if(dragging_left) {
-            nvgBeginPath(vg_context);
-            nvgRect(vg_context, border_left.x, border_left.y, border_left.width, border_left.height);
-            nvgFillColor(vg_context, nvgRGB(255, 255 ,255));
-            nvgFill(vg_context);
-        } else if(dragging_right) {
-            nvgBeginPath(vg_context);
-            nvgRect(vg_context, border_right.x, border_right.y, border_right.width, border_right.height);
-            nvgFillColor(vg_context, nvgRGB(255, 255 ,255));
-            nvgFill(vg_context);
-        } else if(dragging_bottom) {
-            nvgBeginPath(vg_context);
-            nvgRect(vg_context, border_bottom.x, border_bottom.y, border_bottom.width, border_bottom.height);
-            nvgFillColor(vg_context, nvgRGB(255, 255 ,255));
-            nvgFill(vg_context);
+            // TODO(Cian): Convert to relative coordinates
+            f32 x = curr->curr_layout.x;
+            f32 y = curr->curr_layout.y;
+            
+            f32 width = curr->curr_layout.width;
+            f32 height = curr->curr_layout.height;
+            
+            f32 border_thickness = curr->style->border_thickness;
+            
+            render_stack_pop();
+            //render it
+            if(ui_widget_has_property(curr, UI_Widget_Property_RenderBackground)) {
+                // TODO(Cian): handle cases of rounded backgrounds
+                // TODO(Cian): handle rendering of hot/active effects e.g. check if widget wants them rendered and check if hot/active
+                NVGcolor color = curr->style->colors[UI_ColorState_Normal].background_color;
+                
+                nvgBeginPath(vg_context);
+                nvgRect(vg_context, x, y, width, height);
+                nvgFillColor(vg_context, color);
+                nvgFill(vg_context);
+            }
+            
+            if(ui_widget_has_property(curr, UI_Widget_Property_RenderTitleBar)) {
+                // TODO(Cian): handle cases of rounded backgrounds
+                NVGcolor color = curr->style->colors[UI_ColorState_Normal].border_color;
+                
+                f32 title_height = curr->style->title_height;
+                
+                nvgBeginPath(vg_context);
+                nvgRect(vg_context, x, y, width, title_height);
+                nvgFillColor(vg_context, color);
+                nvgFill(vg_context);
+                
+                // TODO(Cian): This text can get in the way of the close button, use nvgTextGlyphPositions to determine where text should be cutoff to ensure there is enough space, or I could use nvgTextBreakLines with a maxRow value of 1?
+                nvgTextAlign(vg_context, NVG_ALIGN_CENTER|NVG_ALIGN_MIDDLE);
+                nvgFontFace(vg_context, "roboto-medium");
+                nvgFontSize(vg_context, curr->style->font_size);
+                nvgFillColor(vg_context, curr->style->colors[UI_ColorState_Normal].text_color);
+                nvgText(vg_context, x + (width / 2), y + (title_height / 2), curr->string.data, null);
+            }
+            
+            if(ui_widget_has_property(curr, UI_Widget_Property_RenderBorder) && !(ui_widget_has_property(curr, UI_Widget_Property_RenderBorderHot) && ui_is_id_equal(ui->hot, curr->id))) {
+                // TODO(Cian): implement this
+            } else {
+                f32 title_height = curr->style->title_height;
+                V4 border_left = v4(x, y + title_height, border_thickness,  height - title_height);
+                V4 border_right = v4(x + ( width - border_thickness), y + title_height, border_thickness,  height - title_height);
+                V4 border_bottom = v4(x, y + ( height - border_thickness), width, border_thickness);
+                
+                //render hot border effects
+                if(ui_widget_has_property(curr, UI_Widget_Property_ResizeLeft)) {
+                    nvgBeginPath(vg_context);
+                    nvgRect(vg_context, border_left.x, border_left.y, border_left.width, border_left.height);
+                    nvgFillColor(vg_context, nvgRGB(255, 255 ,255));
+                    nvgFill(vg_context);
+                } else if(ui_widget_has_property(curr, UI_Widget_Property_ResizeRight)) {
+                    nvgBeginPath(vg_context);
+                    nvgRect(vg_context, border_right.x, border_right.y, border_right.width, border_right.height);
+                    nvgFillColor(vg_context, nvgRGB(255, 255 ,255));
+                    nvgFill(vg_context);
+                } else if(ui_widget_has_property(curr, UI_Widget_Property_ResizeBottom)) {
+                    nvgBeginPath(vg_context);
+                    nvgRect(vg_context, border_bottom.x, border_bottom.y, border_bottom.width, border_bottom.height);
+                    nvgFillColor(vg_context, nvgRGB(255, 255 ,255));
+                    nvgFill(vg_context);
+                } else {
+                    // TODO(Cian): draw all borders as hot
+                }
+            }
+            
+            if(ui_widget_has_property(curr, UI_Widget_Property_RenderSplit)) {
+                NVGcolor color = curr->style->colors[UI_ColorState_Normal].border_color;
+                
+                if(ui_is_id_equal(ui->hot, curr->id))
+                    color = curr->style->colors[UI_ColorState_Hot].border_color;
+                
+                nvgBeginPath(vg_context);
+                nvgRect(vg_context, curr->splitter_rect.x, curr->splitter_rect.y, curr->splitter_rect.width, curr->splitter_rect.height);
+                nvgFillColor(vg_context, color);
+                nvgFill(vg_context);
+            }
+            //add children(excluding windows/containers) to stack left to right if parent
+            UI_Widget *curr_child = curr->tree_first_child;
+            while(curr_child) {
+                if(!ui_widget_has_property(curr_child, UI_Widget_Property_Container)) {
+                    render_stack_push(curr_child);
+                }
+                
+                curr_child = curr_child->tree_next_sibling;
+            }
         }
+        
         window = window->prev_sorted_container;
     }
 }
@@ -561,59 +632,124 @@ internal void ui_end() {
     ui->curr_frame++;
     //Autolayout for rendering and next frame goes here
     /* NOTE(Cian): Auto-layout works as follows:
-    *  Traverse downwards through the tree, for every parent, measure it's children, this may
+    *  For each window: traverse downwards through the tree, for every parent, measure it's children, this may
 *  need to be recursive, we add childrens 
 */
     UI_Widget *root = ui->root_widget;
     // NOTE(Cian): Roots incoming constraints will always be tight so just set it's layout to be that
-    root->curr_layout = {0, 0, root->parameters[0].size, root->parameters[1].size};
+    
     //ui_do_layout(root);
+    
+    //rendering: for each window in sorted order recursively render it and its children
     ui_render(ui->root_widget);
     ui->active_window = null;
 }
-
+// TODO(Cian): @Checkpoint Finished split pane, discovered a bug with window sorting that causes the one movable widget to dissapear, gotta investigate
 internal void ui_begin_split_pane(V4 layout, b32 split_vertical, f32 min_size_1, V2 *size_pos_1, f32 min_size_2, V2 *size_pos_2, u32 options, char *string...) {
     String8 split_string = {};
     MAKE_FORMAT_STRING(split_string, string);
     
     b32 newly_created = false;
     UI_Widget *split_pane = ui_init_widget(split_string, &newly_created);
+    ui_widget_add_property(split_pane, UI_Widget_Property_RenderSplit);
     ui_push_parent(split_pane);
     
     split_pane->curr_layout = layout;
     split_pane->old_layout = layout;
     
-    V4 splitter_rect = {};
+    V4 *splitter_rect = &split_pane->splitter_rect;
     f32 total_size = size_pos_1->size + size_pos_2->size;
     
+    V2 mouse_delta = {};
+    b32 mouse_move = os_sum_mouse_moves(&mouse_delta);
+    
+    f32 mouse_delta_axis = 0;
+    
+    // TODO(Cian): handle cases where windows are too big a bit more gracefully
     if(split_vertical) {
-        if(total_size > split_pane->curr_layout.width || total_size < split_pane->curr_layout.width) {
+        mouse_delta_axis = mouse_delta.x;
+        
+        if(newly_created) {
             f32 splitter_ratio = size_pos_1->size / total_size;
             size_pos_1->size = (split_pane->curr_layout.width * splitter_ratio) - 10.0f;
             splitter_ratio = size_pos_2->size / total_size;
             size_pos_2->size = (split_pane->curr_layout.width * splitter_ratio) - 10.0f;
+            
+            size_pos_1->pos = split_pane->curr_layout.x;
+            size_pos_2->pos = split_pane->curr_layout.x + (size_pos_1->size + 20.0f);
         }
-        splitter_rect.x = split_pane->curr_layout.x + size_pos_1->size + 8.0f;
-        splitter_rect.y = split_pane->curr_layout.y; // might add some padding to this
-        splitter_rect.width = 4.0f;
-        splitter_rect.height = split_pane->curr_layout.height; //use border style probably here
+        
+        splitter_rect->x = split_pane->curr_layout.x + size_pos_1->size + 8.0f;
+        splitter_rect->y = split_pane->curr_layout.y; // might add some padding to this
+        splitter_rect->width = 4.0f;
+        splitter_rect->height = split_pane->curr_layout.height; //use border style probably here
     } else {
-        if(total_size > split_pane->curr_layout.height || total_size < split_pane->curr_layout.height) {
+        mouse_delta_axis = mouse_delta.y;
+        
+        if(newly_created) {
             f32 splitter_ratio = size_pos_1->size / total_size;
             size_pos_1->size = (split_pane->curr_layout.height * splitter_ratio) - 10.0f;
             splitter_ratio = size_pos_2->size / total_size;
             size_pos_2->size = (split_pane->curr_layout.height * splitter_ratio) - 10.0f;
+            
+            // TODO(Cian): might add padding idk
+            size_pos_1->pos = split_pane->curr_layout.y;
+            size_pos_2->pos = split_pane->curr_layout.y + (size_pos_1->size + 20.0f);
         }
-        splitter_rect.y = split_pane->curr_layout.y + size_pos_1->size + 8.0f;
-        splitter_rect.x = split_pane->curr_layout.x; // might add some padding to this
-        splitter_rect.width = split_pane->curr_layout.width;
-        splitter_rect.height = 4.0f; //use border style probably here
+        
+        splitter_rect->y = split_pane->curr_layout.y + size_pos_1->size + 8.0f;
+        splitter_rect->x = split_pane->curr_layout.x; // might add some padding to this
+        splitter_rect->width = split_pane->curr_layout.width;
+        splitter_rect->height = 4.0f; //use border style probably here
+    }
+    // TODO(Cian): Generic input helpers e.g. has a rect been clicked/dragged etc
+    
+    
+    OS_Event *mouse_down_event = null;
+    OS_Event *mouse_up_event = null;
+    b32 mouse_down = os_peek_mouse_button_event(&mouse_down_event, OS_Event_Type_MouseDown, OS_Mouse_Button_Left);
+    b32 mouse_up = os_peek_mouse_button_event(&mouse_up_event, OS_Event_Type_MouseUp, OS_Mouse_Button_Left);
+    
+    V2 mouse_pos = os->mouse_pos;
+    b32 mouse_over_splitter = math_point_in_rect(*splitter_rect, mouse_pos);
+    
+    if(ui_is_id_equal(ui->active, split_pane->id)) {
+        if(os->mouse_off_screen)
+            ui->active = ui_null_id();
+        
+        if(mouse_up) {
+            ui->active = ui_null_id();
+            
+            if(!mouse_over_splitter || ui->clickable_window != split_pane->window_parent) {
+                ui->hot = ui_null_id();
+            }
+            
+            os_take_event(mouse_up_event);
+        } else if(mouse_move) {
+            if(mouse_delta_axis < min_size_1 - size_pos_1->size)
+                mouse_delta_axis = min_size_1 - size_pos_1->size;
+            if(mouse_delta_axis > size_pos_2->size - min_size_2)
+                mouse_delta_axis = size_pos_2->size - min_size_2;
+            size_pos_1->size += mouse_delta_axis;
+            size_pos_2->size -= mouse_delta_axis;
+            size_pos_2->pos += mouse_delta_axis;
+            
+        }
+    } else if(ui_is_id_equal(ui->hot, split_pane->id)) { 
+        if(mouse_down) {
+            ui->active = split_pane->id;
+            os_take_event(mouse_down_event);
+        } else if(!mouse_over_splitter || ui->clickable_window != split_pane->window_parent) {
+            ui->hot = ui_null_id();
+        }
+    } else if (mouse_over_splitter && !mouse_down && ui_is_id_equal(ui->hot, ui_null_id()) && ui->clickable_window == split_pane->window_parent) {
+        ui->hot = split_pane->id;
     }
     
 }
 
 internal void ui_end_split_pane() {
-    
+    ui_pop_parent();
 }
 // TODO(Cian): @UI @Styles add optional arguments to allow changing the default styles, or maybe optional styles should be pushed into ctx?
 internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title...) {
@@ -633,13 +769,23 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
     ui_push_parent(window);
     ui_push_window(window);
     ui_widget_add_property(window, UI_Widget_Property_Container);
+    ui_widget_add_property(window, UI_Widget_Property_RenderBackground);
     ui_widget_add_property(window, UI_Widget_Property_LayoutVertical);
     
     if(~options & UI_ContainerOptions_NoTitle)
-        ui_widget_add_property(window, UI_Widget_Property_TitleBar);
+        ui_widget_add_property(window, UI_Widget_Property_RenderTitleBar);
     
     if(~options & UI_ContainerOptions_NoMove)
         ui_widget_add_property(window, UI_Widget_Property_Draggable);
+    
+    if(~options & UI_ContainerOptions_NoResize) {
+        ui_widget_add_property(window, UI_Widget_Property_RenderBorderHot);
+        ui_widget_add_property(window, UI_Widget_Property_Resizable);
+    }
+    
+    if(~options & UI_ContainerOptions_NoClose) {
+        ui_widget_add_property(window, UI_Widget_Property_RenderCloseButton);
+    }
     
     if(newly_created || (options & (UI_ContainerOptions_NoMove | UI_ContainerOptions_NoResize))) {
         // TODO(Cian): @UI @Window need to figure out how relative positioning and immediate input work, something like adding to parents old_layout or something

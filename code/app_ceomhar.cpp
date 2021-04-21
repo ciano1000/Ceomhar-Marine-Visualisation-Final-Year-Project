@@ -54,13 +54,22 @@ UI_Window(...) {
 
 }
 */
-        ui_begin_window(v4(0, 0, 300,  (f32)os->display.height), null, UI_ContainerOptions_NoResize | UI_ContainerOptions_NoMove,"Window");
+        ui_begin_window(v4(0, 0, UI_WINDOW_RATIO_WIDTH(0.5f), 300), null, UI_ContainerOptions_NoResize | UI_ContainerOptions_NoMove,"Window");
         
         ui_end_window();
         
         ui_begin_window(v4(200, 200, 200, 200), null, null,"Window Numero Dos");
         
         ui_end_window();
+        
+        static V2 size_pos_1 = {300, 0};
+        static V2 size_pos_2 = {300, 0};
+        ui_begin_split_pane(v4(1000, 100, 600, 800), true, 200, &size_pos_1, 200, &size_pos_2, null, "###Splitter");
+        ui_begin_window(v4(size_pos_1.pos, 100, size_pos_1.size, 800), null, UI_ContainerOptions_NoResize | UI_ContainerOptions_NoMove, "Split_1");
+        ui_end_window();
+        ui_begin_window(v4(size_pos_2.pos, 100, size_pos_2.size, 800), null, UI_ContainerOptions_NoResize | UI_ContainerOptions_NoMove, "Split_2");
+        ui_end_window();
+        ui_end_split_pane();
     }
     
     
