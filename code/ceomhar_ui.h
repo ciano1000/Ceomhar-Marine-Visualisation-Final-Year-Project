@@ -56,6 +56,7 @@ enum UI_Widget_Property{
     UI_Widget_Property_ResizeRight,
     UI_Widget_Property_ResizeBottom,
     UI_Widget_Property_DraggingTitle,
+    UI_Widget_Property_CloseButtonHot,
     
     //~Container Options
     UI_Widget_Property_Draggable,
@@ -124,7 +125,6 @@ enum UI_ContainerOptions {
     UI_ContainerOptions_NoResize = 1 << 0,
     UI_ContainerOptions_NoTitle = 1 << 1,
     UI_ContainerOptions_NoMove = 1 << 2,
-    UI_ContainerOptions_NoClose = 1 << 3,
     UI_ContainerOptions_Center = 1 << 4,
     UI_ContainerOptions_AlignRight = 1 << 5,
     UI_ContainerOptions_Popup = 1 << 6,

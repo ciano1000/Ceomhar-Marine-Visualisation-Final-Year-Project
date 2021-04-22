@@ -57,8 +57,8 @@ UI_Window(...) {
         ui_begin_window(v4(0, 0, UI_WINDOW_RATIO_WIDTH(0.5f), 300), null, UI_ContainerOptions_NoResize | UI_ContainerOptions_NoMove,"Window");
         
         ui_end_window();
-        
-        ui_begin_window(v4(200, 200, 200, 200), null, null,"Window Numero Dos");
+        static b32 open = true;
+        ui_begin_window(v4(200, 200, 200, 200), &open, null,"Window Numero Dos");
         
         ui_end_window();
         

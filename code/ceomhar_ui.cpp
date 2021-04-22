@@ -41,7 +41,7 @@ internal void ui_bring_to_front(UI_Widget *widget) {
         if(ui->curr_frame > 0) {
             UI_Widget *curr = widget;
             while(curr) {
-                UI_Widget *parent = widget->window_parent;
+                UI_Widget *parent = curr->window_parent;
                 UI_Widget *swap_widget = null;
                 UI_Widget *last_descendant = null;
                 
@@ -156,6 +156,7 @@ internal void ui_pop_parent() {
 }
 
 internal void ui_push_window(UI_Widget *window) {
+    ui->active_window = window;
     u32 size = ui->window_stack.size;
     if(size > 0)
         ui->window_stack.stack[size - 1] = ui->window_stack.current;
@@ -165,6 +166,7 @@ internal void ui_push_window(UI_Widget *window) {
 
 internal void ui_pop_window() {
     //when a window ends, it needs to be the previous widget, not its last child, so its siblings can correctly reference it
+    ui->active_window = null;
     ui->prev_widget = ui->window_stack.current;
     ui->window_stack.size--;
     u32 size = ui->window_stack.size;
@@ -277,7 +279,7 @@ internal UI_Widget* ui_init_widget(String8 string, b32 *newly_created) {
         }
         UI_Widget *window = null;
         if(ui->window_stack.current)
-            window = ui->parent_stack.current;
+            window = ui->window_stack.current;
         
         u32 seed = 0;
         
@@ -362,7 +364,7 @@ internal UI_Widget* ui_init_widget(String8 string, b32 *newly_created) {
     widget->parameters[1] = ui->height_stack.current;
     
     if(ui->window_stack.current)
-        widget->window_parent = ui->parent_stack.current;
+        widget->window_parent = ui->window_stack.current;
     
     widget->style = &widget_style_table[UI_Widget_Style_Default];
     
@@ -461,18 +463,35 @@ render_stack_current = null;\
         
         //push window onto stack
         render_stack_push(window);
+        
+        //windows "old" layouts aren't actually old, they are computed this frame unlike other widgets
+        f32 initial_x_offset = window->old_layout.x;
+        f32 initial_y_offset = window->old_layout.y;
+        
+        nvgSave(vg_context);
         //do clipping/nvgScissor stuff here
         nvgScissor(vg_context, window->curr_layout.x, window->curr_layout.y, window->curr_layout.width, window->curr_layout.height);
         while(render_stack_current) {
             //pop element from stack
             UI_Widget *curr = render_stack_current;
             
-            // TODO(Cian): Convert to relative coordinates
-            f32 x = curr->curr_layout.x;
-            f32 y = curr->curr_layout.y;
+            f32 x = initial_x_offset + curr->curr_layout.x;
+            f32 y = initial_y_offset + curr->curr_layout.y;
+            
+            //initial offsets are the current windows offsets, we don't need to add anything to it
+            if(ui_widget_has_property(curr, UI_Widget_Property_Container)) {
+                x = curr->window_parent->old_layout.x + curr->curr_layout.x;
+                y = curr->window_parent->old_layout.y + curr->curr_layout.y;
+            }
             
             f32 width = curr->curr_layout.width;
             f32 height = curr->curr_layout.height;
+            
+            //apply offsets to old_layout so we can do input next frame
+            curr->old_layout.x = x;
+            curr->old_layout.y = y;
+            curr->old_layout.width = width;
+            curr->old_layout.height = height;
             
             f32 border_thickness = curr->style->border_thickness;
             
@@ -505,7 +524,19 @@ render_stack_current = null;\
                 nvgFontFace(vg_context, "roboto-medium");
                 nvgFontSize(vg_context, curr->style->font_size);
                 nvgFillColor(vg_context, curr->style->colors[UI_ColorState_Normal].text_color);
-                nvgText(vg_context, x + (width / 2), y + (title_height / 2), curr->string.data, null);
+                nvgText(vg_context, x + F32_FLOOR(width / 2), y + F32_FLOOR(title_height / 2), curr->string.data, null);
+            }
+            
+            if(ui_widget_has_property(curr, UI_Widget_Property_RenderCloseButton)) {
+                NVGcolor color = UI_RED;
+                f32 r = curr->style->title_height / 5;
+                f32 button_x = x + curr->old_layout.width - curr->style->padding.x1 - (r / 2);
+                f32 button_y = y + curr->style->title_height / 2;
+                
+                nvgBeginPath(vg_context);
+                nvgCircle(vg_context, button_x, button_y, r);
+                nvgFillColor(vg_context, color);
+                nvgFill(vg_context);
             }
             
             if(ui_widget_has_property(curr, UI_Widget_Property_RenderBorder) && !(ui_widget_has_property(curr, UI_Widget_Property_RenderBorderHot) && ui_is_id_equal(ui->hot, curr->id))) {
@@ -558,19 +589,21 @@ render_stack_current = null;\
                 curr_child = curr_child->tree_next_sibling;
             }
         }
-        
+        nvgRestore(vg_context);
         window = window->prev_sorted_container;
     }
 }
 
 internal void ui_end() {
     // TODO(Cian): @UI Need to either clear autolayout state here or, make the State as part of the frame_arena and UI_Widgets be maintained seperately in permanent arena
-    ui->parent_stack.size = 0;
     ui->width_stack.size = 0;
     ui->height_stack.size = 0;
     
     ui->prev_widget = null;
     ui->parent_stack.current = null;
+    ui->parent_stack.size = 0;
+    ui->window_stack.size = 0;
+    ui->window_stack.current = null;
     
     // TODO(Cian): maybe doing this cleanup via the sorted linked list might be better idk we'll see
     //Clean up widgets that weren't persisted this frame
@@ -655,7 +688,8 @@ internal void ui_begin_split_pane(V4 layout, b32 split_vertical, f32 min_size_1,
     ui_push_parent(split_pane);
     
     split_pane->curr_layout = layout;
-    split_pane->old_layout = layout;
+    V4 parent_layout = split_pane->window_parent->old_layout;
+    split_pane->old_layout = {layout.x + parent_layout.x, layout.y + parent_layout.y, layout.width, layout.height};
     
     V4 *splitter_rect = &split_pane->splitter_rect;
     f32 total_size = size_pos_1->size + size_pos_2->size;
@@ -679,8 +713,8 @@ internal void ui_begin_split_pane(V4 layout, b32 split_vertical, f32 min_size_1,
             size_pos_2->pos = split_pane->curr_layout.x + (size_pos_1->size + 20.0f);
         }
         
-        splitter_rect->x = split_pane->curr_layout.x + size_pos_1->size + 8.0f;
-        splitter_rect->y = split_pane->curr_layout.y; // might add some padding to this
+        splitter_rect->x = split_pane->old_layout.x + size_pos_1->size + 8.0f;
+        splitter_rect->y = split_pane->old_layout.y; // might add some padding to this
         splitter_rect->width = 4.0f;
         splitter_rect->height = split_pane->curr_layout.height; //use border style probably here
     } else {
@@ -697,8 +731,8 @@ internal void ui_begin_split_pane(V4 layout, b32 split_vertical, f32 min_size_1,
             size_pos_2->pos = split_pane->curr_layout.y + (size_pos_1->size + 20.0f);
         }
         
-        splitter_rect->y = split_pane->curr_layout.y + size_pos_1->size + 8.0f;
-        splitter_rect->x = split_pane->curr_layout.x; // might add some padding to this
+        splitter_rect->y = split_pane->old_layout.y + size_pos_1->size + 8.0f;
+        splitter_rect->x = split_pane->old_layout.x; // might add some padding to this
         splitter_rect->width = split_pane->curr_layout.width;
         splitter_rect->height = 4.0f; //use border style probably here
     }
@@ -783,7 +817,7 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
         ui_widget_add_property(window, UI_Widget_Property_Resizable);
     }
     
-    if(~options & UI_ContainerOptions_NoClose) {
+    if(is_open) {
         ui_widget_add_property(window, UI_Widget_Property_RenderCloseButton);
     }
     
@@ -791,7 +825,9 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
         // TODO(Cian): @UI @Window need to figure out how relative positioning and immediate input work, something like adding to parents old_layout or something
         
         window->curr_layout = layout;
-        window->old_layout = layout;
+        V4 parent_layout = window->window_parent->old_layout;
+        window->old_layout = {layout.x + parent_layout.x, layout.y + parent_layout.y, layout.width, layout.height};
+        
         
         if(layout.width == UI_AUTO_SIZE || layout.height == UI_AUTO_SIZE) {
             if(layout.width == UI_AUTO_SIZE) 
@@ -820,17 +856,20 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
     f32 title_height = window->style->title_height;
     f32 border_thickness = window->style->border_thickness;
     
-    V4 title_rect = v4(window->curr_layout.x, window->curr_layout.y, window->curr_layout.width, title_height);
-    V4 border_left = v4(window->curr_layout.x, window->curr_layout.y - title_height, border_thickness,  window->curr_layout.height - title_height);
-    V4 border_right = v4(window->curr_layout.x + ( window->curr_layout.width - border_thickness), window->curr_layout.y + title_height, border_thickness,  window->curr_layout.height - title_height);
-    V4 border_bottom = v4(window->curr_layout.x, window->curr_layout.y + ( window->curr_layout.height - border_thickness), window->curr_layout.width,  border_thickness);
+    V4 title_rect = v4(window->old_layout.x, window->old_layout.y, window->old_layout.width, title_height);
+    f32 r = window->style->title_height / 5;
+    V4 close_button_rect = v4(window->old_layout.x + window->old_layout.width - window->style->padding.x1 - (r / 2) - r, window->old_layout.y + (window->style->title_height / 2) - r, 2 * r, 2 * r);
+    V4 border_left = v4(window->old_layout.x, window->old_layout.y - title_height, border_thickness,  window->old_layout.height - title_height);
+    V4 border_right = v4(window->old_layout.x + ( window->old_layout.width - border_thickness), window->old_layout.y + title_height, border_thickness,  window->old_layout.height - title_height);
+    V4 border_bottom = v4(window->old_layout.x, window->old_layout.y + ( window->old_layout.height - border_thickness), window->old_layout.width,  border_thickness);
     //not sure if I want the top of the window to do resizing
-    //V4 border_top = v4(window->curr_layout.x, window->curr_layout.y - 20, 4.0f,  window->curr_layout.height - 20);
+    //V4 border_top = v4(window->old_layout.x, window->old_layout.y - 20, 4.0f,  window->old_layout.height - 20);
     
     b32 mouse_is_over_title = false;
     b32 mouse_is_over_right = false;
     b32 mouse_is_over_left = false;
     b32 mouse_is_over_bottom = false;
+    b32 mouse_is_over_close = false;
     
     b32 dragging_title = ui_widget_has_property(window, UI_Widget_Property_DraggingTitle);
     b32 dragging_left = ui_widget_has_property(window, UI_Widget_Property_ResizeLeft);
@@ -844,6 +883,9 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
         mouse_is_over_left = math_point_in_rect(border_left, mouse_pos);
         mouse_is_over_bottom = math_point_in_rect(border_bottom, mouse_pos);
     }
+    if(is_open) {
+        mouse_is_over_close = math_point_in_rect(close_button_rect, mouse_pos);
+    }
     
     //windows are only active when dragging e.g. when button is held on the title bar
     // we only handle title bar events here since we don't want to take events away from our inner children
@@ -856,10 +898,13 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
         if(mouse_up) {
             ui->active = ui_null_id();
             
-            if(!(mouse_is_over_title || mouse_is_over_left || mouse_is_over_right || mouse_is_over_bottom)) {
+            if(!(mouse_is_over_close || mouse_is_over_title || mouse_is_over_left || mouse_is_over_right || mouse_is_over_bottom)) {
                 ui->hot = ui_null_id();
             }
             
+            if(is_open && mouse_is_over_close) {
+                *is_open = false;
+            }
             os_take_event(mouse_up_event);
         } else {
             if(mouse_move) {
@@ -868,10 +913,13 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
                     window->curr_layout.x += mouse_delta.x;
                     window->curr_layout.y += mouse_delta.y;
                 } else if(dragging_left) {
-                    if(window->curr_layout.x < (window->curr_layout.x + window->curr_layout.width - mouse_delta.x) || mouse_delta.x < 0) {
-                        window->curr_layout.x += mouse_delta.x;
-                        window->curr_layout.width -= mouse_delta.x;
+                    f32 delta_x = mouse_delta.x;
+                    if(delta_x > window->curr_layout.width) {
+                        delta_x = window->curr_layout.width;
                     }
+                    window->curr_layout.x += delta_x;
+                    window->curr_layout.width -= delta_x;
+                    
                 } else if(dragging_right) {
                     if(window->curr_layout.x < (window->curr_layout.x + window->curr_layout.width + mouse_delta.x) || mouse_delta.x > 0) {
                         window->curr_layout.width += mouse_delta.x;
@@ -890,7 +938,7 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
             ui_bring_to_front(window);
             ui->active = window->id;
             os_take_event(mouse_down_event);
-        } else if(!(mouse_is_over_title || mouse_is_over_left || mouse_is_over_right || mouse_is_over_bottom)) {
+        } else if(!(mouse_is_over_close || mouse_is_over_title || mouse_is_over_left || mouse_is_over_right || mouse_is_over_bottom)) {
             ui->hot = ui_null_id();
         }
     } else {
@@ -907,6 +955,8 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
                 ui->hot = window->id;
             } else if(mouse_is_over_bottom) {
                 ui_widget_add_property(window, UI_Widget_Property_ResizeBottom);
+                ui->hot = window->id;
+            } else if(mouse_is_over_close) {
                 ui->hot = window->id;
             }
         }
@@ -926,18 +976,19 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
 
 internal void ui_end_window() {
     UI_Widget *window = ui->window_stack.current;
-    V2 mouse_pos = os->mouse_pos;
-    
-    OS_Event *event = null;
-    b32 mouse_down = os_peek_mouse_button_event(&event, OS_Event_Type_MouseDown, OS_Mouse_Button_Left);
-    
-    if(mouse_down && ui->clickable_window == window && ui_widget_has_property(window, UI_Widget_Property_Draggable)) {
-        ui_bring_to_front(window);
-        os_take_event(event);
+    if(ui->active_window) {
+        V2 mouse_pos = os->mouse_pos;
+        OS_Event *event = null;
+        b32 mouse_down = os_peek_mouse_button_event(&event, OS_Event_Type_MouseDown, OS_Mouse_Button_Left);
+        
+        if(mouse_down && ui->clickable_window == window && ui_widget_has_property(window, UI_Widget_Property_Draggable)) {
+            ui_bring_to_front(window);
+            os_take_event(event);
+        }
+        
+        ui_pop_parent();
+        ui_pop_window();
     }
-    
-    ui_pop_parent();
-    ui_pop_window();
 }
 internal void ui_begin_row(char *string) {
     String8 widget_string = string_from_cstring(string);

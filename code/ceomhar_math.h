@@ -3,6 +3,7 @@
 #pragma warning(disable: 4505)
 
 #define F32_ROUND(f) (f32)((u32)(f + 0.5f))
+#define F32_FLOOR(f) (f32)(u32)f
 
 #define CLAMP_MAX(n,max) ((n > max) ? max : n)
 #define CLAMP_MIN(n,min) ((n < min) ? min : n)
