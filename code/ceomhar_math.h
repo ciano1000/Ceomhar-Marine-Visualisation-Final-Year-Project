@@ -35,6 +35,9 @@ union V3 {
     struct{
         f32 x,y,z;
     };
+    struct{
+        f32 min, pref, max;
+    };
     f32 elements[3];
 };
 

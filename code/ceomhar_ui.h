@@ -48,9 +48,12 @@ enum UI_Widget_Property{
     UI_Widget_Property_Container, // e.g. a window
     UI_Widget_Property_Container_SizeAuto_Width, // e.g. a window
     UI_Widget_Property_Container_SizeAuto_Height, // e.g. a window
+    
     UI_Widget_Property_LayoutHorizontal,
     UI_Widget_Property_LayoutVertical,
+    UI_Widget_Property_Spacer,
     
+    UI_Widget_Property_InstantLayout,//for widgets that don't need to be laid at the end of the frame
     
     UI_Widget_Property_ResizeLeft,
     UI_Widget_Property_ResizeRight,
@@ -68,15 +71,8 @@ enum UI_Widget_Property{
     UI_Widget_Property_MAX
 };
 
-#define UI_PARAM_IS_RATIO(size_parameters) (size_parameters.size < 1 && size_parameters.size > 0) ? true : false;
-#define UI_PARAM_IS_AUTO(size_parameters) (size_parameters.size == 0 && parameters.strictness == 0) ? true : false;
-
-struct UI_Size_Parameters {
-    //if size is < 1 it's a ratio
-    //if size && strictness is == 0 it's auto-sized
-    f32 size;
-    f32 strictness;
-};
+#define UI_PARAM_IS_RATIO(size_parameters) (size_parameters.pref < 1 && size_parameters.pref > 0) ? true : false
+#define UI_PARAM_IS_AUTO(size_parameters) (size_parameters.pref == 0 && size_parameters.min == 0 && size_parameters.max == 0) ? true : false
 
 enum UI_Widget_Color_State {
     UI_ColorState_Normal,
@@ -102,11 +98,15 @@ struct UI_Widget_Style {
 
 enum UI_Widget_Styles {
     UI_Widget_Style_Default,
+    UI_Widget_Style_DefaultButton,
+    UI_Widget_Style_DefaultLayout,
     UI_Widget_Style_MAX
 };
 
 static UI_Widget_Style widget_style_table[UI_Widget_Style_MAX] = {
-    {UI_MAKE_COLOR_STYLE(UI_DARK, UI_WHITE, UI_LIGHT, UI_LIGHT, UI_WHITE, UI_WHITE, UI_DARKEST, UI_WHITE, UI_LIGHT), 4.0f, 4.0f, 16.0f, {10.0f, 10.0f, 10.0f, 10.0f}, 30.0f}
+    {UI_MAKE_COLOR_STYLE(UI_DARK, UI_WHITE, UI_LIGHT, UI_LIGHT, UI_WHITE, UI_WHITE, UI_DARKEST, UI_WHITE, UI_LIGHT), 4.0f, 4.0f, 16.0f, {10.0f, 10.0f, 10.0f, 10.0f}, 30.0f},
+    {UI_MAKE_COLOR_STYLE(UI_PURPLE, UI_WHITE, {}, UI_PINK, UI_WHITE, {}, UI_DARK_PURPLE, UI_WHITE, {}), 0.0f, 2.0f, 14.0f, {2.0f, 2.0f, 2.0f, 2.0f}, 0.0f},
+    {UI_MAKE_COLOR_STYLE({}, {}, {}, {}, {}, {}, {}, {}, {}), 0.0f, 0.0f, 0.0f, {2.0f, 2.0f, 2.0f, 2.0f}, 0.0f},
 };
 
 enum UI_ID_Property {
@@ -151,7 +151,7 @@ struct UI_Widget{
     u64 last_frame;
     V4 curr_layout;
     V4 old_layout;
-    UI_Size_Parameters parameters[2];
+    V3 parameters[2];
     UI_Widget_Style *style;
     
     String8 edit_text;
@@ -159,6 +159,16 @@ struct UI_Widget{
     f32 scroll_offset_x;
     f32 scroll_offset_y;
     V4 splitter_rect;
+};
+
+struct UI_Layout_Stack_Entry {
+    UI_Widget *widget;
+    UI_Widget *last_child;
+    u32 num_expand;
+    f32 offset;
+    f32 sum_size;
+    f32 min_sum_delta;
+    f32 max_sum_delta;
 };
 
 struct UI_State {
@@ -189,8 +199,8 @@ type current;\
     
     UI_STACK(parent, UI_Widget*);
     UI_STACK(window, UI_Widget*);
-    UI_STACK(width, UI_Size_Parameters);
-    UI_STACK(height, UI_Size_Parameters);
+    UI_STACK(width, V3);
+    UI_STACK(height, V3);
     UI_STACK(padding, V4);
     // NOTE(Cian): Editable string stuff, the current in-focus string is referenced here and operated on at the start of each frame
     // TODO(Cian): @UI @String implement text boxes based on below
@@ -213,21 +223,16 @@ va_end(args);
 #define Col _UI_DEFER_LOOP(ui_begin_column(0), ui_end_column(), UNIQUE_INT)
 #define PADDING4(pad_v4)  _UI_DEFER_LOOP(ui_push_padding(pad_v4), ui_pop_padding(), UNIQUE_INT)
 #define PADDING2(pad_v2)  _UI_DEFER_LOOP(ui_push_padding(v4(pad_v2.x, pad_v2.y, pad_v2.x, pad_v2.y)), ui_pop_padding(), UNIQUE_INT)
-#define Width(size, strictness) _UI_DEFER_LOOP(ui_push_width(size, strictness), ui_pop_width(), UNIQUE_INT)
-#define Width_Fill Width(UI_MAX_SIZE, 0.0f)
-#define Width_Auto Width(UI_AUTO_SIZE, 0.0f)
-#define Height(size, strictness) _UI_DEFER_LOOP(ui_push_height(size, strictness), ui_pop_height(), UNIQUE_INT)
-#define Height_Auto  Height(UI_AUTO_SIZE, 0.0f)
-#define Height_Fill Height(UI_MAX_SIZE, 0.0f)
-#define Filler(factor) ui_spacer(factor * UI_MAX_SIZE, 0.0f)
+#define Width(min, pref, max) _UI_DEFER_LOOP(ui_push_width(min, pref, max), ui_pop_width(), UNIQUE_INT)
+#define Width_Fill Width(0.0f, 0.0f, UI_MAX_SIZE)
+#define Width_Auto Width(UI_AUTO_SIZE, UI_AUTO_SIZE, UI_AUTO_SIZE)
+#define Height(min, pref, max) _UI_DEFER_LOOP(ui_push_height(min, pref, max), ui_pop_height(), UNIQUE_INT)
+#define Height_Auto  Height(UI_AUTO_SIZE, UI_AUTO_SIZE, UI_AUTO_SIZE)
+#define Height_Fill Height(0.0f, 0.0f, factor * UI_MAX_SIZE)
+#define Filler(factor) ui_spacer(0.0f, 0.0f, factor * UI_MAX_SIZE)
 
 // NOTE(Cian): Functions, wish I didn't have to do this shit, hoping Jai comes out or any other viable replacement for C/C++
-internal void ui_push_parent(UI_Widget *parent);
-internal void ui_pop_parent();
-internal void ui_push_width(f32 size, f32 strictness);
-internal void ui_pop_width();
-internal void ui_push_height(f32 size, f32 strictness);
-internal void ui_pop_height();
+
 
 // TODO(Cian): Organise this into some kinda "Core" struct
 global UI_State *ui;

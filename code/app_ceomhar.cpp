@@ -55,7 +55,9 @@ UI_Window(...) {
 }
 */
         ui_begin_window(v4(0, 0, UI_WINDOW_RATIO_WIDTH(0.5f), 300), null, UI_ContainerOptions_NoResize | UI_ContainerOptions_NoMove,"Window");
-        
+        {
+            ui_button("Test_Button");
+        }
         ui_end_window();
         static b32 open = true;
         ui_begin_window(v4(200, 200, 200, 200), &open, null,"Window Numero Dos");

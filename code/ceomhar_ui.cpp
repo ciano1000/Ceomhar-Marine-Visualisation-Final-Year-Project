@@ -166,19 +166,20 @@ internal void ui_push_window(UI_Widget *window) {
 
 internal void ui_pop_window() {
     //when a window ends, it needs to be the previous widget, not its last child, so its siblings can correctly reference it
-    ui->active_window = null;
+    ui->active_window = ui->active_window->window_parent; //this is a hack to let end_window work when begin_window is closed
     ui->prev_widget = ui->window_stack.current;
     ui->window_stack.size--;
     u32 size = ui->window_stack.size;
     ui->window_stack.current = ui->window_stack.stack[size - 1];
 }
 
-internal void ui_push_width(f32 size, f32 strictness) {
+internal void ui_push_width(f32 min, f32 pref, f32 max) {
     u32 *s_size = &ui->width_stack.size;
     ui->width_stack.stack[*s_size] = ui->width_stack.current;
     (*s_size)++;
-    ui->width_stack.current.size = size;
-    ui->width_stack.current.strictness = strictness;
+    ui->width_stack.current.min = min;
+    ui->width_stack.current.pref = pref;
+    ui->width_stack.current.max = max;
 }
 
 internal void ui_pop_width() {
@@ -201,12 +202,13 @@ internal void ui_pop_padding() {
     ui->padding_stack.current = ui->padding_stack.stack[*size];
 }
 
-internal void ui_push_height(f32 size, f32 strictness) {
+internal void ui_push_height(f32 min, f32 pref, f32 max) {
     u32 *s_size = &ui->height_stack.size;
     ui->height_stack.stack[*s_size] = ui->height_stack.current;
     (*s_size)++;
-    ui->height_stack.current.size = size;
-    ui->height_stack.current.strictness = strictness;
+    ui->width_stack.current.min = min;
+    ui->width_stack.current.pref = pref;
+    ui->width_stack.current.max = max;
 }
 
 internal void ui_pop_height() {
@@ -391,8 +393,6 @@ internal void ui_begin() {
     f32 display_width = (f32)os->display.width;
     f32 display_height = (f32)os->display.height;
     
-    ui_push_width(display_width, 1.0f);
-    ui_push_height(display_height, 1.0f);
     // NOTE(Cian): Some non-interactable widgets will still be explicitly named for debugging purposes
     // TODO(Cian): @UI might reqork this so it only does this in debug mode?
     String8 main_row_string = string_from_cstring("main");
@@ -432,6 +432,152 @@ internal void ui_begin() {
             container = container->next_sorted_container;
         }
     }
+}
+
+internal void ui_do_layout() {
+    UI_Layout_Stack_Entry *layout_stack = (UI_Layout_Stack_Entry *)memory_arena_push(&os->frame_arena, sizeof(UI_Layout_Stack_Entry) * ui->widget_size);
+    UI_Layout_Stack_Entry layout_stack_current = {};
+    u32 size = 0;
+    
+#define layout_stack_push(widget) {\
+if(size > 0 && size < ui->widget_size)\
+layout_stack[size - 1] = layout_stack_current;\
+layout_stack_current = widget;\
+size++;\
+}
+    
+#define layout_stack_pop() {\
+if(size >= 1)\
+size--;\
+if(size > 0) {\
+layout_stack_current = layout_stack[size - 1];\
+} else {\
+layout_stack_current = {};\
+}\
+}
+    
+    UI_Layout_Stack_Entry root = {};
+    root.widget =  ui->root_widget;;
+    layout_stack_push(root);
+    
+    V2 returned_size = {};
+    UI_Widget *last_child = null;
+    
+    while(size > 0) {
+        UI_Layout_Stack_Entry curr_entry = layout_stack_current;
+        layout_stack_pop();
+        //parents always loop through the children twice, needed because of how we use expanded widgets, first loop is for sizes, second loop is for resizing and positioning
+        
+        UI_Widget *widget = curr_entry.widget;
+        
+        f32 parent_width = widget->curr_layout.width - widget->style->padding.x0 - widget->style->padding.x1;
+        f32 parent_height = widget->curr_layout.height - widget->style->padding.y0 - widget->style->padding.y1 - widget->style->title_height;
+        
+        f32 initial_offset_x = widget->style->padding.x0 + widget->scroll_offset_x;
+        f32 initial_offset_y = widget->style->padding.y0 + widget->style->title_height + widget->scroll_offset_y;
+        
+        b32 width_auto = UI_PARAM_IS_AUTO(widget->parameters[0]);
+        b32 height_auto = UI_PARAM_IS_AUTO(widget->parameters[1]);
+        
+        if(height_auto || width_auto) {
+            //~ NOTE(Cian): Idea for handling ratios in auto-sized widgets, lets store a ratio factor f32 outside the measuring loop that keeps track of how much to add to widgets size once we are finished measuring. Ratios won't be exact if multiple ratios exist but it's better than nothing
+            if(ui_widget_has_property(widget, UI_Widget_Property_LayoutHorizontal)) {
+                
+            } else if(ui_widget_has_property(widget, UI_Widget_Property_LayoutVertical)) {
+                
+            } else if(ui_widget_has_property(widget, UI_Widget_Property_RenderText)) {
+                
+            }
+        } else {
+            //regular layout flow
+            if(ui_widget_has_property(widget, UI_Widget_Property_Container)) {
+                // TODO(Cian): Handle any menu-bar widgets if they exist, if they exist they should be the first child. Also handle auto-sized windows, e.g. we sum up the child sizes at the end to get our size for the next frame
+            }
+            
+            if(ui_widget_has_property(widget, UI_Widget_Property_LayoutHorizontal)) {
+                // TODO(Cian): @Checkpoint break the below code into 3 functions that can be reused for Vertical layouts: tiled_layout - uses pref size, adjust_smaller - interpolates between pref and min, adjust greater - interpolates between pref and max
+                // NOTE(Cian): For fillers I think I need to go back to min, pref & max sizes e.g. fillers would be 0, 0, 1000000. That way they don't unnecessarily take size from much smaller widgets and can still be "adjusted greater" later on 
+                
+                UI_Widget *curr = widget->tree_first_child;
+                if(curr_entry.last_child)
+                    curr = curr_entry.last_child;
+                
+                b32 exit_loop = false;
+                
+                while(curr) {
+                    
+                    if(ui_widget_has_property(curr, UI_Widget_Property_InstantLayout) || ui_widget_has_property(curr, UI_Widget_Property_Spacer)) {
+                        //some widgets handle their own layout, e.g. windows, some containers, splitters etc
+                        curr = curr->tree_next_sibling;
+                        continue;
+                    }
+                    
+                    if(UI_PARAM_IS_AUTO(curr->parameters[0]) || UI_PARAM_IS_AUTO(curr->parameters[1])) {
+                        UI_Layout_Stack_Entry new_entry = {};
+                        new_entry.widget = curr;
+                        layout_stack_push(new_entry);
+                        curr_entry.last_child = curr;
+                        layout_stack_push(curr_entry);
+                        //go back to start of loop so we can measure the child
+                        exit_loop = true;
+                        break;
+                    }
+                    
+                    f32 curr_width = UI_PARAM_IS_RATIO(curr->parameters[0]) ? curr->parameters[0].pref * parent_width: curr->parameters[0].pref;
+                    curr->parameters[0].pref = curr_width;
+                    f32 curr_height = UI_PARAM_IS_RATIO(curr->parameters[1]) ? curr->parameters[1].pref * parent_height: curr->parameters[1].pref; 
+                    curr->parameters[1].pref = curr_height;
+                    
+                    curr_entry.sum_size += curr_width;
+                    curr_entry.min_sum_delta += curr->parameters[0].pref - curr->parameters[0].min;
+                    curr_entry.max_sum_delta += curr->parameters[0].max - curr->parameters[0].pref;
+                    curr->curr_layout.width = curr_width;
+                    curr->curr_layout.x = curr_entry.offset;
+                    curr_entry.offset += curr_width;
+                    
+                    //Rows with height auto are the only ones that guarantee that the widget will get the size it wants, otherwise we clamp it.
+                    if(curr_height > parent_height) {
+                        curr_height = parent_height;
+                    }
+                    
+                    curr->curr_layout.height = curr_height;
+                    curr->curr_layout.y = (parent_height / 2) - (curr_height / 2);
+                    
+                    curr = curr->tree_next_sibling;
+                }
+                
+                if(exit_loop)
+                    continue;
+                
+                //resize && re-layout main axis
+                if(curr_entry.sum_size > parent_width) {
+                    curr_entry.offset = 0;
+                    
+                    curr = widget->tree_first_child;
+                    while(curr) {
+                        if(!(ui_widget_has_property(curr, UI_Widget_Property_InstantLayout) || ui_widget_has_property(curr, UI_Widget_Property_Spacer))) {
+                            
+                            f32 pref_width = curr->parameters[0].pref;
+                            //f32 factor = (pref_width * (1 - curr->parameters[0].strictness)) / curr_entry.sum_delta;
+                            
+                            curr->curr_layout.x = curr_entry.offset;
+                            //curr->curr_layout.width -= (factor * (curr_entry.sum_size - parent_width));
+                            curr_entry.offset += curr->curr_layout.width;
+                        }
+                        //curr
+                        //layout_stack_push();
+                        curr = widget->tree_next_sibling;
+                    }
+                }
+            } else if(ui_widget_has_property(widget, UI_Widget_Property_LayoutVertical)) {
+                
+            }
+        }
+        
+    }
+    /*if(ui_widget_has_property(widget, UI_Widget_Property_Container)) {
+        
+    }*/
 }
 
 internal void ui_render(UI_Widget *root) {
@@ -671,13 +817,61 @@ internal void ui_end() {
     UI_Widget *root = ui->root_widget;
     // NOTE(Cian): Roots incoming constraints will always be tight so just set it's layout to be that
     
-    //ui_do_layout(root);
+    ui_do_layout();
     
     //rendering: for each window in sorted order recursively render it and its children
     ui_render(ui->root_widget);
     ui->active_window = null;
 }
-// TODO(Cian): @Checkpoint Finished split pane, discovered a bug with window sorting that causes the one movable widget to dissapear, gotta investigate
+
+internal void ui_begin_row(char *string) {
+    String8 widget_string = string_from_cstring(string);
+    UI_Widget *row = ui_init_widget(widget_string, null);
+    ui_push_parent(row);
+    ui_widget_add_property(row, UI_Widget_Property_LayoutHorizontal);
+}
+
+internal void ui_end_row() {
+    ui_pop_parent();
+}
+
+internal void ui_begin_column(char *string) {
+    String8 widget_string = string_from_cstring(string);
+    UI_Widget *col = ui_init_widget(widget_string, null);
+    ui_push_parent(col);
+    ui_widget_add_property(col, UI_Widget_Property_LayoutVertical);
+}
+
+internal void ui_end_column() {
+    ui_pop_parent();
+}
+
+internal void ui_spacer(f32 min, f32 pref, f32 max) {
+    String8 string = {};
+    UI_Widget *spacer = ui_init_widget(string, null);
+    ui_widget_add_property(spacer, UI_Widget_Property_Spacer);
+    // TODO(Cian): @UI dislike having to do layouting checks here so this is a temp fix
+    if(ui_widget_has_property(spacer->tree_parent, UI_Widget_Property_LayoutHorizontal)) {
+        spacer->parameters[0].min = min;
+        spacer->parameters[0].pref = pref;
+        spacer->parameters[0].max = max;
+        
+        // NOTE(Cian): Bit of a hack but this prevents weird measuring behaviour with fillers
+        spacer->parameters[1].min = 1;
+        spacer->parameters[1].pref = 1;
+        spacer->parameters[1].max = 1;
+    } else {
+        spacer->parameters[1].min = min;
+        spacer->parameters[1].pref = pref;
+        spacer->parameters[1].max = max;
+        
+        // NOTE(Cian): Bit of a hack but this prevents weird measuring behaviour with fillers
+        spacer->parameters[0].min = 1;
+        spacer->parameters[0].pref = 1;
+        spacer->parameters[0].max = 1;
+    }
+}
+
 internal void ui_begin_split_pane(V4 layout, b32 split_vertical, f32 min_size_1, V2 *size_pos_1, f32 min_size_2, V2 *size_pos_2, u32 options, char *string...) {
     String8 split_string = {};
     MAKE_FORMAT_STRING(split_string, string);
@@ -685,6 +879,7 @@ internal void ui_begin_split_pane(V4 layout, b32 split_vertical, f32 min_size_1,
     b32 newly_created = false;
     UI_Widget *split_pane = ui_init_widget(split_string, &newly_created);
     ui_widget_add_property(split_pane, UI_Widget_Property_RenderSplit);
+    ui_widget_add_property(split_pane, UI_Widget_Property_InstantLayout);
     ui_push_parent(split_pane);
     
     split_pane->curr_layout = layout;
@@ -791,8 +986,10 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
     //if the width or height are auto && the widget is newly created, skip input till the next frame - we won't implement this for awhile since we don't really need it tbh
     
     if(is_open) {
-        if(*is_open == false)
+        if(*is_open == false) {
+            ui->active_window = null;
             return;
+        }
     }
     
     String8 window_string = {};
@@ -802,9 +999,11 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
     UI_Widget *window = ui_init_widget(window_string, &newly_created);
     ui_push_parent(window);
     ui_push_window(window);
+    
     ui_widget_add_property(window, UI_Widget_Property_Container);
     ui_widget_add_property(window, UI_Widget_Property_RenderBackground);
     ui_widget_add_property(window, UI_Widget_Property_LayoutVertical);
+    ui_widget_add_property(window, UI_Widget_Property_InstantLayout);
     
     if(~options & UI_ContainerOptions_NoTitle)
         ui_widget_add_property(window, UI_Widget_Property_RenderTitleBar);
@@ -975,8 +1174,8 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
 }
 
 internal void ui_end_window() {
-    UI_Widget *window = ui->window_stack.current;
-    if(ui->active_window) {
+    UI_Widget *window = ui->active_window;
+    if(window) {
         V2 mouse_pos = os->mouse_pos;
         OS_Event *event = null;
         b32 mouse_down = os_peek_mouse_button_event(&event, OS_Event_Type_MouseDown, OS_Mouse_Button_Left);
@@ -988,28 +1187,34 @@ internal void ui_end_window() {
         
         ui_pop_parent();
         ui_pop_window();
+    } else {
+        ui->active_window = ui->window_stack.current;
     }
 }
-internal void ui_begin_row(char *string) {
-    String8 widget_string = string_from_cstring(string);
-    UI_Widget *row = ui_init_widget(widget_string, null);
-    ui_push_parent(row);
-    ui_widget_add_property(row, UI_Widget_Property_LayoutHorizontal);
+
+
+internal b32 ui_button(char *format...) {
+    String8 string = {};
+    MAKE_FORMAT_STRING(string, format);
+    b32 newly_created = false;
+    UI_Widget *button = ui_init_widget(string, &newly_created);
+    button->style = &widget_style_table[UI_Widget_Style_DefaultButton];
+    button->curr_layout = v4(40, 40, 100, 30);
+    ui_widget_add_property(button, UI_Widget_Property_RenderBackground);
+    ui_widget_add_property(button, UI_Widget_Property_RenderActive);
+    ui_widget_add_property(button, UI_Widget_Property_RenderHot);
+    ui_widget_add_property(button, UI_Widget_Property_RenderText);
+    ui_widget_add_property(button, UI_Widget_Property_Clickable);
+    
+    if(!newly_created) {
+        //do input only when we have layout from previous frame
+    }
+    
+    return false; //temporary until we get our input testing function done
 }
 
-internal void ui_end_row() {
-    ui_pop_parent();
-}
-
-internal void ui_begin_column(char *string) {
-    String8 widget_string = string_from_cstring(string);
-    UI_Widget *col = ui_init_widget(widget_string, null);
-    ui_push_parent(col);
-    ui_widget_add_property(col, UI_Widget_Property_LayoutVertical);
-}
-
-internal void ui_end_column() {
-    ui_pop_parent();
+internal b32 ui_button(UI_Widget_Style *style, char *title...) {
+    
 }
 
 internal void ui_test_box(NVGcolor color, char *format,...) {
