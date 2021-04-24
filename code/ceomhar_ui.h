@@ -105,7 +105,7 @@ enum UI_Widget_Styles {
 
 static UI_Widget_Style widget_style_table[UI_Widget_Style_MAX] = {
     {UI_MAKE_COLOR_STYLE(UI_DARK, UI_WHITE, UI_LIGHT, UI_LIGHT, UI_WHITE, UI_WHITE, UI_DARKEST, UI_WHITE, UI_LIGHT), 4.0f, 4.0f, 16.0f, {10.0f, 10.0f, 10.0f, 10.0f}, 30.0f},
-    {UI_MAKE_COLOR_STYLE(UI_PURPLE, UI_WHITE, {}, UI_PINK, UI_WHITE, {}, UI_DARK_PURPLE, UI_WHITE, {}), 0.0f, 2.0f, 24.0f, {12.0f, 12.0f, 12.0f, 12.0f}, 0.0f},
+    {UI_MAKE_COLOR_STYLE(UI_PURPLE, UI_WHITE, {}, UI_PINK, UI_WHITE, {}, UI_DARK_PURPLE, UI_WHITE, {}), 0.0f, 2.0f, 16.0f, {4.0f, 4.0f, 4.0f, 4.0f}, 0.0f},
     {UI_MAKE_COLOR_STYLE({}, {}, {}, {}, {}, {}, {}, {}, {}), 0.0f, 0.0f, 0.0f, {2.0f, 2.0f, 2.0f, 2.0f}, 0.0f},
 };
 

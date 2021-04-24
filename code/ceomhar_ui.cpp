@@ -510,13 +510,14 @@ layout_stack_current = null;\
                     curr->curr_layout.x = offset;
                     offset += curr->curr_layout.width;
                     
-                    if(height > parent_height && (height_pref != height_min)) {
-                        factor = (curr->parameters[1].pref - curr->parameters[1].min) / (height_pref - height_min);
+                    if(height > parent_height && (curr->parameters[1].pref != curr->parameters[1].min)) {
+                        factor = (curr->parameters[1].pref - curr->parameters[1].min) / (curr->parameters[1].pref - curr->parameters[1].min);
                         height -= factor * (height - parent_height);
-                    } else if(height < parent_height) {
-                        factor = (curr->parameters[1].max - curr->parameters[1].pref) / (height_max - height_pref);
+                    } else if(height < parent_height && (curr->parameters[1].pref != curr->parameters[1].max)) {
+                        factor = (curr->parameters[1].max - curr->parameters[1].pref) / (curr->parameters[1].max - curr->parameters[1].pref);
                         height += factor * (parent_height - height);
                     }
+                    height = CLAMP_MIN(height, curr->parameters[1].min);
                     curr->curr_layout.height = height;
                     curr->curr_layout.y = (parent_height / 2) - (height / 2) + initial_offset_y;
                     
@@ -544,14 +545,15 @@ layout_stack_current = null;\
                     curr->curr_layout.x = offset;
                     offset += curr->curr_layout.width;
                     
-                    if(height > parent_height && (height_pref != height_min)) {
-                        factor = (curr->parameters[1].pref - curr->parameters[1].min) / (height_pref - height_min);
+                    if(height > parent_height && (curr->parameters[1].pref != curr->parameters[1].min)) {
+                        factor = (curr->parameters[1].pref - curr->parameters[1].min) / (curr->parameters[1].pref - curr->parameters[1].min);
                         height -= factor * (height - parent_height);
-                    } else if(height < parent_height && (height_max != height_pref)) {
-                        factor = (curr->parameters[1].max - curr->parameters[1].pref) / (height_max - height_pref);
+                    } else if(height < parent_height && (curr->parameters[1].pref != curr->parameters[1].max)) {
+                        factor = (curr->parameters[1].max - curr->parameters[1].pref) / (curr->parameters[1].max - curr->parameters[1].pref);
                         height += factor * (parent_height - height);
                     }
                     
+                    height = CLAMP_MIN(height, curr->parameters[1].min);
                     curr->curr_layout.height = height;
                     curr->curr_layout.y = (parent_height / 2) - (height / 2) + initial_offset_y;
                     
@@ -577,14 +579,14 @@ layout_stack_current = null;\
                     offset += width;
                     
                     f32 factor = 0;
-                    if(height > parent_height && (height_pref != height_min)) {
-                        factor = (curr->parameters[1].pref - curr->parameters[1].min) / (height_pref - height_min);
+                    if(height > parent_height && (curr->parameters[1].pref != curr->parameters[1].min)) {
+                        factor = (curr->parameters[1].pref - curr->parameters[1].min) / (curr->parameters[1].pref - curr->parameters[1].min);
                         height -= factor * (height - parent_height);
-                    } else if(height < parent_height && (height_max != height_pref)) {
-                        factor = (curr->parameters[1].max - curr->parameters[1].pref) / (height_max - height_pref);
+                    } else if(height < parent_height && (curr->parameters[1].pref != curr->parameters[1].max)) {
+                        factor = (curr->parameters[1].max - curr->parameters[1].pref) / (curr->parameters[1].max - curr->parameters[1].pref);
                         height += factor * (parent_height - height);
                     }
-                    
+                    height = CLAMP_MIN(height, curr->parameters[1].min);
                     curr->curr_layout.height = height;
                     curr->curr_layout.y = (parent_height / 2) - (height / 2) + initial_offset_y;
                     
@@ -628,13 +630,14 @@ layout_stack_current = null;\
                     curr->curr_layout.y = offset;
                     offset += curr->curr_layout.height;
                     
-                    if(width > parent_width && (width_pref != width_min)) {
-                        factor = (curr->parameters[0].pref - curr->parameters[0].min) / (width_pref - width_min);
+                    if(width > parent_width && (curr->parameters[0].pref != curr->parameters[0].min)) {
+                        factor = (curr->parameters[0].pref - curr->parameters[0].min) / (curr->parameters[0].pref - curr->parameters[0].min);
                         width -= factor * (width - parent_width);
-                    } else if(width < parent_width && (width_max != width_pref)) {
-                        factor = (curr->parameters[0].max - curr->parameters[0].pref) / (width_max - width_pref);
+                    } else if(width < parent_width && (curr->parameters[0].pref != curr->parameters[0].max)) {
+                        factor = (curr->parameters[0].max - curr->parameters[0].pref) / (curr->parameters[0].max - curr->parameters[0].pref);
                         width += factor * (parent_width - width);
                     }
+                    width = CLAMP_MIN(width, curr->parameters[0].min);
                     curr->curr_layout.width = width;
                     curr->curr_layout.x = (parent_width / 2) - (width / 2) + initial_offset_x;
                     
@@ -662,14 +665,15 @@ layout_stack_current = null;\
                     curr->curr_layout.y = offset;
                     offset += curr->curr_layout.height;
                     
-                    if(width > parent_width && (width_pref != width_min)) {
-                        factor = (curr->parameters[0].pref - curr->parameters[0].min) / (width_pref - width_min);
+                    if(width > parent_width && (curr->parameters[0].pref != curr->parameters[0].min)) {
+                        factor = (curr->parameters[0].pref - curr->parameters[0].min) / (curr->parameters[0].pref - curr->parameters[0].min);
                         width -= factor * (width - parent_width);
-                    } else if(width < parent_width && (width_max != width_pref)) {
-                        factor = (curr->parameters[0].max - curr->parameters[0].pref) / (width_max - width_pref);
+                    } else if(width < parent_width && (curr->parameters[0].pref != curr->parameters[0].max)) {
+                        factor = (curr->parameters[0].max - curr->parameters[0].pref) / (curr->parameters[0].max - curr->parameters[0].pref);
                         width += factor * (parent_width - width);
                     }
                     
+                    width = CLAMP_MIN(width, curr->parameters[0].min);
                     curr->curr_layout.width = width;
                     curr->curr_layout.x = (parent_width / 2) - (width / 2) + initial_offset_x;
                     
@@ -695,14 +699,15 @@ layout_stack_current = null;\
                     offset += height;
                     
                     f32 factor = 0;
-                    if(width > parent_width && (width_pref != width_min)) {
-                        factor = (curr->parameters[0].pref - curr->parameters[0].min) / (width_pref - width_min);
+                    if(width > parent_width && (curr->parameters[0].pref != curr->parameters[0].min)) {
+                        factor = (curr->parameters[0].pref - curr->parameters[0].min) / (curr->parameters[0].pref - curr->parameters[0].min);
                         width -= factor * (width - parent_width);
-                    } else if(width < parent_width && (width_pref != width_max)) {
-                        factor = (curr->parameters[0].max - curr->parameters[0].pref) / (width_max - width_pref);
+                    } else if(width < parent_width && (curr->parameters[0].pref != curr->parameters[0].max)) {
+                        factor = (curr->parameters[0].max - curr->parameters[0].pref) / (curr->parameters[0].max - curr->parameters[0].pref);
                         width += factor * (parent_width - width);
                     }
                     
+                    width = CLAMP_MIN(width, curr->parameters[0].min);
                     curr->curr_layout.width = width;
                     curr->curr_layout.x = (parent_width / 2) - (width / 2) + initial_offset_x;
                     
@@ -757,9 +762,8 @@ render_stack_current = null;\
         f32 initial_x_offset = window->old_layout.x;
         f32 initial_y_offset = window->old_layout.y;
         
-        nvgSave(vg_context);
-        //do clipping/nvgScissor stuff here
         nvgScissor(vg_context, window->curr_layout.x, window->curr_layout.y, window->curr_layout.width, window->curr_layout.height);
+        
         while(render_stack_current) {
             //pop element from stack
             UI_Widget *curr = render_stack_current;
@@ -875,6 +879,12 @@ render_stack_current = null;\
                 nvgRect(vg_context, curr->splitter_rect.x, curr->splitter_rect.y, curr->splitter_rect.width, curr->splitter_rect.height);
                 nvgFillColor(vg_context, color);
                 nvgFill(vg_context);
+            }
+            
+            if(ui_widget_has_property(curr, UI_Widget_Property_Container)) {
+                nvgSave(vg_context);
+                //do clipping/nvgScissor stuff here
+                nvgScissor(vg_context, window->curr_layout.x + window->style->padding.x0, window->curr_layout.y, window->curr_layout.width - window->style->padding.x1 -  window->style->padding.x0, window->curr_layout.height - window->style->padding.y1);
             }
             //add children(excluding windows/containers) to stack left to right if parent
             UI_Widget *curr_child = curr->tree_first_child;

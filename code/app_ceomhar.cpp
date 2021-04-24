@@ -59,7 +59,7 @@ UI_Window(...) {
         }
         ui_end_window();
         static b32 open = true;
-        ui_begin_window(v4(200, 200, 200, 100), &open, null,"Window Numero Dos");
+        ui_begin_window(v4(200, 200, 100, 300), &open, null,"Window Numero Dos");
         {
             if(open) {
                 ui_button("Test_Button");
