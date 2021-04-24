@@ -8,6 +8,8 @@
 #define CLAMP_MAX(n,max) ((n > max) ? max : n)
 #define CLAMP_MIN(n,min) ((n < min) ? min : n)
 
+#define SUM_V3(a, b) {a.x + b.x, a.y + b.y, a.z + b.z}
+
 // TODO(Cian): move this to math stuff later
 union V2 {
     struct {

@@ -54,14 +54,21 @@ UI_Window(...) {
 
 }
 */
-        ui_begin_window(v4(0, 0, UI_WINDOW_RATIO_WIDTH(0.5f), 300), null, UI_ContainerOptions_NoResize | UI_ContainerOptions_NoMove,"Window");
+        ui_begin_window(v4(0, 0, UI_WINDOW_RATIO_WIDTH(0.3f), 300), null, UI_ContainerOptions_NoResize | UI_ContainerOptions_NoMove,"Window");
         {
-            ui_button("Test_Button");
         }
         ui_end_window();
         static b32 open = true;
-        ui_begin_window(v4(200, 200, 200, 200), &open, null,"Window Numero Dos");
-        
+        ui_begin_window(v4(200, 200, 200, 100), &open, null,"Window Numero Dos");
+        {
+            if(open) {
+                ui_button("Test_Button");
+                ui_button("Another_Button");
+                Filler(1);
+                ui_button("Test_Button_3");
+                ui_button("Test_Button_4"); 
+            }
+        }
         ui_end_window();
         
         static V2 size_pos_1 = {300, 0};

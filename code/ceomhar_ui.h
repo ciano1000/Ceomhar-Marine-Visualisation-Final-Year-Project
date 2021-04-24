@@ -105,7 +105,7 @@ enum UI_Widget_Styles {
 
 static UI_Widget_Style widget_style_table[UI_Widget_Style_MAX] = {
     {UI_MAKE_COLOR_STYLE(UI_DARK, UI_WHITE, UI_LIGHT, UI_LIGHT, UI_WHITE, UI_WHITE, UI_DARKEST, UI_WHITE, UI_LIGHT), 4.0f, 4.0f, 16.0f, {10.0f, 10.0f, 10.0f, 10.0f}, 30.0f},
-    {UI_MAKE_COLOR_STYLE(UI_PURPLE, UI_WHITE, {}, UI_PINK, UI_WHITE, {}, UI_DARK_PURPLE, UI_WHITE, {}), 0.0f, 2.0f, 14.0f, {2.0f, 2.0f, 2.0f, 2.0f}, 0.0f},
+    {UI_MAKE_COLOR_STYLE(UI_PURPLE, UI_WHITE, {}, UI_PINK, UI_WHITE, {}, UI_DARK_PURPLE, UI_WHITE, {}), 0.0f, 2.0f, 24.0f, {12.0f, 12.0f, 12.0f, 12.0f}, 0.0f},
     {UI_MAKE_COLOR_STYLE({}, {}, {}, {}, {}, {}, {}, {}, {}), 0.0f, 0.0f, 0.0f, {2.0f, 2.0f, 2.0f, 2.0f}, 0.0f},
 };
 
@@ -152,6 +152,11 @@ struct UI_Widget{
     V4 curr_layout;
     V4 old_layout;
     V3 parameters[2];
+    V3 child_parameters_sum[2];
+    f32 child_ratio_sum[2];
+    //~ used for determining if we need to re-run layout - this is an experiment and may not work out
+    u32 curr_child_hash;
+    u32 old_child_hash;
     UI_Widget_Style *style;
     
     String8 edit_text;
@@ -159,16 +164,6 @@ struct UI_Widget{
     f32 scroll_offset_x;
     f32 scroll_offset_y;
     V4 splitter_rect;
-};
-
-struct UI_Layout_Stack_Entry {
-    UI_Widget *widget;
-    UI_Widget *last_child;
-    u32 num_expand;
-    f32 offset;
-    f32 sum_size;
-    f32 min_sum_delta;
-    f32 max_sum_delta;
 };
 
 struct UI_State {

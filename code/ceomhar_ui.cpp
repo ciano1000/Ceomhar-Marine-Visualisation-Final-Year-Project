@@ -402,8 +402,6 @@ internal void ui_begin() {
         ui_bring_to_front(main_window);
     
     main_window->curr_layout = v4(0, 0, display_width, display_height);
-    ui_pop_width();
-    ui_pop_height();
     
     ui->root_widget = main_window;
     ui->active_window = main_window;
@@ -435,8 +433,8 @@ internal void ui_begin() {
 }
 
 internal void ui_do_layout() {
-    UI_Layout_Stack_Entry *layout_stack = (UI_Layout_Stack_Entry *)memory_arena_push(&os->frame_arena, sizeof(UI_Layout_Stack_Entry) * ui->widget_size);
-    UI_Layout_Stack_Entry layout_stack_current = {};
+    UI_Widget **layout_stack = (UI_Widget **)memory_arena_push(&os->frame_arena, sizeof(UI_Widget*) * ui->widget_size);
+    UI_Widget *layout_stack_current = null;
     u32 size = 0;
     
 #define layout_stack_push(widget) {\
@@ -452,23 +450,19 @@ size--;\
 if(size > 0) {\
 layout_stack_current = layout_stack[size - 1];\
 } else {\
-layout_stack_current = {};\
+layout_stack_current = null;\
 }\
 }
     
-    UI_Layout_Stack_Entry root = {};
-    root.widget =  ui->root_widget;;
-    layout_stack_push(root);
+    layout_stack_push(ui->root_widget);
     
     V2 returned_size = {};
     UI_Widget *last_child = null;
     
     while(size > 0) {
-        UI_Layout_Stack_Entry curr_entry = layout_stack_current;
+        UI_Widget *widget = layout_stack_current;
         layout_stack_pop();
         //parents always loop through the children twice, needed because of how we use expanded widgets, first loop is for sizes, second loop is for resizing and positioning
-        
-        UI_Widget *widget = curr_entry.widget;
         
         f32 parent_width = widget->curr_layout.width - widget->style->padding.x0 - widget->style->padding.x1;
         f32 parent_height = widget->curr_layout.height - widget->style->padding.y0 - widget->style->padding.y1 - widget->style->title_height;
@@ -476,104 +470,253 @@ layout_stack_current = {};\
         f32 initial_offset_x = widget->style->padding.x0 + widget->scroll_offset_x;
         f32 initial_offset_y = widget->style->padding.y0 + widget->style->title_height + widget->scroll_offset_y;
         
-        b32 width_auto = UI_PARAM_IS_AUTO(widget->parameters[0]);
-        b32 height_auto = UI_PARAM_IS_AUTO(widget->parameters[1]);
+        //regular layout flow
+        if(ui_widget_has_property(widget, UI_Widget_Property_Container)) {
+            // TODO(Cian): Handle any menu-bar widgets if they exist, if they exist they should be the first child. Also handle auto-sized windows, e.g. we sum up the child sizes at the end to get our size for the next frame
+        }
         
-        if(height_auto || width_auto) {
-            //~ NOTE(Cian): Idea for handling ratios in auto-sized widgets, lets store a ratio factor f32 outside the measuring loop that keeps track of how much to add to widgets size once we are finished measuring. Ratios won't be exact if multiple ratios exist but it's better than nothing
-            if(ui_widget_has_property(widget, UI_Widget_Property_LayoutHorizontal)) {
-                
-            } else if(ui_widget_has_property(widget, UI_Widget_Property_LayoutVertical)) {
-                
-            } else if(ui_widget_has_property(widget, UI_Widget_Property_RenderText)) {
-                
-            }
-        } else {
-            //regular layout flow
-            if(ui_widget_has_property(widget, UI_Widget_Property_Container)) {
-                // TODO(Cian): Handle any menu-bar widgets if they exist, if they exist they should be the first child. Also handle auto-sized windows, e.g. we sum up the child sizes at the end to get our size for the next frame
-            }
+        if(ui_widget_has_property(widget, UI_Widget_Property_LayoutHorizontal)) {
+            f32 sum_size = widget->child_parameters_sum[0].pref;
+            f32 min_sum = widget->child_parameters_sum[0].min;
+            f32 max_sum = widget->child_parameters_sum[0].max;
             
-            if(ui_widget_has_property(widget, UI_Widget_Property_LayoutHorizontal)) {
-                // TODO(Cian): @Checkpoint break the below code into 3 functions that can be reused for Vertical layouts: tiled_layout - uses pref size, adjust_smaller - interpolates between pref and min, adjust greater - interpolates between pref and max
-                // NOTE(Cian): For fillers I think I need to go back to min, pref & max sizes e.g. fillers would be 0, 0, 1000000. That way they don't unnecessarily take size from much smaller widgets and can still be "adjusted greater" later on 
-                
-                UI_Widget *curr = widget->tree_first_child;
-                if(curr_entry.last_child)
-                    curr = curr_entry.last_child;
-                
-                b32 exit_loop = false;
-                
+            f32 height_pref = widget->child_parameters_sum[1].pref;
+            f32 height_min = widget->child_parameters_sum[1].pref;
+            f32 height_max = widget->child_parameters_sum[1].pref;
+            
+            f32 offset = initial_offset_x;
+            
+            //the parents size will never be less than the min_sum, we just check if the parent is a window, if it is we add a scrollbar in the containers creation function
+            
+            UI_Widget *curr = widget->tree_first_child;
+            if(sum_size > parent_width) {
                 while(curr) {
-                    
-                    if(ui_widget_has_property(curr, UI_Widget_Property_InstantLayout) || ui_widget_has_property(curr, UI_Widget_Property_Spacer)) {
+                    if(ui_widget_has_property(curr, UI_Widget_Property_InstantLayout)) {
                         //some widgets handle their own layout, e.g. windows, some containers, splitters etc
+                        layout_stack_push(curr);
                         curr = curr->tree_next_sibling;
                         continue;
                     }
                     
-                    if(UI_PARAM_IS_AUTO(curr->parameters[0]) || UI_PARAM_IS_AUTO(curr->parameters[1])) {
-                        UI_Layout_Stack_Entry new_entry = {};
-                        new_entry.widget = curr;
-                        layout_stack_push(new_entry);
-                        curr_entry.last_child = curr;
-                        layout_stack_push(curr_entry);
-                        //go back to start of loop so we can measure the child
-                        exit_loop = true;
-                        break;
+                    f32 width = UI_PARAM_IS_RATIO(curr->parameters[0]) ? curr->parameters[0].pref * parent_width: curr->parameters[0].pref;
+                    curr->parameters[0].pref = width;
+                    f32 height = UI_PARAM_IS_RATIO(curr->parameters[1]) ? curr->parameters[1].pref * parent_height: curr->parameters[1].pref; 
+                    curr->parameters[1].pref = height;
+                    
+                    f32 factor = 0;
+                    if(sum_size != min_sum)
+                        factor = (curr->parameters[0].pref - curr->parameters[0].min) / (sum_size - min_sum);
+                    curr->curr_layout.width = CLAMP_MIN(curr->parameters[0].pref - (factor * (sum_size - parent_width)), curr->parameters[0].min);
+                    curr->curr_layout.x = offset;
+                    offset += curr->curr_layout.width;
+                    
+                    if(height > parent_height && (height_pref != height_min)) {
+                        factor = (curr->parameters[1].pref - curr->parameters[1].min) / (height_pref - height_min);
+                        height -= factor * (height - parent_height);
+                    } else if(height < parent_height) {
+                        factor = (curr->parameters[1].max - curr->parameters[1].pref) / (height_max - height_pref);
+                        height += factor * (parent_height - height);
                     }
+                    curr->curr_layout.height = height;
+                    curr->curr_layout.y = (parent_height / 2) - (height / 2) + initial_offset_y;
                     
-                    f32 curr_width = UI_PARAM_IS_RATIO(curr->parameters[0]) ? curr->parameters[0].pref * parent_width: curr->parameters[0].pref;
-                    curr->parameters[0].pref = curr_width;
-                    f32 curr_height = UI_PARAM_IS_RATIO(curr->parameters[1]) ? curr->parameters[1].pref * parent_height: curr->parameters[1].pref; 
-                    curr->parameters[1].pref = curr_height;
-                    
-                    curr_entry.sum_size += curr_width;
-                    curr_entry.min_sum_delta += curr->parameters[0].pref - curr->parameters[0].min;
-                    curr_entry.max_sum_delta += curr->parameters[0].max - curr->parameters[0].pref;
-                    curr->curr_layout.width = curr_width;
-                    curr->curr_layout.x = curr_entry.offset;
-                    curr_entry.offset += curr_width;
-                    
-                    //Rows with height auto are the only ones that guarantee that the widget will get the size it wants, otherwise we clamp it.
-                    if(curr_height > parent_height) {
-                        curr_height = parent_height;
-                    }
-                    
-                    curr->curr_layout.height = curr_height;
-                    curr->curr_layout.y = (parent_height / 2) - (curr_height / 2);
-                    
+                    layout_stack_push(curr);
                     curr = curr->tree_next_sibling;
                 }
-                
-                if(exit_loop)
-                    continue;
-                
-                //resize && re-layout main axis
-                if(curr_entry.sum_size > parent_width) {
-                    curr_entry.offset = 0;
-                    
-                    curr = widget->tree_first_child;
-                    while(curr) {
-                        if(!(ui_widget_has_property(curr, UI_Widget_Property_InstantLayout) || ui_widget_has_property(curr, UI_Widget_Property_Spacer))) {
-                            
-                            f32 pref_width = curr->parameters[0].pref;
-                            //f32 factor = (pref_width * (1 - curr->parameters[0].strictness)) / curr_entry.sum_delta;
-                            
-                            curr->curr_layout.x = curr_entry.offset;
-                            //curr->curr_layout.width -= (factor * (curr_entry.sum_size - parent_width));
-                            curr_entry.offset += curr->curr_layout.width;
-                        }
-                        //curr
-                        //layout_stack_push();
-                        curr = widget->tree_next_sibling;
+            } else if(sum_size < parent_width) {
+                while(curr) {
+                    if(ui_widget_has_property(curr, UI_Widget_Property_InstantLayout)) {
+                        //some widgets handle their own layout, e.g. windows, some containers, splitters etc
+                        layout_stack_push(curr);
+                        curr = curr->tree_next_sibling;
+                        continue;
                     }
+                    
+                    f32 width = UI_PARAM_IS_RATIO(curr->parameters[0]) ? curr->parameters[0].pref * parent_width: curr->parameters[0].pref;
+                    curr->parameters[0].pref = width;
+                    f32 height = UI_PARAM_IS_RATIO(curr->parameters[1]) ? curr->parameters[1].pref * parent_height: curr->parameters[1].pref; 
+                    curr->parameters[1].pref = height;
+                    
+                    f32 factor = 0;
+                    if(sum_size != min_sum)
+                        factor = (curr->parameters[0].max - curr->parameters[0].pref) / (max_sum - sum_size);
+                    curr->curr_layout.width = CLAMP_MAX(curr->parameters[0].pref + (factor * (parent_width - sum_size)), curr->parameters[0].max);
+                    curr->curr_layout.x = offset;
+                    offset += curr->curr_layout.width;
+                    
+                    if(height > parent_height && (height_pref != height_min)) {
+                        factor = (curr->parameters[1].pref - curr->parameters[1].min) / (height_pref - height_min);
+                        height -= factor * (height - parent_height);
+                    } else if(height < parent_height && (height_max != height_pref)) {
+                        factor = (curr->parameters[1].max - curr->parameters[1].pref) / (height_max - height_pref);
+                        height += factor * (parent_height - height);
+                    }
+                    
+                    curr->curr_layout.height = height;
+                    curr->curr_layout.y = (parent_height / 2) - (height / 2) + initial_offset_y;
+                    
+                    layout_stack_push(curr);
+                    curr = curr->tree_next_sibling;
                 }
-            } else if(ui_widget_has_property(widget, UI_Widget_Property_LayoutVertical)) {
-                
+            } else {
+                while(curr) {
+                    if(ui_widget_has_property(curr, UI_Widget_Property_InstantLayout)) {
+                        //some widgets handle their own layout, e.g. windows, some containers, splitters etc
+                        layout_stack_push(curr);
+                        curr = curr->tree_next_sibling;
+                        continue;
+                    }
+                    
+                    f32 width = UI_PARAM_IS_RATIO(curr->parameters[0]) ? curr->parameters[0].pref * parent_width: curr->parameters[0].pref;
+                    curr->parameters[0].pref = width;
+                    f32 height = UI_PARAM_IS_RATIO(curr->parameters[1]) ? curr->parameters[1].pref * parent_height: curr->parameters[1].pref; 
+                    curr->parameters[1].pref = height;
+                    
+                    curr->curr_layout.width = width;
+                    curr->curr_layout.x = offset;
+                    offset += width;
+                    
+                    f32 factor = 0;
+                    if(height > parent_height && (height_pref != height_min)) {
+                        factor = (curr->parameters[1].pref - curr->parameters[1].min) / (height_pref - height_min);
+                        height -= factor * (height - parent_height);
+                    } else if(height < parent_height && (height_max != height_pref)) {
+                        factor = (curr->parameters[1].max - curr->parameters[1].pref) / (height_max - height_pref);
+                        height += factor * (parent_height - height);
+                    }
+                    
+                    curr->curr_layout.height = height;
+                    curr->curr_layout.y = (parent_height / 2) - (height / 2) + initial_offset_y;
+                    
+                    layout_stack_push(curr);
+                    curr = curr->tree_next_sibling;
+                }
+            }
+            
+        } else if(ui_widget_has_property(widget, UI_Widget_Property_LayoutVertical)) {
+            f32 sum_size = widget->child_parameters_sum[1].pref;
+            f32 min_sum = widget->child_parameters_sum[1].min;
+            f32 max_sum = widget->child_parameters_sum[1].max;
+            
+            f32 width_pref = widget->child_parameters_sum[0].pref;
+            f32 width_min = widget->child_parameters_sum[0].pref;
+            f32 width_max = widget->child_parameters_sum[0].pref;
+            
+            f32 offset = initial_offset_y;
+            
+            //the parents size will never be less than the min_sum, we just check if the parent is a window, if it is we add a scrollbar in the containers creation function
+            
+            UI_Widget *curr = widget->tree_first_child;
+            if(sum_size > parent_height) {
+                while(curr) {
+                    if(ui_widget_has_property(curr, UI_Widget_Property_InstantLayout)) {
+                        //some widgets handle their own layout, e.g. windows, some containers, splitters etc
+                        layout_stack_push(curr);
+                        curr = curr->tree_next_sibling;
+                        continue;
+                    }
+                    
+                    f32 width = UI_PARAM_IS_RATIO(curr->parameters[0]) ? curr->parameters[0].pref * parent_width: curr->parameters[0].pref;
+                    curr->parameters[0].pref = width;
+                    f32 height = UI_PARAM_IS_RATIO(curr->parameters[1]) ? curr->parameters[1].pref * parent_height: curr->parameters[1].pref; 
+                    curr->parameters[1].pref = height;
+                    
+                    f32 factor = 0;
+                    if(sum_size != min_sum)
+                        factor = (curr->parameters[1].pref - curr->parameters[1].min) / (sum_size - min_sum);
+                    curr->curr_layout.height = CLAMP_MIN(curr->parameters[1].pref - (factor * (sum_size - parent_height)), curr->parameters[1].min);
+                    curr->curr_layout.y = offset;
+                    offset += curr->curr_layout.height;
+                    
+                    if(width > parent_width && (width_pref != width_min)) {
+                        factor = (curr->parameters[0].pref - curr->parameters[0].min) / (width_pref - width_min);
+                        width -= factor * (width - parent_width);
+                    } else if(width < parent_width && (width_max != width_pref)) {
+                        factor = (curr->parameters[0].max - curr->parameters[0].pref) / (width_max - width_pref);
+                        width += factor * (parent_width - width);
+                    }
+                    curr->curr_layout.width = width;
+                    curr->curr_layout.x = (parent_width / 2) - (width / 2) + initial_offset_x;
+                    
+                    layout_stack_push(curr);
+                    curr = curr->tree_next_sibling;
+                }
+            } else if(sum_size < parent_height) {
+                while(curr) {
+                    if(ui_widget_has_property(curr, UI_Widget_Property_InstantLayout)) {
+                        //some widgets handle their own layout, e.g. windows, some containers, splitters etc
+                        layout_stack_push(curr);
+                        curr = curr->tree_next_sibling;
+                        continue;
+                    }
+                    
+                    f32 width = UI_PARAM_IS_RATIO(curr->parameters[0]) ? curr->parameters[0].pref * parent_width: curr->parameters[0].pref;
+                    curr->parameters[0].pref = width;
+                    f32 height = UI_PARAM_IS_RATIO(curr->parameters[1]) ? curr->parameters[1].pref * parent_height: curr->parameters[1].pref; 
+                    curr->parameters[1].pref = height;
+                    
+                    f32 factor = 0;
+                    if(max_sum != sum_size)
+                        factor = (curr->parameters[1].max - curr->parameters[1].pref) / (max_sum - sum_size);
+                    curr->curr_layout.height = CLAMP_MAX(curr->parameters[1].pref + (factor * (parent_height - sum_size)), curr->parameters[1].max);
+                    curr->curr_layout.y = offset;
+                    offset += curr->curr_layout.height;
+                    
+                    if(width > parent_width && (width_pref != width_min)) {
+                        factor = (curr->parameters[0].pref - curr->parameters[0].min) / (width_pref - width_min);
+                        width -= factor * (width - parent_width);
+                    } else if(width < parent_width && (width_max != width_pref)) {
+                        factor = (curr->parameters[0].max - curr->parameters[0].pref) / (width_max - width_pref);
+                        width += factor * (parent_width - width);
+                    }
+                    
+                    curr->curr_layout.width = width;
+                    curr->curr_layout.x = (parent_width / 2) - (width / 2) + initial_offset_x;
+                    
+                    layout_stack_push(curr);
+                    curr = curr->tree_next_sibling;
+                }
+            } else {
+                while(curr) {
+                    if(ui_widget_has_property(curr, UI_Widget_Property_InstantLayout)) {
+                        //some widgets handle their own layout, e.g. windows, some containers, splitters etc
+                        layout_stack_push(curr);
+                        curr = curr->tree_next_sibling;
+                        continue;
+                    }
+                    
+                    f32 width = UI_PARAM_IS_RATIO(curr->parameters[0]) ? curr->parameters[0].pref * parent_width: curr->parameters[0].pref;
+                    curr->parameters[0].pref = width;
+                    f32 height = UI_PARAM_IS_RATIO(curr->parameters[1]) ? curr->parameters[1].pref * parent_height: curr->parameters[1].pref; 
+                    curr->parameters[1].pref = height;
+                    
+                    curr->curr_layout.height = height;
+                    curr->curr_layout.y = offset;
+                    offset += height;
+                    
+                    f32 factor = 0;
+                    if(width > parent_width && (width_pref != width_min)) {
+                        factor = (curr->parameters[0].pref - curr->parameters[0].min) / (width_pref - width_min);
+                        width -= factor * (width - parent_width);
+                    } else if(width < parent_width && (width_pref != width_max)) {
+                        factor = (curr->parameters[0].max - curr->parameters[0].pref) / (width_max - width_pref);
+                        width += factor * (parent_width - width);
+                    }
+                    
+                    curr->curr_layout.width = width;
+                    curr->curr_layout.x = (parent_width / 2) - (width / 2) + initial_offset_x;
+                    
+                    layout_stack_push(curr);
+                    curr = curr->tree_next_sibling;
+                }
             }
         }
         
+        
+        widget->child_parameters_sum[0] = {};
+        widget->child_parameters_sum[1] = {};
+        widget->child_ratio_sum[0] = 0;
+        widget->child_ratio_sum[1] = 0;
     }
     /*if(ui_widget_has_property(widget, UI_Widget_Property_Container)) {
         
@@ -671,6 +814,14 @@ render_stack_current = null;\
                 nvgFontSize(vg_context, curr->style->font_size);
                 nvgFillColor(vg_context, curr->style->colors[UI_ColorState_Normal].text_color);
                 nvgText(vg_context, x + F32_FLOOR(width / 2), y + F32_FLOOR(title_height / 2), curr->string.data, null);
+            }
+            
+            if(ui_widget_has_property(curr, UI_Widget_Property_RenderText)) {
+                nvgTextAlign(vg_context, NVG_ALIGN_CENTER|NVG_ALIGN_MIDDLE);
+                nvgFontFace(vg_context, "roboto-medium");
+                nvgFontSize(vg_context, curr->style->font_size);
+                nvgFillColor(vg_context, curr->style->colors[UI_ColorState_Normal].text_color);
+                nvgText(vg_context, x + F32_FLOOR(width / 2), y + F32_FLOOR(height / 2), curr->string.data, null);
             }
             
             if(ui_widget_has_property(curr, UI_Widget_Property_RenderCloseButton)) {
@@ -824,6 +975,131 @@ internal void ui_end() {
     ui->active_window = null;
 }
 
+internal void ui_measure_widget(UI_Widget *widget) {
+    f32 width_padding = widget->style->padding.x0 + widget->style->padding.x1;
+    f32 height_padding = widget->style->padding.y0 + widget->style->padding.y1;
+    
+    if(ui_widget_has_property(widget, UI_Widget_Property_LayoutHorizontal) || ui_widget_has_property(widget, UI_Widget_Property_LayoutVertical)) {
+        //V3 our_width = SUM_V3(widget->child_parameters_sum[0], {width_padding, width_padding, width_padding});
+        
+        f32 *min_width = &widget->parameters[0].min;
+        f32 *pref_width = &widget->parameters[0].pref;
+        f32 *max_width = &widget->parameters[0].max;
+        
+        //Below code coincidentally handles auto-sizing since auto-sized values are always 0
+        if((widget->child_parameters_sum[0].min + width_padding) > *min_width) {
+            *min_width = widget->child_parameters_sum[0].min + width_padding;
+        }
+        
+        if((widget->child_parameters_sum[0].pref + width_padding) > *pref_width) {
+            *pref_width = widget->child_parameters_sum[0].pref + width_padding;
+        }
+        
+        if((widget->child_parameters_sum[0].max + width_padding) > *max_width) {
+            *max_width = widget->child_parameters_sum[0].max + width_padding;
+        }
+        
+        f32 *min_height = &widget->parameters[1].min;
+        f32 *pref_height = &widget->parameters[1].pref;
+        f32 *max_height = &widget->parameters[1].max;
+        
+        if((widget->child_parameters_sum[1].min + height_padding) > *min_height) {
+            *min_height = widget->child_parameters_sum[1].min + height_padding;
+        }
+        
+        if((widget->child_parameters_sum[1].pref + height_padding) > *pref_height) {
+            *pref_height = widget->child_parameters_sum[1].pref + height_padding;
+        }
+        
+        if((widget->child_parameters_sum[1].max + height_padding) > *max_height) {
+            *max_height = widget->child_parameters_sum[1].max + height_padding;
+        }
+        // TODO(Cian): @UI not sure about ratios at all, make sure to investigate later
+        *pref_width += (*pref_width * widget->child_ratio_sum[0]);
+        *pref_height += (*pref_height * widget->child_ratio_sum[1]);
+        
+    } else if(ui_widget_has_property(widget, UI_Widget_Property_RenderText)) {
+        nvgTextAlign(vg_context, NVG_ALIGN_LEFT|NVG_ALIGN_MIDDLE);
+        nvgFontFace(vg_context, "roboto-medium");
+        nvgFontSize(vg_context, widget->style->font_size);
+        f32 bounds[4];
+        f32 width = nvgTextBounds(vg_context, 0, 0, widget->string.data, null, bounds);
+        f32 height = bounds[3] - bounds[1];
+        
+        // NOTE(Cian): Render text widgets are semi-auto sized by default to ensure the text fits
+        if(width > widget->parameters[0].min)
+            widget->parameters[0].min = width;
+        
+        if(height > widget->parameters[1].min)
+            widget->parameters[1].min = height;
+        
+        //need to check for ratios here
+        if(!UI_PARAM_IS_RATIO(widget->parameters[0])) {
+            if((width + width_padding) > widget->parameters[0].pref)
+                widget->parameters[0].pref = width + width_padding;
+        }
+        if(!UI_PARAM_IS_RATIO(widget->parameters[0])) {
+            if((height + height_padding) > widget->parameters[1].pref)
+                widget->parameters[1].pref = height + height_padding;
+        }
+        //ensure the max size is at least the same as the pref
+        if(widget->parameters[0].pref > widget->parameters[0].max)
+            widget->parameters[0].max = widget->parameters[0].pref;
+        //ensure the max size is at least the same as the pref
+        if(widget->parameters[1].pref > widget->parameters[1].max)
+            widget->parameters[1].max = widget->parameters[1].pref;
+        
+    } else {
+        //default fallthrough to handle auto-widgets that haven't had explicit auto-sizing defined yet
+        if(UI_PARAM_IS_AUTO(widget->parameters[0])) {
+            widget->parameters[0] = v3(0, 100, 200);
+        }
+        
+        if(UI_PARAM_IS_AUTO(widget->parameters[1])) {
+            widget->parameters[1] = v3(0, 100, 200);
+        }
+    }
+    
+    //add to the parents sum - ratio sized widgets only add their min & max, not the pref since that stores the ratio - the ratio is added to the parents child_ratio_sum
+    if(ui_widget_has_property(widget->tree_parent, UI_Widget_Property_LayoutHorizontal)) {
+        widget->tree_parent->child_parameters_sum[0].min += widget->parameters[0].min;
+        if(!UI_PARAM_IS_RATIO(widget->parameters[0])) {
+            widget->tree_parent->child_parameters_sum[0].pref += widget->parameters[0].pref;
+        } else {
+            widget->tree_parent->child_ratio_sum[0] += widget->parameters[0].pref;
+        }
+        widget->tree_parent->child_parameters_sum[0].max += widget->parameters[0].max;
+        
+        widget->tree_parent->child_parameters_sum[1].min = (widget->parameters[1].min > widget->tree_parent->child_parameters_sum[1].min) ? widget->parameters[1].min : widget->tree_parent->child_parameters_sum[1].min;
+        
+        if(!UI_PARAM_IS_RATIO(widget->parameters[1])) {
+            widget->tree_parent->child_parameters_sum[1].pref = (widget->parameters[1].pref > widget->tree_parent->child_parameters_sum[1].pref) ? widget->parameters[1].pref : widget->tree_parent->child_parameters_sum[1].pref;
+        } else {
+            widget->tree_parent->child_ratio_sum[1] += widget->parameters[1].pref;
+        }
+        widget->tree_parent->child_parameters_sum[1].max = (widget->parameters[1].max > widget->tree_parent->child_parameters_sum[1].max) ? widget->parameters[1].max : widget->tree_parent->child_parameters_sum[1].max;
+        
+    } else if(ui_widget_has_property(widget->tree_parent, UI_Widget_Property_LayoutVertical)) {
+        widget->tree_parent->child_parameters_sum[1].min += widget->parameters[1].min;
+        if(!UI_PARAM_IS_RATIO(widget->parameters[1])) {
+            widget->tree_parent->child_parameters_sum[1].pref += widget->parameters[1].pref;
+        } else {
+            widget->tree_parent->child_ratio_sum[1] += widget->parameters[1].pref;
+        }
+        widget->tree_parent->child_parameters_sum[1].max += widget->parameters[1].max;
+        
+        widget->tree_parent->child_parameters_sum[0].min = (widget->parameters[0].min > widget->tree_parent->child_parameters_sum[0].min) ? widget->parameters[0].min : widget->tree_parent->child_parameters_sum[0].min;
+        
+        if(!UI_PARAM_IS_RATIO(widget->parameters[0])) {
+            widget->tree_parent->child_parameters_sum[0].pref = (widget->parameters[0].pref > widget->tree_parent->child_parameters_sum[0].pref) ? widget->parameters[0].pref : widget->tree_parent->child_parameters_sum[0].pref;
+        } else {
+            widget->tree_parent->child_ratio_sum[0] += widget->parameters[0].pref;
+        }
+        widget->tree_parent->child_parameters_sum[0].max = (widget->parameters[0].max > widget->tree_parent->child_parameters_sum[0].max) ? widget->parameters[0].max : widget->tree_parent->child_parameters_sum[0].max;
+    }
+    // TODO(Cian): Handle other special sizing requirements as needed
+}
+
 internal void ui_begin_row(char *string) {
     String8 widget_string = string_from_cstring(string);
     UI_Widget *row = ui_init_widget(widget_string, null);
@@ -832,7 +1108,13 @@ internal void ui_begin_row(char *string) {
 }
 
 internal void ui_end_row() {
+    UI_Widget *row = ui->parent_stack.current;
+    
     ui_pop_parent();
+    //give child measurements to parent
+    if(ui->parent_stack.current) {
+        ui_measure_widget(row);
+    }
 }
 
 internal void ui_begin_column(char *string) {
@@ -843,7 +1125,13 @@ internal void ui_begin_column(char *string) {
 }
 
 internal void ui_end_column() {
+    UI_Widget *column = ui->parent_stack.current;
+    
     ui_pop_parent();
+    //give child measurements to parent
+    if(ui->parent_stack.current) {
+        ui_measure_widget(column);
+    }
 }
 
 internal void ui_spacer(f32 min, f32 pref, f32 max) {
@@ -869,6 +1157,10 @@ internal void ui_spacer(f32 min, f32 pref, f32 max) {
         spacer->parameters[0].min = 1;
         spacer->parameters[0].pref = 1;
         spacer->parameters[0].max = 1;
+    }
+    
+    if(ui->parent_stack.current) {
+        ui_measure_widget(spacer);
     }
 }
 
@@ -1199,7 +1491,6 @@ internal b32 ui_button(char *format...) {
     b32 newly_created = false;
     UI_Widget *button = ui_init_widget(string, &newly_created);
     button->style = &widget_style_table[UI_Widget_Style_DefaultButton];
-    button->curr_layout = v4(40, 40, 100, 30);
     ui_widget_add_property(button, UI_Widget_Property_RenderBackground);
     ui_widget_add_property(button, UI_Widget_Property_RenderActive);
     ui_widget_add_property(button, UI_Widget_Property_RenderHot);
@@ -1208,6 +1499,10 @@ internal b32 ui_button(char *format...) {
     
     if(!newly_created) {
         //do input only when we have layout from previous frame
+    }
+    
+    if(ui->parent_stack.current) {
+        ui_measure_widget(button);
     }
     
     return false; //temporary until we get our input testing function done
