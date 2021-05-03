@@ -19,6 +19,9 @@
 #define UI_AQUA        nvgRGBA(3,218,198,255)
 #define UI_RED         nvgRGBA(207,102,121,255)
 
+#define UI_MIN_SCROLL_MAIN 30
+#define UI_SEC_SCROLL_SIZE 10
+
 #define UI_WINDOW_FILL_WIDTH ui->window_stack.current->curr_layout.width
 #define UI_WINDOW_FILL_HEIGHT ui->window_stack.current->curr_layout.height
 
@@ -59,6 +62,8 @@ enum UI_Widget_Property{
     UI_Widget_Property_ResizeRight,
     UI_Widget_Property_ResizeBottom,
     UI_Widget_Property_DraggingTitle,
+    UI_Widget_Property_DraggingVerticalScroll,
+    UI_Widget_Property_DraggingHorizontalScroll,
     UI_Widget_Property_CloseButtonHot,
     
     //~Container Options
@@ -73,6 +78,9 @@ enum UI_Widget_Property{
 
 #define UI_PARAM_IS_RATIO(size_parameters) (size_parameters.pref < 1 && size_parameters.pref > 0) ? true : false
 #define UI_PARAM_IS_AUTO(size_parameters) (size_parameters.pref == 0 && size_parameters.min == 0 && size_parameters.max == 0) ? true : false
+
+#define UI_AVAILABLE_WIDTH(widget) (widget->curr_layout.width - widget->style->padding.x0 - widget->style->padding.x1)
+#define UI_AVAILABLE_HEIGHT(widget) (widget->curr_layout.height - widget->style->padding.y0 - widget->style->padding.y1 - widget->style->title_height)
 
 enum UI_Widget_Color_State {
     UI_ColorState_Normal,

@@ -43,10 +43,10 @@ internal OS_Event os_mouse_button_up_event(OS_Mouse_Button button, V2 position) 
 }
 
 // TODO(Cian): @OS @Input add scroll modifiers here, e.g. for zooming when CTRL is held
-internal OS_Event os_mouse_scroll_event(f32 scroll_delta) {
+internal OS_Event os_mouse_scroll_event(s16 scroll_delta) {
     OS_Event scroll_event = {};
     scroll_event.scroll_delta = scroll_delta;
-    
+    scroll_event.type = OS_Event_Type_MouseScroll;
     return scroll_event;
 }
 
@@ -100,6 +100,19 @@ internal b32 os_sum_mouse_moves(V2 *delta_sum) {
             
             delta_sum->x += new_event->delta.x;
             delta_sum->y += new_event->delta.y;
+        }
+    }
+    
+    return true;
+}
+
+internal b32 os_sum_mouse_scroll(s32 *delta_sum) {
+    b32 result = false;
+    for(OS_Event *new_event = 0; os_get_next_event(&new_event);) {
+        if(new_event->type == OS_Event_Type_MouseScroll) {
+            result = true;
+            
+            *delta_sum += new_event->scroll_delta;
         }
     }
     

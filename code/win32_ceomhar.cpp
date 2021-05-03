@@ -153,7 +153,7 @@ LRESULT CALLBACK WindowProc(HWND window_handle, UINT message, WPARAM w_param, LP
         case WM_MOUSEWHEEL:
         {
             s16 scroll_delta = HIWORD(w_param);
-            os_push_event(os_mouse_scroll_event((f32)scroll_delta));
+            os_push_event(os_mouse_scroll_event(scroll_delta));
             
         } break;
         case WM_GETMINMAXINFO:

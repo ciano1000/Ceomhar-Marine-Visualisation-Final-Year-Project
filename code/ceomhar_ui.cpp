@@ -140,6 +140,11 @@ internal b32 ui_widgets_share_one_property(UI_Widget *widget_1, UI_Widget *widge
 }
 
 internal void ui_push_parent(UI_Widget *parent) {
+    parent->child_parameters_sum[0] = {};
+    parent->child_parameters_sum[1] = {};
+    parent->child_ratio_sum[0] = 0;
+    parent->child_ratio_sum[1] = 0;
+    
     u32 size = ui->parent_stack.size;
     if(size > 0)
         ui->parent_stack.stack[size - 1] = ui->parent_stack.current;
@@ -717,11 +722,11 @@ layout_stack_current = null;\
             }
         }
         
-        
+        /*
         widget->child_parameters_sum[0] = {};
         widget->child_parameters_sum[1] = {};
         widget->child_ratio_sum[0] = 0;
-        widget->child_ratio_sum[1] = 0;
+        widget->child_ratio_sum[1] = 0;*/
     }
     /*if(ui_widget_has_property(widget, UI_Widget_Property_Container)) {
         
@@ -869,6 +874,23 @@ render_stack_current = null;\
                 }
             }
             
+            if(ui_widget_has_property(curr, UI_Widget_Property_ScrollVertical)) {
+                NVGcolor color = UI_LIGHT;
+                if(ui_is_id_equal(ui->hot, curr->id) && ui_widget_has_property(curr, UI_Widget_Property_DraggingVerticalScroll))  
+                    color = UI_WHITE;
+                
+                V4 rect = {};
+                rect.height = CLAMP_MIN(curr->old_layout.height / curr->child_parameters_sum[1].min, UI_MIN_SCROLL_MAIN);
+                rect.y = curr->old_layout.y + curr->old_layout.height - curr->style->border_thickness - rect.height;
+                rect.width = UI_SEC_SCROLL_SIZE;
+                rect.x = curr->old_layout.x + curr->old_layout.width - curr->style->border_thickness - rect.width;
+                
+                nvgBeginPath(vg_context);
+                nvgRect(vg_context, rect.x, rect.y, rect.width, rect.height);
+                nvgFillColor(vg_context, color);
+                nvgFill(vg_context);
+            }
+            
             if(ui_widget_has_property(curr, UI_Widget_Property_RenderSplit)) {
                 NVGcolor color = curr->style->colors[UI_ColorState_Normal].border_color;
                 
@@ -884,7 +906,7 @@ render_stack_current = null;\
             if(ui_widget_has_property(curr, UI_Widget_Property_Container)) {
                 nvgSave(vg_context);
                 //do clipping/nvgScissor stuff here
-                nvgScissor(vg_context, window->curr_layout.x + window->style->padding.x0, window->curr_layout.y, window->curr_layout.width - window->style->padding.x1 -  window->style->padding.x0, window->curr_layout.height - window->style->padding.y1);
+                nvgScissor(vg_context, window->curr_layout.x + window->style->padding.x0, window->curr_layout.y + window->style->title_height + window->style->padding.y0, window->curr_layout.width - window->style->padding.x1 -  window->style->padding.x0, window->curr_layout.height - window->style->padding.y1 -  window->style->padding.y0 - window->style->title_height);
             }
             //add children(excluding windows/containers) to stack left to right if parent
             UI_Widget *curr_child = curr->tree_first_child;
@@ -1299,9 +1321,6 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
     
     b32 newly_created = false;
     UI_Widget *window = ui_init_widget(window_string, &newly_created);
-    ui_push_parent(window);
-    ui_push_window(window);
-    
     ui_widget_add_property(window, UI_Widget_Property_Container);
     ui_widget_add_property(window, UI_Widget_Property_RenderBackground);
     ui_widget_add_property(window, UI_Widget_Property_LayoutVertical);
@@ -1321,6 +1340,19 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
     if(is_open) {
         ui_widget_add_property(window, UI_Widget_Property_RenderCloseButton);
     }
+    
+    V2 mouse_pos = os->mouse_pos;
+    V2 mouse_delta = {};
+    
+    b32 mouse_move = os_sum_mouse_moves(&mouse_delta);
+    
+    b32 mouse_is_over_vert_scroll = false;
+    b32 dragging_vert_scroll      = false;
+    V4 vertical_scroll_rect       = {};
+    
+    b32 mouse_is_over_horizontal_scroll = false;
+    b32 dragging_horizontal_scroll      = false;
+    V4 horizontal_scroll_rect           = {};
     
     if(newly_created || (options & (UI_ContainerOptions_NoMove | UI_ContainerOptions_NoResize))) {
         // TODO(Cian): @UI @Window need to figure out how relative positioning and immediate input work, something like adding to parents old_layout or something
@@ -1342,18 +1374,66 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
         
         if(newly_created)
             ui_bring_to_front(window);
+    } else {
+        //check for overflow
+        if(window->child_parameters_sum[0].min > window->old_layout.width) {
+            ui_widget_add_property(window, UI_Widget_Property_ScrollHorizontal);
+            
+            horizontal_scroll_rect.x = window->old_layout.x + window->style->border_thickness;
+            horizontal_scroll_rect.width = CLAMP_MIN(window->old_layout.width / window->child_parameters_sum[0].min, UI_MIN_SCROLL_MAIN);
+            horizontal_scroll_rect.y = window->old_layout.y + window->old_layout.height - window->style->border_thickness - UI_SEC_SCROLL_SIZE;
+            horizontal_scroll_rect.height = UI_SEC_SCROLL_SIZE;
+            
+            mouse_is_over_horizontal_scroll = math_point_in_rect(horizontal_scroll_rect, mouse_pos);
+            
+            if(ui_widget_has_property(window, UI_Widget_Property_DraggingHorizontalScroll))
+                dragging_horizontal_scroll = true;
+            
+        } else {
+            ui_widget_remove_property(window, UI_Widget_Property_ScrollHorizontal);
+        }
+        
+        //another q, once scrolling do reset the widgets layout to full size? This sounds complex, but maybe not? Maybe just check for it in layout and alter accordingly
+        if(window->child_parameters_sum[1].min > UI_AVAILABLE_HEIGHT(window)) {
+            vertical_scroll_rect.width =  UI_SEC_SCROLL_SIZE;
+            vertical_scroll_rect.x = window->old_layout.x + window->old_layout.width - window->style->border_thickness - vertical_scroll_rect.width;
+            vertical_scroll_rect.height = CLAMP_MIN(window->old_layout.height / window->child_parameters_sum[1].min, UI_MIN_SCROLL_MAIN); 
+            vertical_scroll_rect.y = window->old_layout.y + window->old_layout.height - window->style->border_thickness - vertical_scroll_rect.height;
+            
+            mouse_is_over_vert_scroll = math_point_in_rect(vertical_scroll_rect, mouse_pos);
+            
+            if(ui_widget_has_property(window, UI_Widget_Property_DraggingVerticalScroll))
+                dragging_vert_scroll = true;
+            
+            
+            
+            ui_widget_add_property(window, UI_Widget_Property_ScrollVertical);
+            s32 mouse_scroll = 0;
+            os_sum_mouse_scroll(&mouse_scroll);
+            
+            //quick test
+            if(ui->clickable_window == window) {
+                window->scroll_offset_y += mouse_scroll / 3;
+            }
+            
+            f32 max_scroll_offset = CLAMP_MIN(window->child_parameters_sum[1].min - UI_AVAILABLE_HEIGHT(window), 0);
+            window->scroll_offset_y = CLAMP(window->scroll_offset_y, -max_scroll_offset,0);
+            
+        } else {
+            ui_widget_remove_property(window, UI_Widget_Property_ScrollVertical);
+        }
     }
     
-    V2 mouse_delta = {};
     
-    b32 mouse_move = os_sum_mouse_moves(&mouse_delta);
+    ui_push_parent(window);
+    ui_push_window(window);
+    
     
     OS_Event *mouse_down_event = null;
     OS_Event *mouse_up_event = null;
     b32 mouse_down = os_peek_mouse_button_event(&mouse_down_event, OS_Event_Type_MouseDown, OS_Mouse_Button_Left);
     b32 mouse_up = os_peek_mouse_button_event(&mouse_up_event, OS_Event_Type_MouseUp, OS_Mouse_Button_Left);
     
-    V2 mouse_pos = os->mouse_pos;
     f32 title_height = window->style->title_height;
     f32 border_thickness = window->style->border_thickness;
     
@@ -1366,15 +1446,15 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
     //not sure if I want the top of the window to do resizing
     //V4 border_top = v4(window->old_layout.x, window->old_layout.y - 20, 4.0f,  window->old_layout.height - 20);
     
-    b32 mouse_is_over_title = false;
-    b32 mouse_is_over_right = false;
-    b32 mouse_is_over_left = false;
+    b32 mouse_is_over_title  = false;
+    b32 mouse_is_over_right  = false;
+    b32 mouse_is_over_left   = false;
     b32 mouse_is_over_bottom = false;
-    b32 mouse_is_over_close = false;
+    b32 mouse_is_over_close  = false;
     
-    b32 dragging_title = ui_widget_has_property(window, UI_Widget_Property_DraggingTitle);
-    b32 dragging_left = ui_widget_has_property(window, UI_Widget_Property_ResizeLeft);
-    b32 dragging_right = ui_widget_has_property(window, UI_Widget_Property_ResizeRight);
+    b32 dragging_title  = ui_widget_has_property(window, UI_Widget_Property_DraggingTitle);
+    b32 dragging_left   = ui_widget_has_property(window, UI_Widget_Property_ResizeLeft);
+    b32 dragging_right  = ui_widget_has_property(window, UI_Widget_Property_ResizeRight);
     b32 dragging_bottom = ui_widget_has_property(window, UI_Widget_Property_ResizeBottom);
     
     if(!(options & UI_ContainerOptions_NoMove))
@@ -1399,7 +1479,7 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
         if(mouse_up) {
             ui->active = ui_null_id();
             
-            if(!(mouse_is_over_close || mouse_is_over_title || mouse_is_over_left || mouse_is_over_right || mouse_is_over_bottom)) {
+            if(!(mouse_is_over_close || mouse_is_over_vert_scroll || mouse_is_over_horizontal_scroll || mouse_is_over_title || mouse_is_over_left || mouse_is_over_right || mouse_is_over_bottom)) {
                 ui->hot = ui_null_id();
             }
             
@@ -1429,8 +1509,11 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
                     if((window->curr_layout.y + title_height) < (window->curr_layout.y + window->curr_layout.height + mouse_delta.y) || mouse_delta.y > 0) {
                         window->curr_layout.height += mouse_delta.y;
                     }
+                } else if(dragging_vert_scroll) {
+                    
+                } else if(dragging_horizontal_scroll) {
+                    
                 }
-                
             }
         }
     } else if(ui_is_id_equal(ui->hot, window->id)) { 
@@ -1439,7 +1522,7 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
             ui_bring_to_front(window);
             ui->active = window->id;
             os_take_event(mouse_down_event);
-        } else if(!(mouse_is_over_close || mouse_is_over_title || mouse_is_over_left || mouse_is_over_right || mouse_is_over_bottom)) {
+        } else if(!(mouse_is_over_close || mouse_is_over_vert_scroll || mouse_is_over_horizontal_scroll || mouse_is_over_title || mouse_is_over_left || mouse_is_over_right || mouse_is_over_bottom)) {
             ui->hot = ui_null_id();
         }
     } else {
@@ -1459,6 +1542,12 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
                 ui->hot = window->id;
             } else if(mouse_is_over_close) {
                 ui->hot = window->id;
+            } else if(mouse_is_over_vert_scroll) {
+                ui->hot = window->id;
+                ui_widget_add_property(window,  UI_Widget_Property_DraggingVerticalScroll);
+            } else if(mouse_is_over_horizontal_scroll) {
+                ui->hot = window->id;
+                ui_widget_add_property(window,  UI_Widget_Property_DraggingHorizontalScroll);
             }
         }
         
@@ -1469,6 +1558,8 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
         ui_widget_remove_property(window,  UI_Widget_Property_ResizeLeft);
         ui_widget_remove_property(window,  UI_Widget_Property_ResizeRight);
         ui_widget_remove_property(window,  UI_Widget_Property_ResizeBottom);
+        ui_widget_remove_property(window,  UI_Widget_Property_DraggingHorizontalScroll);
+        ui_widget_remove_property(window,  UI_Widget_Property_DraggingVerticalScroll);
     }
     
     // TODO(Cian): @UI @Windows add some way of having a min/max width/height for windows when resizing, maybe use last frames info on the childrens size? Could be stored in the windows size_parameters, then we should also have some default min/max size

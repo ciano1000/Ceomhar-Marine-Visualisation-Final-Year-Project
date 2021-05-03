@@ -47,7 +47,7 @@ enum OS_Event_Type {
     OS_Event_Type_MouseMove,
     OS_Event_Type_MouseDown,
     OS_Event_Type_MouseUp,
-    
+    OS_Event_Type_MouseScroll,
     OS_Event_Type_MAX
 };
 
@@ -57,7 +57,7 @@ struct OS_Event {
     // TODO(Cian): add keys etc
     V2 pos;
     V2 delta;
-    f32 scroll_delta;
+    s16 scroll_delta;
 };
 
 
