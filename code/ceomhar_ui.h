@@ -19,7 +19,7 @@
 #define UI_AQUA        nvgRGBA(3,218,198,255)
 #define UI_RED         nvgRGBA(207,102,121,255)
 
-#define UI_MIN_SCROLL_MAIN 30
+#define UI_MIN_SCROLL_MAIN 20
 #define UI_SEC_SCROLL_SIZE 10
 
 #define UI_WINDOW_FILL_WIDTH ui->window_stack.current->curr_layout.width

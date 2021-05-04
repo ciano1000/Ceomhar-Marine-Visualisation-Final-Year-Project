@@ -472,6 +472,14 @@ layout_stack_current = null;\
         f32 parent_width = widget->curr_layout.width - widget->style->padding.x0 - widget->style->padding.x1;
         f32 parent_height = widget->curr_layout.height - widget->style->padding.y0 - widget->style->padding.y1 - widget->style->title_height;
         
+        if(ui_widget_has_property(widget, UI_Widget_Property_ScrollVertical)) {
+            parent_width -= UI_SEC_SCROLL_SIZE;
+        } 
+        
+        if(ui_widget_has_property(widget, UI_Widget_Property_ScrollHorizontal)) {
+            parent_height -= UI_SEC_SCROLL_SIZE;
+        } 
+        
         f32 initial_offset_x = widget->style->padding.x0 + widget->scroll_offset_x;
         f32 initial_offset_y = widget->style->padding.y0 + widget->style->title_height + widget->scroll_offset_y;
         
@@ -524,7 +532,8 @@ layout_stack_current = null;\
                     }
                     height = CLAMP_MIN(height, curr->parameters[1].min);
                     curr->curr_layout.height = height;
-                    curr->curr_layout.y = (parent_height / 2) - (height / 2) + initial_offset_y;
+                    //curr->curr_layout.y = (parent_height / 2) - (height / 2) + initial_offset_y;
+                    curr->curr_layout.y = initial_offset_y;
                     
                     layout_stack_push(curr);
                     curr = curr->tree_next_sibling;
@@ -560,7 +569,8 @@ layout_stack_current = null;\
                     
                     height = CLAMP_MIN(height, curr->parameters[1].min);
                     curr->curr_layout.height = height;
-                    curr->curr_layout.y = (parent_height / 2) - (height / 2) + initial_offset_y;
+                    //curr->curr_layout.y = (parent_height / 2) - (height / 2) + initial_offset_y;
+                    curr->curr_layout.y = initial_offset_y;
                     
                     layout_stack_push(curr);
                     curr = curr->tree_next_sibling;
@@ -593,7 +603,8 @@ layout_stack_current = null;\
                     }
                     height = CLAMP_MIN(height, curr->parameters[1].min);
                     curr->curr_layout.height = height;
-                    curr->curr_layout.y = (parent_height / 2) - (height / 2) + initial_offset_y;
+                    //curr->curr_layout.y = (parent_height / 2) - (height / 2) + initial_offset_y;
+                    curr->curr_layout.y = initial_offset_y;
                     
                     layout_stack_push(curr);
                     curr = curr->tree_next_sibling;
@@ -644,7 +655,8 @@ layout_stack_current = null;\
                     }
                     width = CLAMP_MIN(width, curr->parameters[0].min);
                     curr->curr_layout.width = width;
-                    curr->curr_layout.x = (parent_width / 2) - (width / 2) + initial_offset_x;
+                    //curr->curr_layout.x = (parent_width / 2) - (width / 2) + initial_offset_x;
+                    curr->curr_layout.x = initial_offset_x;
                     
                     layout_stack_push(curr);
                     curr = curr->tree_next_sibling;
@@ -680,7 +692,8 @@ layout_stack_current = null;\
                     
                     width = CLAMP_MIN(width, curr->parameters[0].min);
                     curr->curr_layout.width = width;
-                    curr->curr_layout.x = (parent_width / 2) - (width / 2) + initial_offset_x;
+                    //curr->curr_layout.x = (parent_width / 2) - (width / 2) + initial_offset_x;
+                    curr->curr_layout.x = initial_offset_x;
                     
                     layout_stack_push(curr);
                     curr = curr->tree_next_sibling;
@@ -714,7 +727,8 @@ layout_stack_current = null;\
                     
                     width = CLAMP_MIN(width, curr->parameters[0].min);
                     curr->curr_layout.width = width;
-                    curr->curr_layout.x = (parent_width / 2) - (width / 2) + initial_offset_x;
+                    //curr->curr_layout.x = (parent_width / 2) - (width / 2) + initial_offset_x;
+                    curr->curr_layout.x = initial_offset_x;
                     
                     layout_stack_push(curr);
                     curr = curr->tree_next_sibling;
@@ -878,12 +892,57 @@ render_stack_current = null;\
                 NVGcolor color = UI_LIGHT;
                 if(ui_is_id_equal(ui->hot, curr->id) && ui_widget_has_property(curr, UI_Widget_Property_DraggingVerticalScroll))  
                     color = UI_WHITE;
+                f32 min_scroll_offset = -CLAMP_MIN(window->child_parameters_sum[1].min - UI_AVAILABLE_HEIGHT(window), 0);
                 
                 V4 rect = {};
-                rect.height = CLAMP_MIN(curr->old_layout.height / curr->child_parameters_sum[1].min, UI_MIN_SCROLL_MAIN);
-                rect.y = curr->old_layout.y + curr->old_layout.height - curr->style->border_thickness - rect.height;
+                
+                f32 max_scrollbar_height = window->old_layout.height - (2*window->style->border_thickness) - window->style->title_height;
+                
+                rect.height = CLAMP_MIN(UI_AVAILABLE_HEIGHT(curr) / curr->child_parameters_sum[1].min * max_scrollbar_height, UI_MIN_SCROLL_MAIN);
+                
+                f32 min_scroll_center_position = curr->old_layout.y + curr->old_layout.height - curr->style->border_thickness - (rect.height / 2);
+                
+                f32 max_scroll_center_position = curr->old_layout.y + curr->style->title_height + curr->style->border_thickness + (rect.height/2);
+                
+                f32 mapped_scroll_center = (curr->scroll_offset_y - min_scroll_offset) * ((max_scroll_center_position - min_scroll_center_position) / (-min_scroll_offset)) + min_scroll_center_position;
+                
+                rect.y = mapped_scroll_center - (rect.height/2);
                 rect.width = UI_SEC_SCROLL_SIZE;
                 rect.x = curr->old_layout.x + curr->old_layout.width - curr->style->border_thickness - rect.width;
+                
+                nvgBeginPath(vg_context);
+                nvgRect(vg_context, rect.x, rect.y, rect.width, rect.height);
+                nvgFillColor(vg_context, color);
+                nvgFill(vg_context);
+            }
+            
+            if(ui_widget_has_property(curr, UI_Widget_Property_ScrollHorizontal)) {
+                NVGcolor color = UI_LIGHT;
+                if(ui_is_id_equal(ui->hot, curr->id) && ui_widget_has_property(curr, UI_Widget_Property_DraggingHorizontalScroll))  
+                    color = UI_WHITE;
+                f32 min_scroll_offset = -CLAMP_MIN(window->child_parameters_sum[0].min - UI_AVAILABLE_WIDTH(window), 0);
+                
+                V4 rect = {};
+                
+                f32 max_scrollbar_width = window->old_layout.width - (2 * window->style->border_thickness);
+                
+                rect.width = CLAMP_MIN(UI_AVAILABLE_WIDTH(curr) / curr->child_parameters_sum[0].min * max_scrollbar_width, UI_MIN_SCROLL_MAIN);
+                
+                f32 min_scroll_center_position = curr->old_layout.x + curr->old_layout.width - curr->style->border_thickness - (rect.width / 2);
+                
+                if(ui_widget_has_property(window, UI_Widget_Property_ScrollVertical)) {
+                    max_scrollbar_width -= UI_SEC_SCROLL_SIZE;
+                    min_scroll_center_position -= UI_SEC_SCROLL_SIZE;
+                    rect.width = CLAMP_MIN(UI_AVAILABLE_WIDTH(curr) / curr->child_parameters_sum[0].min * max_scrollbar_width, UI_MIN_SCROLL_MAIN); 
+                }
+                
+                f32 max_scroll_center_position = curr->old_layout.x + curr->style->border_thickness + (rect.width/2);
+                
+                f32 mapped_scroll_center = (curr->scroll_offset_x - min_scroll_offset) * ((max_scroll_center_position - min_scroll_center_position) / (-min_scroll_offset)) + min_scroll_center_position;
+                
+                rect.x = mapped_scroll_center - (rect.width/2);
+                rect.height = UI_SEC_SCROLL_SIZE;
+                rect.y = curr->old_layout.y + curr->old_layout.height - curr->style->border_thickness - rect.height;
                 
                 nvgBeginPath(vg_context);
                 nvgRect(vg_context, rect.x, rect.y, rect.width, rect.height);
@@ -905,8 +964,19 @@ render_stack_current = null;\
             
             if(ui_widget_has_property(curr, UI_Widget_Property_Container)) {
                 nvgSave(vg_context);
+                
+                f32 clip_width = window->curr_layout.width - window->style->padding.x1 -  window->style->padding.x0;
+                f32 clip_height = window->curr_layout.height - window->style->padding.y1 -  window->style->padding.y0 - window->style->title_height;
+                
+                if(ui_widget_has_property(curr, UI_Widget_Property_ScrollHorizontal))
+                    clip_height -= UI_SEC_SCROLL_SIZE;
+                if(ui_widget_has_property(curr, UI_Widget_Property_ScrollVertical))
+                    clip_width -= UI_SEC_SCROLL_SIZE;
                 //do clipping/nvgScissor stuff here
-                nvgScissor(vg_context, window->curr_layout.x + window->style->padding.x0, window->curr_layout.y + window->style->title_height + window->style->padding.y0, window->curr_layout.width - window->style->padding.x1 -  window->style->padding.x0, window->curr_layout.height - window->style->padding.y1 -  window->style->padding.y0 - window->style->title_height);
+                nvgScissor(vg_context, window->curr_layout.x + window->style->padding.x0, 
+                           window->curr_layout.y + window->style->title_height + window->style->padding.y0, 
+                           clip_width,
+                           clip_height);
             }
             //add children(excluding windows/containers) to stack left to right if parent
             UI_Widget *curr_child = curr->tree_first_child;
@@ -1341,19 +1411,6 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
         ui_widget_add_property(window, UI_Widget_Property_RenderCloseButton);
     }
     
-    V2 mouse_pos = os->mouse_pos;
-    V2 mouse_delta = {};
-    
-    b32 mouse_move = os_sum_mouse_moves(&mouse_delta);
-    
-    b32 mouse_is_over_vert_scroll = false;
-    b32 dragging_vert_scroll      = false;
-    V4 vertical_scroll_rect       = {};
-    
-    b32 mouse_is_over_horizontal_scroll = false;
-    b32 dragging_horizontal_scroll      = false;
-    V4 horizontal_scroll_rect           = {};
-    
     if(newly_created || (options & (UI_ContainerOptions_NoMove | UI_ContainerOptions_NoResize))) {
         // TODO(Cian): @UI @Window need to figure out how relative positioning and immediate input work, something like adding to parents old_layout or something
         
@@ -1374,66 +1431,20 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
         
         if(newly_created)
             ui_bring_to_front(window);
-    } else {
-        //check for overflow
-        if(window->child_parameters_sum[0].min > window->old_layout.width) {
-            ui_widget_add_property(window, UI_Widget_Property_ScrollHorizontal);
-            
-            horizontal_scroll_rect.x = window->old_layout.x + window->style->border_thickness;
-            horizontal_scroll_rect.width = CLAMP_MIN(window->old_layout.width / window->child_parameters_sum[0].min, UI_MIN_SCROLL_MAIN);
-            horizontal_scroll_rect.y = window->old_layout.y + window->old_layout.height - window->style->border_thickness - UI_SEC_SCROLL_SIZE;
-            horizontal_scroll_rect.height = UI_SEC_SCROLL_SIZE;
-            
-            mouse_is_over_horizontal_scroll = math_point_in_rect(horizontal_scroll_rect, mouse_pos);
-            
-            if(ui_widget_has_property(window, UI_Widget_Property_DraggingHorizontalScroll))
-                dragging_horizontal_scroll = true;
-            
-        } else {
-            ui_widget_remove_property(window, UI_Widget_Property_ScrollHorizontal);
-        }
-        
-        //another q, once scrolling do reset the widgets layout to full size? This sounds complex, but maybe not? Maybe just check for it in layout and alter accordingly
-        if(window->child_parameters_sum[1].min > UI_AVAILABLE_HEIGHT(window)) {
-            vertical_scroll_rect.width =  UI_SEC_SCROLL_SIZE;
-            vertical_scroll_rect.x = window->old_layout.x + window->old_layout.width - window->style->border_thickness - vertical_scroll_rect.width;
-            vertical_scroll_rect.height = CLAMP_MIN(window->old_layout.height / window->child_parameters_sum[1].min, UI_MIN_SCROLL_MAIN); 
-            vertical_scroll_rect.y = window->old_layout.y + window->old_layout.height - window->style->border_thickness - vertical_scroll_rect.height;
-            
-            mouse_is_over_vert_scroll = math_point_in_rect(vertical_scroll_rect, mouse_pos);
-            
-            if(ui_widget_has_property(window, UI_Widget_Property_DraggingVerticalScroll))
-                dragging_vert_scroll = true;
-            
-            
-            
-            ui_widget_add_property(window, UI_Widget_Property_ScrollVertical);
-            s32 mouse_scroll = 0;
-            os_sum_mouse_scroll(&mouse_scroll);
-            
-            //quick test
-            if(ui->clickable_window == window) {
-                window->scroll_offset_y += mouse_scroll / 3;
-            }
-            
-            f32 max_scroll_offset = CLAMP_MIN(window->child_parameters_sum[1].min - UI_AVAILABLE_HEIGHT(window), 0);
-            window->scroll_offset_y = CLAMP(window->scroll_offset_y, -max_scroll_offset,0);
-            
-        } else {
-            ui_widget_remove_property(window, UI_Widget_Property_ScrollVertical);
-        }
-    }
+    } 
     
+    //necessary mouse info
+    V2 mouse_pos = os->mouse_pos;
+    V2 mouse_delta = {};
     
-    ui_push_parent(window);
-    ui_push_window(window);
-    
+    b32 mouse_move = os_sum_mouse_moves(&mouse_delta);
     
     OS_Event *mouse_down_event = null;
     OS_Event *mouse_up_event = null;
     b32 mouse_down = os_peek_mouse_button_event(&mouse_down_event, OS_Event_Type_MouseDown, OS_Mouse_Button_Left);
     b32 mouse_up = os_peek_mouse_button_event(&mouse_up_event, OS_Event_Type_MouseUp, OS_Mouse_Button_Left);
     
+    //window dimensions and rect stuff
     f32 title_height = window->style->title_height;
     f32 border_thickness = window->style->border_thickness;
     
@@ -1443,19 +1454,64 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
     V4 border_left = v4(window->old_layout.x, window->old_layout.y - title_height, border_thickness,  window->old_layout.height - title_height);
     V4 border_right = v4(window->old_layout.x + ( window->old_layout.width - border_thickness), window->old_layout.y + title_height, border_thickness,  window->old_layout.height - title_height);
     V4 border_bottom = v4(window->old_layout.x, window->old_layout.y + ( window->old_layout.height - border_thickness), window->old_layout.width,  border_thickness);
-    //not sure if I want the top of the window to do resizing
-    //V4 border_top = v4(window->old_layout.x, window->old_layout.y - 20, 4.0f,  window->old_layout.height - 20);
     
+    
+    f32 vertical_min_scroll_offset = -CLAMP_MIN(window->child_parameters_sum[1].min - UI_AVAILABLE_HEIGHT(window), 0);
+    
+    V4 vertical_scroll_rect = {};
+    
+    vertical_scroll_rect.width =  UI_SEC_SCROLL_SIZE;
+    vertical_scroll_rect.x = window->old_layout.x + window->old_layout.width - window->style->border_thickness - vertical_scroll_rect.width;
+    
+    f32 max_scrollbar_height = window->old_layout.height - (2*window->style->border_thickness) - window->style->title_height;
+    vertical_scroll_rect.height = CLAMP_MIN(UI_AVAILABLE_HEIGHT(window) / window->child_parameters_sum[1].min * max_scrollbar_height, UI_MIN_SCROLL_MAIN); 
+    
+    f32 min_scroll_center_vertical = window->old_layout.y + window->old_layout.height - window->style->border_thickness - (vertical_scroll_rect.height / 2);
+    
+    f32 max_scroll_center_vertical = window->old_layout.y + window->style->title_height + window->style->border_thickness + (vertical_scroll_rect.height/2);
+    
+    f32 mapped_scroll_center_vertical = (window->scroll_offset_y - vertical_min_scroll_offset) * ((max_scroll_center_vertical -  min_scroll_center_vertical) /  (-vertical_min_scroll_offset)) + min_scroll_center_vertical;
+    
+    vertical_scroll_rect.y =  mapped_scroll_center_vertical - (vertical_scroll_rect.height / 2);
+    
+    f32 horizontal_min_scroll_offset = -CLAMP_MIN(window->child_parameters_sum[0].min - UI_AVAILABLE_WIDTH(window), 0);
+    V4 horizontal_scroll_rect = {};
+    
+    horizontal_scroll_rect.height =  UI_SEC_SCROLL_SIZE;
+    horizontal_scroll_rect.y = window->old_layout.y + window->old_layout.height - window->style->border_thickness - horizontal_scroll_rect.height;
+    
+    f32 max_scrollbar_width = window->old_layout.width - (2 * window->style->border_thickness);
+    horizontal_scroll_rect.width = CLAMP_MIN(UI_AVAILABLE_WIDTH(window) / window->child_parameters_sum[0].min * max_scrollbar_width, UI_MIN_SCROLL_MAIN);
+    
+    f32 min_scroll_center_horizontal = window->old_layout.x + window->old_layout.width - window->style->border_thickness - (horizontal_scroll_rect.width / 2);
+    
+    f32 max_scroll_center_horizontal = window->old_layout.x + window->style->border_thickness + (horizontal_scroll_rect.width/2);
+    
+    if(ui_widget_has_property(window, UI_Widget_Property_ScrollVertical)) {
+        max_scrollbar_width -= UI_SEC_SCROLL_SIZE;
+        min_scroll_center_horizontal -= UI_SEC_SCROLL_SIZE;
+        horizontal_scroll_rect.width = CLAMP_MIN(UI_AVAILABLE_WIDTH(window) / window->child_parameters_sum[0].min * max_scrollbar_width, UI_MIN_SCROLL_MAIN); 
+    }
+    
+    f32 mapped_scroll_center_horizontal = (window->scroll_offset_x - horizontal_min_scroll_offset) * ((max_scroll_center_horizontal -  min_scroll_center_horizontal) /  (-horizontal_min_scroll_offset)) + min_scroll_center_horizontal;
+    
+    horizontal_scroll_rect.x = mapped_scroll_center_horizontal - (horizontal_scroll_rect.width / 2);
+    
+    //initial input info
     b32 mouse_is_over_title  = false;
     b32 mouse_is_over_right  = false;
     b32 mouse_is_over_left   = false;
     b32 mouse_is_over_bottom = false;
     b32 mouse_is_over_close  = false;
+    b32 mouse_is_over_vertical_scroll = false;
+    b32 mouse_is_over_horizontal_scroll = false;
     
     b32 dragging_title  = ui_widget_has_property(window, UI_Widget_Property_DraggingTitle);
     b32 dragging_left   = ui_widget_has_property(window, UI_Widget_Property_ResizeLeft);
     b32 dragging_right  = ui_widget_has_property(window, UI_Widget_Property_ResizeRight);
     b32 dragging_bottom = ui_widget_has_property(window, UI_Widget_Property_ResizeBottom);
+    b32 dragging_vertical_scroll = false;
+    b32 dragging_horizontal_scroll      = false;
     
     if(!(options & UI_ContainerOptions_NoMove))
         mouse_is_over_title = math_point_in_rect(title_rect, mouse_pos);
@@ -1466,6 +1522,41 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
     }
     if(is_open) {
         mouse_is_over_close = math_point_in_rect(close_button_rect, mouse_pos);
+    }
+    
+    //overflow scrolling data setup
+    if(!newly_created){
+        //check for overflow
+        if(window->child_parameters_sum[0].min > UI_AVAILABLE_WIDTH(window)) {
+            ui_widget_add_property(window, UI_Widget_Property_ScrollHorizontal);
+            
+            window->scroll_offset_x = CLAMP(window->scroll_offset_x, horizontal_min_scroll_offset,0);
+            
+            dragging_horizontal_scroll = ui_widget_has_property(window, UI_Widget_Property_DraggingHorizontalScroll);
+            mouse_is_over_horizontal_scroll = math_point_in_rect(horizontal_scroll_rect, mouse_pos);
+        } else {
+            ui_widget_remove_property(window, UI_Widget_Property_ScrollHorizontal);
+        }
+        
+        //another q, once scrolling do reset the widgets layout to full size? This sounds complex, but maybe not? Maybe just check for it in layout and alter accordingly
+        if(window->child_parameters_sum[1].min > UI_AVAILABLE_HEIGHT(window)) {
+            ui_widget_add_property(window, UI_Widget_Property_ScrollVertical);
+            
+            s32 mouse_scroll = 0;
+            os_sum_mouse_scroll(&mouse_scroll);
+            
+            //quick test
+            if(ui->clickable_window == window) {
+                window->scroll_offset_y += mouse_scroll / 3;
+            }
+            
+            window->scroll_offset_y = CLAMP(window->scroll_offset_y, vertical_min_scroll_offset,0);
+            
+            dragging_vertical_scroll = ui_widget_has_property(window, UI_Widget_Property_DraggingVerticalScroll);
+            mouse_is_over_vertical_scroll = math_point_in_rect(vertical_scroll_rect, mouse_pos);
+        } else {
+            ui_widget_remove_property(window, UI_Widget_Property_ScrollVertical);
+        }
     }
     
     //windows are only active when dragging e.g. when button is held on the title bar
@@ -1479,7 +1570,7 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
         if(mouse_up) {
             ui->active = ui_null_id();
             
-            if(!(mouse_is_over_close || mouse_is_over_vert_scroll || mouse_is_over_horizontal_scroll || mouse_is_over_title || mouse_is_over_left || mouse_is_over_right || mouse_is_over_bottom)) {
+            if(!(mouse_is_over_close || mouse_is_over_vertical_scroll || mouse_is_over_horizontal_scroll || mouse_is_over_title || mouse_is_over_left || mouse_is_over_right || mouse_is_over_bottom)) {
                 ui->hot = ui_null_id();
             }
             
@@ -1509,10 +1600,14 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
                     if((window->curr_layout.y + title_height) < (window->curr_layout.y + window->curr_layout.height + mouse_delta.y) || mouse_delta.y > 0) {
                         window->curr_layout.height += mouse_delta.y;
                     }
-                } else if(dragging_vert_scroll) {
-                    
+                } else if(dragging_vertical_scroll) {
+                    f32 max_delta = max_scroll_center_vertical - min_scroll_center_vertical;
+                    f32 scroll_delta = (mouse_delta.y - max_delta) * ((-vertical_min_scroll_offset)/(-max_delta)) + vertical_min_scroll_offset;
+                    window->scroll_offset_y -= scroll_delta;
                 } else if(dragging_horizontal_scroll) {
-                    
+                    f32 max_delta = max_scroll_center_horizontal - min_scroll_center_horizontal;
+                    f32 scroll_delta = (mouse_delta.x - max_delta) * ((-horizontal_min_scroll_offset)/(-max_delta)) + horizontal_min_scroll_offset;
+                    window->scroll_offset_x -= scroll_delta;
                 }
             }
         }
@@ -1522,7 +1617,7 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
             ui_bring_to_front(window);
             ui->active = window->id;
             os_take_event(mouse_down_event);
-        } else if(!(mouse_is_over_close || mouse_is_over_vert_scroll || mouse_is_over_horizontal_scroll || mouse_is_over_title || mouse_is_over_left || mouse_is_over_right || mouse_is_over_bottom)) {
+        } else if(!(mouse_is_over_close || mouse_is_over_vertical_scroll || mouse_is_over_horizontal_scroll || mouse_is_over_title || mouse_is_over_left || mouse_is_over_right || mouse_is_over_bottom)) {
             ui->hot = ui_null_id();
         }
     } else {
@@ -1542,12 +1637,12 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
                 ui->hot = window->id;
             } else if(mouse_is_over_close) {
                 ui->hot = window->id;
-            } else if(mouse_is_over_vert_scroll) {
+            } else if(mouse_is_over_vertical_scroll) {
                 ui->hot = window->id;
                 ui_widget_add_property(window,  UI_Widget_Property_DraggingVerticalScroll);
             } else if(mouse_is_over_horizontal_scroll) {
                 ui->hot = window->id;
-                ui_widget_add_property(window,  UI_Widget_Property_DraggingHorizontalScroll);
+                ui_widget_add_property(window, UI_Widget_Property_DraggingHorizontalScroll);
             }
         }
         
@@ -1563,6 +1658,9 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
     }
     
     // TODO(Cian): @UI @Windows add some way of having a min/max width/height for windows when resizing, maybe use last frames info on the childrens size? Could be stored in the windows size_parameters, then we should also have some default min/max size
+    
+    ui_push_parent(window);
+    ui_push_window(window);
     
 }
 
