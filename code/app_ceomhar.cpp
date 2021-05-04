@@ -61,13 +61,12 @@ UI_Window(...) {
         static b32 open = true;
         ui_begin_window(v4(200, 200, 100, 300), &open, null,"Window Numero Dos");
         {
-            if(open) {
-                ui_button("Test_Button");
-                ui_button("Another_Button");
-                Filler(1);
-                ui_button("Test_Button_3");
-                ui_button("Test_Button_4"); 
-            }
+            ui_button("Test_Button");
+            ui_button("Another_Button");
+            Filler(1);
+            ui_button("Test_Button_3");
+            ui_button("Test_Button_4"); 
+            
         }
         ui_end_window();
         

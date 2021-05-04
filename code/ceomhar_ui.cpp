@@ -223,6 +223,9 @@ internal void ui_pop_height() {
 }
 
 internal UI_Widget* ui_init_widget(String8 string, b32 *newly_created) {
+    if(ui->active_window == null && ui->root_widget != null && ui->prev_widget != null)
+        return null;
+    
     b32 stub_bool = false;
     b32 *p_stub_bool = &stub_bool;
     b32 **p_newly_created = &p_stub_bool;
@@ -362,6 +365,13 @@ internal UI_Widget* ui_init_widget(String8 string, b32 *newly_created) {
         string = string_from_cstring("non_interactable");
     }
     widget->string = string;
+    
+    //clear the tree stuff
+    widget->tree_parent = null;
+    widget->tree_first_child = null;
+    widget->tree_last_child = null;
+    widget->tree_next_sibling = null;
+    widget->tree_prev_sibling = null;
     
     widget->old_layout = widget->curr_layout;
     //widget->curr_layout = {0};
@@ -1012,6 +1022,8 @@ internal void ui_end() {
         UI_Widget *prev = null;
         
         while(curr) {
+            UI_Widget *hash_next = curr->hash_next;
+            
             if(curr->last_frame != ui->curr_frame) {
                 //if widget is a window, go through its children and add to free list and remove from window sorting
                 if(ui_widget_has_property(curr, UI_Widget_Property_Container)) {
@@ -1024,6 +1036,22 @@ internal void ui_end() {
                         curr->prev_sorted_container->next_sorted_container = curr->next_sorted_container;
                         curr->next_sorted_container->prev_sorted_container = curr->prev_sorted_container;
                     }
+                }
+                
+                if(curr->tree_parent->tree_first_child == curr) {
+                    curr->tree_parent->tree_first_child = curr->tree_next_sibling;
+                }
+                
+                if(curr->tree_parent->tree_last_child == curr) {
+                    curr->tree_parent->tree_last_child = curr->tree_prev_sibling;
+                }
+                
+                if(curr->tree_prev_sibling) {
+                    curr->tree_prev_sibling->tree_next_sibling = curr->tree_next_sibling;
+                }
+                
+                if(curr->tree_next_sibling) {
+                    curr->tree_next_sibling->tree_prev_sibling = curr->tree_prev_sibling;
                 }
                 
                 if(prev) {
@@ -1046,16 +1074,17 @@ internal void ui_end() {
                 if(ui_is_id_equal(ui->hot, curr->id))
                     ui->hot = ui_null_id();
                 
-                //clear curr
-                *curr = {};
+                //set curr to a temp var and clear the data it points to
                 
+                *curr = {};
                 curr->hash_next = ui->widget_free_list;
                 ui->widget_free_list = curr;
                 ui->widget_free_list_count++;
                 
+            } else {
+                prev = curr;
             }
-            prev = curr;
-            curr = curr->hash_next;
+            curr = hash_next;
         }
     }
     
@@ -1239,6 +1268,9 @@ internal void ui_end_column() {
 internal void ui_spacer(f32 min, f32 pref, f32 max) {
     String8 string = {};
     UI_Widget *spacer = ui_init_widget(string, null);
+    if(!spacer)
+        return;
+    
     ui_widget_add_property(spacer, UI_Widget_Property_Spacer);
     // TODO(Cian): @UI dislike having to do layouting checks here so this is a temp fix
     if(ui_widget_has_property(spacer->tree_parent, UI_Widget_Property_LayoutHorizontal)) {
@@ -1576,6 +1608,7 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
             
             if(is_open && mouse_is_over_close) {
                 *is_open = false;
+                window->last_frame--;
             }
             os_take_event(mouse_up_event);
         } else {
@@ -1603,11 +1636,11 @@ internal void ui_begin_window(V4 layout, b32 *is_open, u32 options, char *title.
                 } else if(dragging_vertical_scroll) {
                     f32 max_delta = max_scroll_center_vertical - min_scroll_center_vertical;
                     f32 scroll_delta = (mouse_delta.y - max_delta) * ((-vertical_min_scroll_offset)/(-max_delta)) + vertical_min_scroll_offset;
-                    window->scroll_offset_y -= scroll_delta;
+                    window->scroll_offset_y = CLAMP(window->scroll_offset_y - scroll_delta, vertical_min_scroll_offset, 0);
                 } else if(dragging_horizontal_scroll) {
                     f32 max_delta = max_scroll_center_horizontal - min_scroll_center_horizontal;
                     f32 scroll_delta = (mouse_delta.x - max_delta) * ((-horizontal_min_scroll_offset)/(-max_delta)) + horizontal_min_scroll_offset;
-                    window->scroll_offset_x -= scroll_delta;
+                    window->scroll_offset_x = CLAMP(window->scroll_offset_x - scroll_delta, horizontal_min_scroll_offset, 0);
                 }
             }
         }
@@ -1689,6 +1722,8 @@ internal b32 ui_button(char *format...) {
     MAKE_FORMAT_STRING(string, format);
     b32 newly_created = false;
     UI_Widget *button = ui_init_widget(string, &newly_created);
+    if(!button)
+        return false;
     button->style = &widget_style_table[UI_Widget_Style_DefaultButton];
     ui_widget_add_property(button, UI_Widget_Property_RenderBackground);
     ui_widget_add_property(button, UI_Widget_Property_RenderActive);
