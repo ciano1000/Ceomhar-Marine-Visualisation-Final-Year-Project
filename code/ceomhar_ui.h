@@ -42,7 +42,6 @@ enum UI_Widget_Property{
     UI_Widget_Property_MainWindow,
     
     UI_Widget_Property_Clickable,
-    UI_Widget_Property_Togglable,
     UI_Widget_Property_EditText,
     //Used for both lists and containers
     UI_Widget_Property_ScrollVertical, 
@@ -138,6 +137,26 @@ enum UI_ContainerOptions {
     UI_ContainerOptions_Popup = 1 << 6,
 };
 
+struct UI_UpdateResult {
+    b32 clicked;
+    V2 delta_drag;
+};
+
+enum UI_Plot_Type {
+    UI_PlotType_Line,
+    UI_PlotType_SweepAngle,
+};
+
+struct UI_Plot {
+    UI_Plot_Type type;
+    V4 plot_rect;
+    String8 y_title;
+    String8 x_title;
+    
+    V2 mouse_pos_in_plot; // TODO(Cian): add the closest data point to the mouse's position so we can render it in a pop up
+};
+struct UI_Widget;
+typedef void UI_Custom_Render(UI_Widget *widget, V2 pos);
 struct UI_Widget{
     // NOTE(Cian): properties declare the type and functionality of the UI_Component, e.g layout-> vertical, horizontal etc, widget -> slider, button, text etc
     u64 properties[UI_Widget_Property_MAX / 64 + 1];
@@ -172,6 +191,9 @@ struct UI_Widget{
     f32 scroll_offset_x;
     f32 scroll_offset_y;
     V4 splitter_rect;
+    
+    void *custom_data;
+    UI_Custom_Render *custom_render;
 };
 
 struct UI_State {

@@ -35,6 +35,10 @@ internal b32 ui_is_id_equal(UI_ID id_1, UI_ID id_2) {
     return res;
 }
 
+internal UI_UpdateResult ui_update_widget(UI_Widget *widget) {
+    
+}
+
 // NOTE(Cian): Brings widgets to the front relative to their parent
 internal void ui_bring_to_front(UI_Widget *widget) {
     if( widget != ui->sorted_containers_start){
@@ -374,7 +378,6 @@ internal UI_Widget* ui_init_widget(String8 string, b32 *newly_created) {
     widget->tree_prev_sibling = null;
     
     widget->old_layout = widget->curr_layout;
-    //widget->curr_layout = {0};
     widget->last_frame = ui->curr_frame;
     
     widget->parameters[0] = ui->width_stack.current;
@@ -818,6 +821,10 @@ render_stack_current = null;\
             f32 border_thickness = curr->style->border_thickness;
             
             render_stack_pop();
+            if(ui_widget_has_property(curr, UI_Widget_Property_CustomRender)) {
+                curr->custom_render(curr, {x, y});
+            }
+            
             //render it
             if(ui_widget_has_property(curr, UI_Widget_Property_RenderBackground)) {
                 // TODO(Cian): handle cases of rounded backgrounds
@@ -1744,6 +1751,147 @@ internal b32 ui_button(char *format...) {
 
 internal b32 ui_button(UI_Widget_Style *style, char *title...) {
     
+}
+
+internal f32 ui_nice_num(f32 x, b32 round) {
+    //Heckberts Graph Tick Algorithm from Graphics Gems 1
+    s32 exp;
+    f32 f;
+    f32 nf;
+    
+    exp = (s32)floorf(log10f(x));
+    f = x / powf(10.0f, (f32)exp);
+    
+    if(round) {
+        if(f < 1.5)
+            nf = 1;
+        else if(f < 3)
+            nf = 2;
+        else if(f < 7)
+            nf = 5;
+        else
+            nf = 10;
+    } else {
+        if(f <= 1)
+            nf = 1;
+        else if(f <= 2)
+            nf = 2;
+        else if(f <= 5)
+            nf = 5;
+        else
+            nf = 10;
+    }
+    
+    return  nf * powf(10.0f, (f32)exp);
+}
+
+internal void ui_plot_render(UI_Widget *widget, V2 pos) {
+    UI_Plot *plot = (UI_Plot*)widget->custom_data;
+    
+    NVGcolor color = UI_DARKER;
+    
+    nvgBeginPath(vg_context);
+    nvgRect(vg_context, pos.x, pos.y, widget->curr_layout.width, widget->curr_layout.height);
+    nvgFillColor(vg_context, color);
+    nvgFill(vg_context);
+    
+    s32 num_ticks_x = MAX(2, (u32)(widget->curr_layout.width / 50.0f));
+    s32 num_ticks_y = MAX(4, (u32)(widget->curr_layout.height / 50.0f));
+    //temporary, need to calc min-time, max time later
+    
+    f32 x_max = 1.25f;
+    f32 x_min = 0.0f;
+    
+    f32 y_max = 1.25f;
+    f32 y_min = 0.0f;
+    
+    f32 x_range = ui_nice_num(x_max - x_min, false);
+    f32 d = ui_nice_num(x_range / (num_ticks_x - 1), true);
+    f32 min_graph_x = floorf(x_min / d) * d;
+    f32 max_graph_x = floorf(x_max / d) * d;
+    f32 nfrac = MAX(-floorf(log10f(d)), 0);
+    
+    for(float x = min_graph_x;
+        x <= max_graph_x + 0.5f * d; x += d)
+    {
+        V4 line_rect = {0};
+        {
+            line_rect.x0 = pos.x +  widget->curr_layout.width * (x - x_min) / (x_max - x_min);
+            line_rect.y0 = pos.y;
+            line_rect.width = 1;
+            line_rect.height =  widget->curr_layout.height;
+        } 
+        
+        nvgBeginPath(vg_context);
+        nvgRect(vg_context, line_rect.x,  line_rect.y, line_rect.width, line_rect.height);
+        nvgFillColor(vg_context, UI_LIGHT);
+        nvgFill(vg_context);
+        
+    }
+    
+    f32 y_range = ui_nice_num(y_max - y_min, false);
+    d = ui_nice_num(y_range / (num_ticks_y - 1), true);
+    f32 min_graph_y = floorf(y_min / d) * d;
+    f32 max_graph_y = floorf(y_max / d) * d;
+    nfrac = MAX(-floorf(log10f(d)), 0);
+    
+    for(float y = min_graph_y; y <= max_graph_y + 0.5f * d; y += d)
+    {
+        V4 line_rect = {0};
+        {
+            line_rect.x0 = pos.x;
+            line_rect.y0 = pos.y +  widget->curr_layout.height * (y - y_min) / (y_max - y_min);
+            line_rect.width =  widget->curr_layout.width;
+            line_rect.height = 1;
+        }
+        
+        nvgBeginPath(vg_context);
+        nvgRect(vg_context, line_rect.x,  line_rect.y, line_rect.width, line_rect.height);
+        nvgFillColor(vg_context, UI_LIGHT);
+        nvgFill(vg_context);
+        
+    }
+}
+
+// TODO(Cian): Just using a basic V2 array for now, will need to alter this slightly later to account for timestamps etc
+internal void ui_plot(UI_Plot_Type type, V2 *data, u32 data_count, char *title...) {
+    // NOTE(Cian): Remember to manually increase parents child sum size thingy
+    String8 string = {};
+    MAKE_FORMAT_STRING(string, title);
+    b32 newly_created = false;
+    UI_Widget *plot = ui_init_widget(string, &newly_created);
+    if(!plot)
+        return;
+    ui_widget_add_property(plot, UI_Widget_Property_CustomRender);
+    
+    plot->custom_data = memory_arena_push(&os->frame_arena, sizeof(UI_Plot));
+    UI_Plot plot_data = {type, {}, string_make(&os->frame_arena, "dummydata"), string_make(&os->frame_arena, "dummydata")};
+    plot->custom_render = ui_plot_render;
+    
+    //measure this widget
+    //min size should allow for at least the min increment size horizontally & 4 ticks vertically plus any axes labels/titles and maybe legends too? - we aren't doing those yet so leave that for now
+    //pref size is above plus whatever size is needed for 4 axes ticks
+    //max size is just ui max size in both axes
+    
+    plot->tree_parent->child_parameters_sum[0].min += 200;
+    plot->tree_parent->child_parameters_sum[0].pref += 400;
+    plot->tree_parent->child_parameters_sum[0].max += UI_MAX_SIZE;
+    
+    plot->tree_parent->child_parameters_sum[1].min += 200;
+    plot->tree_parent->child_parameters_sum[1].pref += 400;
+    plot->tree_parent->child_parameters_sum[1].max += UI_MAX_SIZE;
+    
+    
+    plot->parameters[0].min += 200;
+    plot->parameters[0].pref += 400;
+    plot->parameters[0].max += UI_MAX_SIZE;
+    
+    plot->parameters[1].min += 200;
+    plot->parameters[1].pref += 400;
+    plot->parameters[1].max += UI_MAX_SIZE;
+    if(!newly_created) {
+        // NOTE(Cian): do input handling
+    }
 }
 
 internal void ui_test_box(NVGcolor color, char *format,...) {

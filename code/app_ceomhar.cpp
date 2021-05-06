@@ -1,3 +1,5 @@
+#define _USE_MATH_DEFINES
+#include <cmath>
 #include "utils.h"
 
 #include "nano\nanovg.h"
@@ -61,11 +63,12 @@ UI_Window(...) {
         static b32 open = true;
         ui_begin_window(v4(200, 200, 100, 300), &open, null,"Window Numero Dos");
         {
-            ui_button("Test_Button");
+            /*ui_button("Test_Button");
             ui_button("Another_Button");
             Filler(1);
             ui_button("Test_Button_3");
-            ui_button("Test_Button_4"); 
+            ui_button("Test_Button_4"); */
+            ui_plot(UI_PlotType_Line, {}, 0, "Plot");
             
         }
         ui_end_window();

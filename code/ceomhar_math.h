@@ -4,7 +4,9 @@
 
 #define F32_ROUND(f) (f32)((u32)(f + 0.5f))
 #define F32_FLOOR(f) (f32)(u32)f
+#define F32_CEIL(f) (f32)((u32)f + 1)
 
+#define MAX(a, b) ((a>b) ? a : b)
 #define CLAMP_MAX(n,max) ((n > max) ? max : n)
 #define CLAMP_MIN(n,min) ((n < min) ? min : n)
 #define CLAMP(x, min, max) CLAMP_MIN(CLAMP_MAX(x, max), min)
