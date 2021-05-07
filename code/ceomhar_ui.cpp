@@ -215,9 +215,9 @@ internal void ui_push_height(f32 min, f32 pref, f32 max) {
     u32 *s_size = &ui->height_stack.size;
     ui->height_stack.stack[*s_size] = ui->height_stack.current;
     (*s_size)++;
-    ui->width_stack.current.min = min;
-    ui->width_stack.current.pref = pref;
-    ui->width_stack.current.max = max;
+    ui->height_stack.current.min = min;
+    ui->height_stack.current.pref = pref;
+    ui->height_stack.current.max = max;
 }
 
 internal void ui_pop_height() {
@@ -1785,41 +1785,152 @@ internal f32 ui_nice_num(f32 x, b32 round) {
     return  nf * powf(10.0f, (f32)exp);
 }
 
+internal f32 ui_nice_time(f32 x, b32 round) {
+    f32 seconds = x; 
+    f32 hours = seconds / 3600;
+    seconds -= hours * 3600;
+    
+    f32 minutes = seconds / 60;
+    seconds -= minutes * 60;
+    
+    f32 times[] = {hours, minutes, seconds};
+    f32 scales[] = {3600, 60, 1};
+    f32 nice_times[3][7] = {{1  , 2, 3  , 4, 6, 8, 12}, {1,   2, 3, 5, 10, 15, 30}, {1, 2, 3, 5, 10, 15, 30}};
+    f32 bounds[3][6]     = {{1.5, 3, 3.5, 5, 7, 10},    {1.5, 3, 4, 7, 13, 23}, {1.5, 3, 4, 7, 13, 23}};
+    f32 bounds_round[3][6] = {{1,2,3,4,6,8}, {1,2,3,5,10,15}, {1,2,3,5,10,15}};
+    
+    f32 time = 0;
+    for(u32 i = 0; i < 3; i++) {
+        f32 a = times[i];
+        if(a == 0)
+            break;
+        
+        s32 exp = (s32)floorf(log10f(a));
+        f32 f = a / powf(10.0f, (f32)exp);
+        
+        f32 nf = nice_times[i][6];
+        for(u32 j = 0; j < 6; j++) {
+            if(round) {
+                if(f < bounds[i][j])  {
+                    nf = nice_times[i][j];
+                    break;
+                }
+            } else {
+                if(f <= bounds_round[i][j])  {
+                    nf = nice_times[i][j];
+                    break;
+                }
+            }
+        }
+        
+        time += (nf * powf(10.0f, (f32)exp)) * scales[i];
+    }
+    
+    return time;
+}
 internal void ui_plot_render(UI_Widget *widget, V2 pos) {
     UI_Plot *plot = (UI_Plot*)widget->custom_data;
+    
+    // TODO(Cian): set these off if we don't have enough space
+    b32 render_titles = true;
+    b32 render_labels = true;
+    
+    f32 available_width = widget->curr_layout.width;
+    f32 available_height = widget->curr_layout.height;
+    
+    //lets do some measuring!!
+    const f32 label_margin = 2.0f;
+    const f32 axis_title_margin = 4.0f;
+    
+    const f32 title_margin = 4.0f; 
+    
+    // TODO(Cian): measure the different labels on each axis
+    // TODO(Cian): use the max/min data values to measure the potential size needed
+    //label sizes
+    const char* best_guess_max_time_width = "24:59:59";
+    nvgFontFace(vg_context, "roboto-medium");
+    nvgFontSize(vg_context, 10.0f);
+    f32 bounds[4];
+    const f32 time_label_width = nvgTextBounds(vg_context, 0, 0, best_guess_max_time_width, null, bounds);
+    const f32 time_label_height = bounds[3] - bounds[1];
+    nvgFontFace(vg_context, "roboto-medium");
+    nvgFontSize(vg_context, 10.0f);
+    const f32 axis_label_width = nvgTextBounds(vg_context, 0, 0, "999.99", null, bounds);
+    const f32 axis_label_height = bounds[3] - bounds[1];
+    /*
+    
+    //title sizing
+    nvgFontFace(vg_context, "roboto-medium");
+    nvgFontSize(vg_context, 12.0f);
+    const f32 y_axis_title_width = nvgTextBounds(vg_context, 0, 0, plot->y_title.data, null, bounds);
+    const f32 y_axis_title_height = bounds[3] - bounds[1];
+    
+    //title sizing
+    nvgFontFace(vg_context, "roboto-medium");
+    nvgFontSize(vg_context, 12.0f);
+    const f32 x_axis_title_width = nvgTextBounds(vg_context, 0, 0, plot->x_title.data, null, bounds);
+    const f32 x_axis_title_height = bounds[3] - bounds[1];
+    */
+    nvgFontFace(vg_context, "roboto-medium");
+    nvgFontSize(vg_context, 16.0f);
+    const f32 main_title_width = nvgTextBounds(vg_context, 0, 0, widget->string.data, null, bounds);
+    const f32 main_title_height = bounds[3] - bounds[1];
+    
+    //y labels width
+    f32 y_labels_x = pos.x + label_margin;
+    f32 plot_x = y_labels_x + label_margin + axis_label_width;
+    f32 plot_width = CLAMP_MIN(available_width - (plot_x - pos.x), 0);
+    
+    f32 main_title_x = pos.x + available_width / 2;
+    f32 main_title_y = pos.y + title_margin;
+    f32 plot_y = main_title_y + main_title_height + title_margin;
+    f32 plot_height = CLAMP_MIN(available_height - ((plot_y - pos.y) + (2*label_margin) + time_label_height), 0);
+    f32 x_labels_y = plot_y + plot_height + label_margin;
     
     NVGcolor color = UI_DARKER;
     
     nvgBeginPath(vg_context);
-    nvgRect(vg_context, pos.x, pos.y, widget->curr_layout.width, widget->curr_layout.height);
+    nvgRect(vg_context, plot_x, plot_y, plot_width, plot_height);
     nvgFillColor(vg_context, color);
     nvgFill(vg_context);
     
-    s32 num_ticks_x = MAX(2, (u32)(widget->curr_layout.width / 50.0f));
-    s32 num_ticks_y = MAX(4, (u32)(widget->curr_layout.height / 50.0f));
-    //temporary, need to calc min-time, max time later
+    nvgTextAlign(vg_context, NVG_ALIGN_CENTER|NVG_ALIGN_TOP);
+    nvgFontFace(vg_context, "roboto-medium");
+    nvgFontSize(vg_context, 16.0f);
+    nvgFillColor(vg_context, UI_WHITE);
+    nvgText(vg_context, main_title_x, main_title_y, widget->string.data, null);
     
-    f32 x_max = 1.25f;
-    f32 x_min = 0.0f;
+    f32 x_max = 66672.0f;
+    f32 x_min = 66372.0f;
     
-    f32 y_max = 1.25f;
-    f32 y_min = 0.0f;
+    s32 num_ticks_x = MAX(2, (u32)(plot_width / 100.0f));
     
-    f32 x_range = ui_nice_num(x_max - x_min, false);
-    f32 d = ui_nice_num(x_range / (num_ticks_x - 1), true);
+    f32 x_range;
+    f32 d;
+    
+    if(plot->x_is_time) {
+        x_range = ui_nice_time(x_max - x_min, false);
+        d = ui_nice_time(x_range / (num_ticks_x - 1), true);
+    } else {
+        x_range = ui_nice_num(x_max - x_min, false);
+        d = ui_nice_num(x_range / (num_ticks_x - 1), true);
+    }
+    
     f32 min_graph_x = floorf(x_min / d) * d;
     f32 max_graph_x = floorf(x_max / d) * d;
     f32 nfrac = MAX(-floorf(log10f(d)), 0);
     
+    u32 count = 0;
     for(float x = min_graph_x;
         x <= max_graph_x + 0.5f * d; x += d)
     {
-        V4 line_rect = {0};
+        count++;
+        V4 line_rect = {};
         {
-            line_rect.x0 = pos.x +  widget->curr_layout.width * (x - x_min) / (x_max - x_min);
-            line_rect.y0 = pos.y;
+            line_rect.x = CLAMP_MIN(plot_x + (plot_width * ((x - x_min) / (x_max - x_min))), plot_x);
+            line_rect.y = plot_y;
             line_rect.width = 1;
-            line_rect.height =  widget->curr_layout.height;
+            line_rect.height = plot_height;
         } 
         
         nvgBeginPath(vg_context);
@@ -1827,21 +1938,38 @@ internal void ui_plot_render(UI_Widget *widget, V2 pos) {
         nvgFillColor(vg_context, UI_LIGHT);
         nvgFill(vg_context);
         
+        nvgTextAlign(vg_context, NVG_ALIGN_CENTER|NVG_ALIGN_TOP);
+        nvgFontFace(vg_context, "roboto-medium");
+        nvgFontSize(vg_context, 10.0f);
+        nvgFillColor(vg_context, UI_WHITE);
+        nvgText(vg_context, line_rect.x, x_labels_y, string_from_time(&os->frame_arena, x).data, null);
     }
     
-    f32 y_range = ui_nice_num(y_max - y_min, false);
-    d = ui_nice_num(y_range / (num_ticks_y - 1), true);
+    f32 y_max = 1.30f;
+    f32 y_min = 0.0f;
+    
+    s32 num_ticks_y = MAX(4, (u32)(plot_height / 50.0f));
+    
+    f32 y_range; ;
+    if(plot->y_is_time) {
+        y_range = ui_nice_time(y_max - y_min, false);
+        d = ui_nice_time(y_range / (num_ticks_y - 1), true);
+    } else {
+        y_range = ui_nice_num(y_max - y_min, false);
+        d = ui_nice_num(y_range / (num_ticks_y - 1), true);
+    }
+    
     f32 min_graph_y = floorf(y_min / d) * d;
     f32 max_graph_y = floorf(y_max / d) * d;
     nfrac = MAX(-floorf(log10f(d)), 0);
     
-    for(float y = min_graph_y; y <= max_graph_y + 0.5f * d; y += d)
+    for(f32 y = min_graph_y; y <= max_graph_y + 0.5f * d; y += d)
     {
         V4 line_rect = {0};
         {
-            line_rect.x0 = pos.x;
-            line_rect.y0 = pos.y +  widget->curr_layout.height * (y - y_min) / (y_max - y_min);
-            line_rect.width =  widget->curr_layout.width;
+            line_rect.x0 = plot_x;
+            line_rect.y0 = plot_y + plot_height * (y - y_min) / (y_max - y_min);
+            line_rect.width =  plot_width;
             line_rect.height = 1;
         }
         
@@ -1850,11 +1978,18 @@ internal void ui_plot_render(UI_Widget *widget, V2 pos) {
         nvgFillColor(vg_context, UI_LIGHT);
         nvgFill(vg_context);
         
+        f32 label_val = y_max - y;
+        
+        nvgTextAlign(vg_context, NVG_ALIGN_LEFT|NVG_ALIGN_MIDDLE);
+        nvgFontFace(vg_context, "roboto-medium");
+        nvgFontSize(vg_context, 10.0f);
+        nvgFillColor(vg_context, UI_WHITE);
+        nvgText(vg_context, y_labels_x, line_rect.y, string_make(&os->frame_arena, "%.2f", label_val).data, null);
+        
     }
 }
 
-// TODO(Cian): Just using a basic V2 array for now, will need to alter this slightly later to account for timestamps etc
-internal void ui_plot(UI_Plot_Type type, V2 *data, u32 data_count, char *title...) {
+internal void ui_begin_plot(UI_Plot_Type type, char *x_title, b32 x_is_time, char *y_title, b32 y_is_time, char *title...) {
     // NOTE(Cian): Remember to manually increase parents child sum size thingy
     String8 string = {};
     MAKE_FORMAT_STRING(string, title);
@@ -1864,34 +1999,27 @@ internal void ui_plot(UI_Plot_Type type, V2 *data, u32 data_count, char *title..
         return;
     ui_widget_add_property(plot, UI_Widget_Property_CustomRender);
     
-    plot->custom_data = memory_arena_push(&os->frame_arena, sizeof(UI_Plot));
-    UI_Plot plot_data = {type, {}, string_make(&os->frame_arena, "dummydata"), string_make(&os->frame_arena, "dummydata")};
-    plot->custom_render = ui_plot_render;
+    ui_push_parent(plot);
     
-    //measure this widget
+    UI_Plot *plot_data = (UI_Plot*)memory_arena_push(&os->frame_arena, sizeof(UI_Plot));
+    *plot_data = {type, {}, string_make(&os->frame_arena, x_title), x_is_time, 0, 0 ,string_make(&os->frame_arena, y_title), y_is_time, 0, 0, {}, 0};
+    plot->custom_data = plot_data;
+    plot->custom_render = ui_plot_render;
+    ui_measure_widget(plot);
+    //measure this widget - this occurs in end_plot
     //min size should allow for at least the min increment size horizontally & 4 ticks vertically plus any axes labels/titles and maybe legends too? - we aren't doing those yet so leave that for now
     //pref size is above plus whatever size is needed for 4 axes ticks
     //max size is just ui max size in both axes
     
-    plot->tree_parent->child_parameters_sum[0].min += 200;
-    plot->tree_parent->child_parameters_sum[0].pref += 400;
-    plot->tree_parent->child_parameters_sum[0].max += UI_MAX_SIZE;
-    
-    plot->tree_parent->child_parameters_sum[1].min += 200;
-    plot->tree_parent->child_parameters_sum[1].pref += 400;
-    plot->tree_parent->child_parameters_sum[1].max += UI_MAX_SIZE;
-    
-    
-    plot->parameters[0].min += 200;
-    plot->parameters[0].pref += 400;
-    plot->parameters[0].max += UI_MAX_SIZE;
-    
-    plot->parameters[1].min += 200;
-    plot->parameters[1].pref += 400;
-    plot->parameters[1].max += UI_MAX_SIZE;
     if(!newly_created) {
         // NOTE(Cian): do input handling
     }
+}
+
+internal void ui_end_plot() {
+    UI_Widget *plot = ui->parent_stack.current;
+    
+    ui_pop_parent();
 }
 
 internal void ui_test_box(NVGcolor color, char *format,...) {

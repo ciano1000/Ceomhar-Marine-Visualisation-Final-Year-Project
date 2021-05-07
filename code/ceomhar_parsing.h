@@ -45,9 +45,12 @@ struct Measurement {
     // NOTE(Cian): Shared below
     Status_Indicator status;
     
-    // NOTE(Cian): Unique to Sensor Measurement 2
-    u32 timestamp_ms;
+    //temp
+    double timestamp_ms;
+    // NOTE(Cian): We get this from the latest ZDA event, HHMMSS.SS in seconds, decimals are to a resolution of microseconds
+    double timestamp_s;
     
+    // TODO(Cian): For plotting purposes, keep the time in seperate HH, MM & SS variables here also
     
     // NOTE(Cian): Shared below
     Mode_Indicator mode;

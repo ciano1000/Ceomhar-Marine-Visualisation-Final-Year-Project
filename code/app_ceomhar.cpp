@@ -68,8 +68,11 @@ UI_Window(...) {
             Filler(1);
             ui_button("Test_Button_3");
             ui_button("Test_Button_4"); */
-            ui_plot(UI_PlotType_Line, {}, 0, "Plot");
-            
+            Width(200, 400, UI_MAX_SIZE) Height(200, 400, UI_MAX_SIZE) {
+                ui_begin_plot(UI_PlotType_Line, "Time", true, "Trawl Speed", false, "Plot");
+                
+                ui_end_plot();
+            }
         }
         ui_end_window();
         

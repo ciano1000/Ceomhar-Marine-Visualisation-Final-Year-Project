@@ -123,8 +123,7 @@ enum UI_ID_Property {
 };
 
 struct UI_ID {
-    u32 hash;
-    UI_ID_Property property;
+    u32 hash;UI_ID_Property property;
 };
 
 // TODO(Cian): @UI implement all these options
@@ -145,15 +144,41 @@ struct UI_UpdateResult {
 enum UI_Plot_Type {
     UI_PlotType_Line,
     UI_PlotType_SweepAngle,
+    UI_PlotType_PlainValue,
+};
+
+enum UI_Plot_PointStyle {
+    UI_Plot_PointStyle_Points,
+    UI_Plot_PointStyle_Lines,
+    UI_Plot_PointStyle_PointLines,
+    UI_Plot_PointStyle_Rect,
+};
+
+struct UI_Plot_Points {
+    UI_Plot_PointStyle style;
+    V2 *points;
+    V4 rect; //used for displaying stdev. spread, interquartile range etc, lines can also do this too
+    u32 point_count;
+    NVGcolor color;
+    UI_Plot_Points *next_points;
 };
 
 struct UI_Plot {
     UI_Plot_Type type;
-    V4 plot_rect;
-    String8 y_title;
+    V4 plot_rect; //the rect that actually displays the plot, the widgets rect contains both this and the labels etc
+    
     String8 x_title;
+    b32 x_is_time;
+    f64 min_x;
+    f64 max_x;
+    
+    String8 y_title;
+    b32 y_is_time;
+    f64 min_y;
+    f64 max_y;
     
     V2 mouse_pos_in_plot; // TODO(Cian): add the closest data point to the mouse's position so we can render it in a pop up
+    u32 curr_color_idx;
 };
 struct UI_Widget;
 typedef void UI_Custom_Render(UI_Widget *widget, V2 pos);

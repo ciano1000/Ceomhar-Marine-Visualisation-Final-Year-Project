@@ -309,6 +309,16 @@ internal f32 string_to_f32(String8 float_string) {
     return strtof(float_string.data, null);
 }
 
+internal String8 string_from_time(Memory_Arena *arena, f32 timestamp) {
+    u32 seconds = (u32)timestamp;
+    u32 hours = seconds / 3600;
+    seconds -= hours * 3600;
+    u32 minutes = seconds / 60;
+    seconds -= minutes * 60;
+    
+    return string_make(arena, "%d:%d:%d", hours, minutes, seconds);
+}
+
 enum HexString8Endianness{
     HexString8_LittleEndian,
     HexString8_BigEndian,
