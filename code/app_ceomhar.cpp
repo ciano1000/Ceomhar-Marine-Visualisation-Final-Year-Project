@@ -69,8 +69,9 @@ UI_Window(...) {
             ui_button("Test_Button_3");
             ui_button("Test_Button_4"); */
             Width(200, 400, UI_MAX_SIZE) Height(200, 400, UI_MAX_SIZE) {
-                ui_begin_plot(UI_PlotType_Line, "Time", true, "Trawl Speed", false, "Plot");
-                
+                ui_begin_plot(UI_PlotType_Graph, "Time", true, "Trawl Speed", false, "Plot");
+                static V2 point = {3600,20};
+                ui_plot_points(UI_Plot_PointStyle_Points, &point, {1800,0}, {7200, 40}, 1);
                 ui_end_plot();
             }
         }

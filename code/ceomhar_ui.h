@@ -19,6 +19,9 @@
 #define UI_AQUA        nvgRGBA(3,218,198,255)
 #define UI_RED         nvgRGBA(207,102,121,255)
 
+#define NUM_PLOT_COLORS 5
+static NVGcolor plot_colors[] = {UI_PURPLE, UI_PINK, UI_DARK_PURPLE, UI_AQUA, UI_RED};
+
 #define UI_MIN_SCROLL_MAIN 20
 #define UI_SEC_SCROLL_SIZE 10
 
@@ -142,7 +145,7 @@ struct UI_UpdateResult {
 };
 
 enum UI_Plot_Type {
-    UI_PlotType_Line,
+    UI_PlotType_Graph,
     UI_PlotType_SweepAngle,
     UI_PlotType_PlainValue,
 };
@@ -152,12 +155,14 @@ enum UI_Plot_PointStyle {
     UI_Plot_PointStyle_Lines,
     UI_Plot_PointStyle_PointLines,
     UI_Plot_PointStyle_Rect,
+    UI_Plot_PointStyle_SingleLine,
 };
 
 struct UI_Plot_Points {
     UI_Plot_PointStyle style;
     V2 *points;
     V4 rect; //used for displaying stdev. spread, interquartile range etc, lines can also do this too
+    f32 value;
     u32 point_count;
     NVGcolor color;
     UI_Plot_Points *next_points;
@@ -169,13 +174,16 @@ struct UI_Plot {
     
     String8 x_title;
     b32 x_is_time;
-    f64 min_x;
-    f64 max_x;
+    f32 min_x;
+    f32 max_x;
     
     String8 y_title;
     b32 y_is_time;
-    f64 min_y;
-    f64 max_y;
+    f32 min_y;
+    f32 max_y;
+    
+    UI_Plot_Points *first;
+    UI_Plot_Points *last;
     
     V2 mouse_pos_in_plot; // TODO(Cian): add the closest data point to the mouse's position so we can render it in a pop up
     u32 curr_color_idx;
