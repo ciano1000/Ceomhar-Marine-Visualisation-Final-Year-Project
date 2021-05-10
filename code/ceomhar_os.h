@@ -68,7 +68,7 @@ struct OS_State
 {
     b32 running;
     OS_App_Display display;
-    u64 current_time;
+    u32 delta_time;
     // TODO(Cian): File IO function pointers
     u32 event_count;
     OS_Event events[OS_MAX_EVENTS];

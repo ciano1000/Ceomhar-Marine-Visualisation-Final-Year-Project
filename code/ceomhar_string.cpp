@@ -249,7 +249,38 @@ internal b32 string_compare(String8 str_1, String8 str_2) {
     return result;
 }
 
+internal b32 string_contains(String8 str_a, String8 str_b) {
+    if(str_a.size < str_b.size)
+        return false;
+    
+    b32 result = false;
+    
+    for(u32 i = 0; i < str_a.size; i++) {
+        char a = str_a.data[i];
+        
+        if(str_a.size - i < str_b.size)
+            break;
+        
+        u32 j;
+        for(j = 0; j < str_b.size; j++) {
+            a = str_a.data[i + j];
+            char b = str_b.data[j];
+            if(a != b) 
+                break;
+        }
+        if(j == str_b.size) {
+            result = true;
+            break;
+        }
+    }
+    
+    return result;
+}
+
 internal String8 string_tokenizer(Memory_Arena *arena, String8 main_string, char delimiter, u32 *bytes_read) {
+    if(*bytes_read >= main_string.size)
+        return {};
+    
     u32 size = 0;
     u32 skip_count = 0;
     

@@ -12,15 +12,22 @@
 #include "ceomhar_os.h"
 
 #include "ceomhar_ui.h"
+#include "ceomhar_data.h"
 #include "ceomhar_parsing.h"
-#include "app_ceomhar.h"
 
+global NVGcontext *vg_context;
+
+#include "app_ceomhar.h"
+global App_Core *core;
+global App_Debug *debug;
 
 #include "ceomhar_os.cpp"
 #include "ceomhar_memory.cpp"
 #include "ceomhar_string.cpp"
 #include "ceomhar_ui.cpp"
+#include "ceomhar_data.cpp"
 #include "ceomhar_parsing.cpp"
+
 
 
 // TODO(Cian): @App Temporary for demo
@@ -28,20 +35,43 @@
 external APP_START(app_start){
     os = state;
     
-    vg_context = os->vg;
-    // TODO(Cian): when app and platform are split into seperate TU's, put OS_State stuff here
-    ui = (UI_State*)memory_arena_push(&os->permanent_arena, sizeof(UI_State));
-    *ui = {};
-    // TODO(Cian): @APP push this to debug arena
-    debug = (App_Debug*)memory_arena_push(&os->permanent_arena, sizeof(App_Debug));
+    core = (App_Core*)memory_arena_push(&os->permanent_arena, sizeof(App_Core));
+    //init data table
+    core->table.last_bucket =  (Data_Table_Bucket*)memory_arena_push(&os->permanent_arena, sizeof(Data_Table_Bucket));
+    core->table.first_bucket = core->table.last_bucket; 
     
-    //os->debug_read_entire_file("D:\\dev\\fyp_ceomhar\\FSS_NMEA_SampleData.txt", &debug->demo_read);
-    //parsing_debug_parse_measurements(debug->demo_read, debug->measurements);
+    vg_context = os->vg;
+    ui = &core->ui;
+    debug = &core->debug;
+    
+    os->debug_read_entire_file("D:\\dev\\fyp_ceomhar\\FSS_NMEA_SampleData.txt", &debug->scanmar_demo_read);
+    os->debug_read_entire_file("D:\\dev\\fyp_ceomhar\\Marport_NMEA_SampleData.txt", &debug->marport_demo_read);
+    parsing_debug_demo_data_to_lines(debug->scanmar_demo_read, debug->scanmar_lines);
+    parsing_debug_demo_data_to_lines(debug->marport_demo_read, debug->marport_lines);
+    
+    
+    //Data Table stuff
 }
 
 // TODO(Cian): How should we pass the vgContext???
 external APP_UPDATE_AND_RENDER(app_update_and_render) {
     
+    debug->time_since_measure_update += os->delta_time;
+    
+    if(debug->time_since_measure_update >= 1000 && debug->data_idx < SCANMAR_LINES) {
+        u32 cap = CLAMP_MAX(debug->data_idx + 8, SCANMAR_LINES);
+        
+        for(;debug->data_idx < cap; debug->data_idx++) {
+            u32 marport_idx = debug->data_idx % MARPORT_LINES;
+            String8 marport_entry = debug->marport_lines[marport_idx];
+            String8 scanmar_entry = debug->scanmar_lines[debug->data_idx];
+            
+            parsing_submit_data_entry(scanmar_entry);
+            parsing_submit_data_entry(marport_entry);
+        }
+        
+        debug->time_since_measure_update = 0;
+    }
     // NOTE(Cian): Begin creates a blank panel and sets up UI, at every UI_End or UI_Pop we do some very simple auto layout, e.g fit everything to the the ROW height, draw everything, and perform input
     
     nvgBeginFrame(vg_context, (f32)os->display.width, (f32)os->display.height, os->display.pixel_ratio);

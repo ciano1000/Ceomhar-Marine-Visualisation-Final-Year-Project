@@ -273,6 +273,8 @@ int main(u32 argc, char **argv) {
         
         wglSwapIntervalEXT(1);
         
+        LARGE_INTEGER last_counter;
+        QueryPerformanceCounter(&last_counter);
         while(global_os.running)
         {
             MSG message; 
@@ -282,12 +284,7 @@ int main(u32 argc, char **argv) {
                 DispatchMessage(&message);
             }
             
-            LARGE_INTEGER win_perf_counter_large;
-            QueryPerformanceCounter(&win_perf_counter_large);
             
-            u64 initial_perf_counter = (u64)win_perf_counter_large.QuadPart;
-            
-            os->current_time = initial_perf_counter / perf_frequency;
             //Main game loop
             get_screen_info(window_handle, &screen_dimension);
             screen_dimension.dpi = os->display.dpi;
@@ -308,6 +305,17 @@ int main(u32 argc, char **argv) {
             ReleaseDC(window_handle, device_context);
             
             memory_arena_clear(&os->frame_arena);
+            
+            LARGE_INTEGER end_counter;
+            QueryPerformanceCounter(&end_counter);
+            
+            u64 elapsed = (u64)(end_counter.QuadPart - last_counter.QuadPart);
+            
+            last_counter = end_counter;
+            
+            u32 ms_per_frame = (u32) ((1000 * elapsed) / perf_frequency);
+            
+            os->delta_time = ms_per_frame;
         }
         memory_arena_release(&os->permanent_arena);
         memory_arena_release(&os->frame_arena);
@@ -315,7 +323,6 @@ int main(u32 argc, char **argv) {
         
         // TODO(Cian): Clean up contexts and memory arenas
     }
-    
     
     return 0;
 }

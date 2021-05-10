@@ -1,80 +1,50 @@
-enum Measurement_Type {
-#define MeasurementTypeDef(type, token) MeasurementType_##type,
-#include "MeasurementTypes.inc"
-#undef MeasurementTypeDef
-    MeasurementType_Max
+static String8 parsing_manufacturing_tokens[Data_Manufacturer_MAX] = {
+#define ADD_MANUFACTURER(type, token) {token, sizeof(token)},
+    DATA_MANUFACTURER_LIST
+#undef ADD_MANUFACTURER
 };
 
-static String8 measurement_tokens[MeasurementType_Max] = {
-#define MeasurementTypeDef(type, token) {token, sizeof(token)},
-#include "MeasurementTypes.inc"
-#undef MeasurementTypeDef
+#define PARSING_SENTENCE_FORMAT_LIST \
+ADD_SF(MSD)\
+ADD_SF(SM2)\
+ADD_SF(GLL)\
+ADD_SF(VTG)\
+ADD_SF(ZDA)\
+ADD_SF(DBS)
+
+enum Parsing_Sentence_Format {
+#define ADD_SF(type) Parsing_Sentence_Format_##type,
+    PARSING_SENTENCE_FORMAT_LIST
+#undef ADD_SF
+    Parsing_Sentence_Format_MAX
 };
 
-enum Mode_Indicator {
-    ModeIndicator_Auto,
-    ModeIndicator_Manual,
-    ModeIndicator_Invalid,
+static String8 parsing_sentence_format_tokens[Parsing_Sentence_Format_MAX] {
+#define ADD_SF(type) {#type, sizeof(#type)},
+    PARSING_SENTENCE_FORMAT_LIST
+#undef ADD_SF
 };
 
-enum Status_Indicator {
-    StatusIndicator_Valid,
-    StatusIndicator_Invalid,
-    StatusIndicator_NewMeasurement,
-    StatusIndicator_ComputedMeasure,
+static String8 parsing_marport_sensor_position_tokens[Data_Sensor_Position_MAX] {
+#define ADD_LOC(position, string, token) {token, sizeof(token)},
+    DATA_MARPORT_SENSOR_LOCATIONS
+#undef ADD_LOC
 };
-// TODO(Cian): @Parsing Gonna start with the "megastruct" approach at first and then pull things out into more efficient structures as needed
-struct Measurement {
-    Measurement_Type type;
-    String8 message_header;
-    
-    // NOTE(Cian): Sensor Measurement
-    String8 sensor_type;
-    u8 sensor_id;
-    char measure_id;
-    b32 measurement_is_float;
-    f32 measurement_f;
-    u32 measurement_i;
-    u8 measurement_quality; // 00 is worst 15 is best
-    u8 checksum;
-    
-    // TODO(Cian): Could probably store these two timestamps as one but for clarity seperating them rn
-    // NOTE(Cian): Unique to Sensor Measurement 1
-    u32 relative_time_ms;
-    
-    // NOTE(Cian): Shared below
-    Status_Indicator status;
-    
-    //temp
-    double timestamp_ms;
-    // NOTE(Cian): We get this from the latest ZDA event, HHMMSS.SS in seconds, decimals are to a resolution of microseconds
-    double timestamp_s;
-    
-    // TODO(Cian): For plotting purposes, keep the time in seperate HH, MM & SS variables here also
-    
-    // NOTE(Cian): Shared below
-    Mode_Indicator mode;
-    
-    // NOTE(Cian): Unique to GLL
-    f32 latitude;
-    f32 longitude;
-    
-    // NOTE(Cian): Unique to VTG
-    f32 true_course;
-    f32 magnetic_course;
-    f32 ground_speed_knts;
-    f32 ground_speed_km;
-    
-    // NOTE(Cian): Unique to ZDA
-    u8 day;
-    u8 month;
-    u16 year;
-    s8 timezone_hours;
-    s8 timezone_minutes;
-    
-    // NOTE(Cian): DBS
-    f32 depth_feet;
-    f32 depth_meters;
-    f32 depth_fathoms;
+
+static String8 parsing_marport_data_type_tokens[Data_Value_Type_MAX] {
+#define ADD_VALUE_TYPE(name, string, unit, scanmar_sensor, scanmar_measure, marport_token) {marport_token, sizeof(marport_token)},
+    DATA_VALUE_TYPE_LIST
+#undef ADD_VALUE_TYPE
 };
-internal void debug_parse_measurements(OS_File_Read file, Measurement *measurements);
+
+static String8 parsing_scanmar_sensor_type_tokens[Data_Value_Type_MAX] {
+#define ADD_VALUE_TYPE(name, string, unit, scanmar_sensor, scanmar_measure, marport_token) {scanmar_sensor, sizeof(scanmar_sensor)},
+    DATA_VALUE_TYPE_LIST
+#undef ADD_VALUE_TYPE
+};
+
+static char parsing_scanmar_measure_tokens[Data_Value_Type_MAX] {
+#define ADD_VALUE_TYPE(name, string, unit, scanmar_sensor, scanmar_measure, marport_token) scanmar_measure,
+    DATA_VALUE_TYPE_LIST
+#undef ADD_VALUE_TYPE
+};
